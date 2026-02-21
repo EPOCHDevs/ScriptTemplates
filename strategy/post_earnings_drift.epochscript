@@ -1,0 +1,88 @@
+Name: Post-Earnings Announcement Drift Strategy
+
+Description: Quantpedia #0034: Long stocks with positive earnings surprises (top decile), short stocks with negative surprises (bottom decile). Hold 60 days post-announcement. SP500 universe, price > $1.
+
+Assets: SP500
+Data Source: polygon
+Timeframe: 1D
+
+================================================================================
+
+# Post-Earnings Announcement Drift Strategy
+# Quantpedia #0034: Post-Loss/Profit Announcement Drift in Stocks
+# Source: Balakrishnan, Bartov, Faurel - "Post Loss/Profit Announcement Drift"
+#
+# RULES:
+# - Universe: SP500 stocks with price > $1
+# - Signal: EPS Surprise Percent from earnings announcements
+# - Long: Top decile by EPS surprise (most positive surprises)
+# - Short: Bottom decile by EPS surprise (most negative surprises)
+# - Holding: 60 trading days after earnings announcement
+# - Weighting: Equal weight within long and short portfolios
+# - Rebalancing: Daily as new earnings are announced
+
+# Data source - DAILY
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# Price filter: > $1 (per paper)
+valid_price = close > 1
+
+# =============================================================================
+# EARNINGS DATA
+# =============================================================================
+
+# Get earnings announcement data
+earnings_data = earnings()()
+
+# EPS Surprise Percent - this is our main signal
+surprise_pct = earnings_data.eps_surprise_percent
+
+# Detect earnings announcement day
+had_earnings = is_valid(surprise_pct)
+
+# Bars since last earnings announcement
+bars_since_earnings = barssince()(had_earnings)
+
+# Forward fill the surprise to use as ongoing signal
+surprise_filled = ffill(surprise_pct)
+
+# =============================================================================
+# SIGNAL GENERATION
+# =============================================================================
+
+# Only consider stocks within 60-day holding window after announcement
+in_holding_window = is_valid(bars_since_earnings) and bars_since_earnings <= 60
+
+# Apply valid price filter
+eligible = valid_price and in_holding_window
+
+# Mask surprise for eligible stocks only
+eligible_surprise = where(eligible, surprise_filled)
+
+# Top 10% by surprise (positive surprise - go LONG)
+is_top_decile = cs_select(direction=CSSelectDirection.top, mode=CSSelectMode.percent, k=10)(eligible_surprise)
+
+# Bottom 10% by surprise (negative surprise - go SHORT)
+is_bottom_decile = cs_select(direction=CSSelectDirection.bottom, mode=CSSelectMode.percent, k=10)(eligible_surprise)
+
+# Apply eligibility filter to decile selections
+is_long = is_top_decile and eligible
+is_short = is_bottom_decile and eligible
+
+# =============================================================================
+# POSITION MANAGEMENT
+# =============================================================================
+
+# Entry/Exit zones for long-short strategy
+long_and_short_zone()(long_entry=is_long, short_entry=is_short)
+
+# Separate weights for each leg to ensure 50%/50% allocation
+long_weights = equal_weight()(is_long)
+short_weights = equal_weight()(is_short)
+
+# Scale each leg to 50% (equal_weight sums to 1.0, so * 50 gives 50% total)
+weights = (long_weights * 50) + (short_weights * 50)
+
+# Position sizing - rebalance daily as new earnings are announced
+position_size(type=SizeType.percent)(size=weights)

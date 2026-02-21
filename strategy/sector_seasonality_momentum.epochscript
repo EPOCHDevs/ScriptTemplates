@@ -1,0 +1,137 @@
+Name: Sector Seasonality Momentum Strategy
+
+Description: Quantpedia #0032: Combining Seasonality and Momentum in US Equity Sectors. Scoring system: 12-month momentum (0-4), 1-month momentum (0-4), seasonality (0-4). Long if score > 9, short if score < 3, exit when score crosses 6. Cyclical sectors (XLB, XLI, XLY) favor Nov-Apr. Defensive sectors (XLP, XLV, XLK, XLU) favor May-Oct. Monthly rebalancing. Based on Doeswijk & Vliet. NOTE: OOS backtest shows negative performance - possible data mining in original paper.
+
+Assets: XLB-Stocks, XLI-Stocks, XLY-Stocks, XLP-Stocks, XLV-Stocks, XLK-Stocks, XLU-Stocks, XLE-Stocks, XLF-Stocks
+Data Source: polygon
+Timeframe: 1D
+
+================================================================================
+
+# Sector Seasonality Momentum Strategy
+# Quantpedia #0032: Combining Seasonality and Momentum in US Equity Sectors
+# Source: Doeswijk, Vliet (1970-2008)
+#
+# RULES:
+# - Universe: 9 US sector ETFs (XLB, XLI, XLY, XLP, XLV, XLK, XLU, XLE, XLF)
+# - Scoring (0-12): 12M momentum (0-4) + 1M momentum (0-4) + Seasonality (0-4)
+# - Long: Score > 9
+# - Short: Score < 3  
+# - Exit: Score crosses 6
+# - Rebalancing: Monthly
+#
+# SCORING:
+# Momentum: Top tercile = 4, Middle = 2, Bottom = 0
+# Seasonality:
+#   - Cyclical (XLB, XLI, XLY): 4 Nov-Apr, 0 May-Oct
+#   - Defensive (XLP, XLV, XLK, XLU): 0 Nov-Apr, 4 May-Oct
+#   - Neutral (XLE, XLF): 2 all year
+
+# Data source - DAILY
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# ============================================================================
+# MOMENTUM CALCULATIONS
+# ============================================================================
+
+# 12-month momentum (252 trading days)
+momentum_12m = roc(period=252)(close)
+
+# 1-month momentum (21 trading days)
+momentum_1m = roc(period=21)(close)
+
+# Cross-sectional ranking - ascending=false means rank 1 = highest momentum
+rank_12m = cs_rank(ascending=False)(momentum_12m)
+rank_1m = cs_rank(ascending=False)(momentum_1m)
+
+# Momentum scores based on tercile ranking (9 sectors: top 3, middle 3, bottom 3)
+score_12m = conditional_select(rank_12m <= 3, 4, rank_12m <= 6, 2, 0)
+score_1m = conditional_select(rank_1m <= 3, 4, rank_1m <= 6, 2, 0)
+
+# ============================================================================
+# SEASONALITY CALCULATIONS
+# ============================================================================
+
+# Get current month (1-12)
+current_month = datetime_extract(component=DatetimeExtractionType.month)(index())
+
+# Favorable half-year: Nov-Apr (months 11, 12, 1, 2, 3, 4)
+is_favorable_half = current_month >= 11 or current_month <= 4
+
+# Sector classification
+is_xlb = is_asset_ref(ticker="XLB")()
+is_xli = is_asset_ref(ticker="XLI")()
+is_xly = is_asset_ref(ticker="XLY")()
+is_xlp = is_asset_ref(ticker="XLP")()
+is_xlv = is_asset_ref(ticker="XLV")()
+is_xlk = is_asset_ref(ticker="XLK")()
+is_xlu = is_asset_ref(ticker="XLU")()
+is_xle = is_asset_ref(ticker="XLE")()
+is_xlf = is_asset_ref(ticker="XLF")()
+
+# Sector groups
+is_cyclical = is_xlb or is_xli or is_xly
+is_defensive = is_xlp or is_xlv or is_xlk or is_xlu
+is_neutral = is_xle or is_xlf
+
+# Seasonality scores by sector type
+score_seasonality = conditional_select(
+  is_cyclical and is_favorable_half, 4,
+  is_defensive and not is_favorable_half, 4,
+  is_neutral, 2,
+  0
+)
+
+# ============================================================================
+# TOTAL SCORE AND SIGNALS
+# ============================================================================
+
+# Combined score (0-12)
+total_score = score_12m + score_1m + score_seasonality
+
+# Long signal: score > 9 (need strong momentum AND favorable seasonality)
+enter_long_signal = total_score > 9
+
+# Short signal: score < 3 (poor momentum AND unfavorable seasonality)
+enter_short_signal = total_score < 3
+
+# Exit signals: cross threshold 6
+# Exit long when score drops to 6 or below
+# Exit short when score rises to 6 or above
+exit_long_signal = total_score <= 6
+exit_short_signal = total_score >= 6
+
+# ============================================================================
+# MONTHLY REBALANCING
+# ============================================================================
+
+# Detect first trading day of month
+is_new_month = is_period_boundary(period=PeriodType.month)(index())
+
+# Monthly entry/exit signals
+enter_long = is_new_month and enter_long_signal
+exit_long = is_new_month and exit_long_signal
+enter_short = is_new_month and enter_short_signal
+exit_short = is_new_month and exit_short_signal
+
+# Hold positions until next rebalance
+held_long = hold_until()(enter=enter_long, exit=exit_long)
+held_short = hold_until()(enter=enter_short, exit=exit_short)
+
+# ============================================================================
+# POSITION SIZING
+# ============================================================================
+
+# Entry/Exit zones
+long_and_short_zone()(long_entry=held_long, short_entry=held_short)
+
+# Equal weight across selected sectors
+long_weights = equal_weight()(held_long)
+short_weights = equal_weight()(held_short)
+
+# Net position: positive for long, negative for short
+net_weight = conditional_select(held_long, long_weights, held_short, -short_weights, 0)
+
+# Position sizing - ONLY rebalance on first trading day of month
+position_size(type=SizeType.percent)(size=net_weight * 100, rebalance_on=is_new_month)

@@ -1,0 +1,242 @@
+Name: EUR/USD Post-NFP Reaction Analysis
+
+Description: ENG-612 Research: Analyze EUR/USD price action in windows following US Non-Farm Payrolls releases (8:30 AM ET on first Friday of month).
+
+Assets: ^EURUSD-FX
+Data Source: polygon
+Timeframe: 5Min
+
+================================================================================
+
+# =============================================================================
+# EUR/USD POST-NFP REACTION ANALYSIS
+# =============================================================================
+# Research Question: What happens to EUR/USD around 8:30 AM ET?
+# NFP is released at 8:30 AM ET on first Friday of month.
+# This study analyzes price windows around that time on all days.
+# =============================================================================
+
+# === DATA SOURCE ===
+src = market_data_source(timeframe=5Min)()
+close = src.c
+high = src.h
+low = src.l
+open_price = src.o
+
+# === TIME EXTRACTION ===
+bar_idx = index()
+day_of_week = datetime_extract(component=DatetimeExtractionType.day_of_week)(bar_idx)
+
+# === SESSION WINDOWS (around 8:30 AM ET) ===
+# Pre-Release: 8:00-8:30 AM ET (baseline)
+w_pre = session_window(session=Session(start='08:00', end='08:30', tz='America/New_York'))(open_price, high, low, close)
+
+# Immediate: 8:30-8:35 AM ET (first 5 min)
+w_imm = session_window(session=Session(start='08:30', end='08:35', tz='America/New_York'))(open_price, high, low, close)
+
+# Narrow: 8:35-9:00 AM ET (5-30 min post)
+w_narrow = session_window(session=Session(start='08:35', end='09:00', tz='America/New_York'))(open_price, high, low, close)
+
+# Hourly: 9:00-9:30 AM ET (30-60 min post)
+w_hourly = session_window(session=Session(start='09:00', end='09:30', tz='America/New_York'))(open_price, high, low, close)
+
+# Full: 8:30-10:30 AM ET (2-hour window)
+w_full = session_window(session=Session(start='08:30', end='10:30', tz='America/New_York'))(open_price, high, low, close)
+
+# === WINDOW RETURNS ===
+r_pre = ((w_pre.close - w_pre.open) / w_pre.open) if w_pre.closed else 0
+r_imm = ((w_imm.close - w_imm.open) / w_imm.open) if w_imm.closed else 0
+r_narrow = ((w_narrow.close - w_narrow.open) / w_narrow.open) if w_narrow.closed else 0
+r_hourly = ((w_hourly.close - w_hourly.open) / w_hourly.open) if w_hourly.closed else 0
+r_full = ((w_full.close - w_full.open) / w_full.open) if w_full.closed else 0
+
+# === WINDOW TRUE RANGE (volatility) ===
+tr_pre = ((w_pre.high - w_pre.low) / w_pre.open) if w_pre.closed else 0
+tr_imm = ((w_imm.high - w_imm.low) / w_imm.open) if w_imm.closed else 0
+tr_narrow = ((w_narrow.high - w_narrow.low) / w_narrow.open) if w_narrow.closed else 0
+tr_hourly = ((w_hourly.high - w_hourly.low) / w_hourly.open) if w_hourly.closed else 0
+tr_full = ((w_full.high - w_full.low) / w_full.open) if w_full.closed else 0
+
+# === CUMULATIVE RETURNS ===
+cum_imm = cumulative(agg=AggregationType.Product)(1 + r_imm) - 1
+cum_narrow = cumulative(agg=AggregationType.Product)(1 + r_narrow) - 1
+cum_hourly = cumulative(agg=AggregationType.Product)(1 + r_hourly) - 1
+cum_full = cumulative(agg=AggregationType.Product)(1 + r_full) - 1
+
+# =============================================================================
+# REPORTS - CATEGORY 1: WINDOW COMPARISON
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Average Return by Window',
+    category='1. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Avg Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=4,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre (8:00-8:30)'),
+        BarSeriesSpec(name='Imm (8:30-8:35)'),
+        BarSeriesSpec(name='Narrow (8:35-9:00)'),
+        BarSeriesSpec(name='Hourly (9:00-9:30)'),
+        BarSeriesSpec(name='Full (8:30-10:30)')
+    ])
+)(r_pre, r_imm, r_narrow, r_hourly, r_full)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Average True Range by Window',
+    category='1. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Avg Range',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre (8:00-8:30)'),
+        BarSeriesSpec(name='Imm (8:30-8:35)'),
+        BarSeriesSpec(name='Narrow (8:35-9:00)'),
+        BarSeriesSpec(name='Hourly (9:00-9:30)'),
+        BarSeriesSpec(name='Full (8:30-10:30)')
+    ])
+)(tr_pre, tr_imm, tr_narrow, tr_hourly, tr_full)
+
+# =============================================================================
+# REPORTS - CATEGORY 2: DAY OF WEEK
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Avg Immediate Return by Day of Week',
+    category='2. Day of Week',
+    x_axis_label='Day',
+    y_axis_label='Avg Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=4,
+    data_labels=True,
+    color_by_value=True,
+    x_category_type=CategoryAxisType.DayOfWeek
+)(values=r_imm, label=day_of_week)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Avg Immediate Range by Day of Week',
+    category='2. Day of Week',
+    x_axis_label='Day',
+    y_axis_label='Avg Range',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    data_labels=True,
+    color_by_value=True,
+    x_category_type=CategoryAxisType.DayOfWeek
+)(values=tr_imm, label=day_of_week)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Avg Narrow Return by Day of Week',
+    category='2. Day of Week',
+    x_axis_label='Day',
+    y_axis_label='Avg Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=4,
+    data_labels=True,
+    color_by_value=True,
+    x_category_type=CategoryAxisType.DayOfWeek
+)(values=r_narrow, label=day_of_week)
+
+# =============================================================================
+# REPORTS - CATEGORY 3: CUMULATIVE RETURNS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Cumulative Performance',
+        cells=[
+            ColumnSpec(title='Immediate', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2, card_color_map={Color.Success: ['POSITIVE'], Color.Error: ['NEGATIVE']}),
+            ColumnSpec(title='Narrow', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2, card_color_map={Color.Success: ['POSITIVE'], Color.Error: ['NEGATIVE']}),
+            ColumnSpec(title='Hourly', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2, card_color_map={Color.Success: ['POSITIVE'], Color.Error: ['NEGATIVE']}),
+            ColumnSpec(title='Full 2hr', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2, card_color_map={Color.Success: ['POSITIVE'], Color.Error: ['NEGATIVE']})
+        ]
+    ),
+    category='3. Cumulative Returns'
+)(cum_imm, cum_narrow, cum_hourly, cum_full)
+
+xy_lines(
+    title='Cumulative Returns by Window',
+    category='3. Cumulative Returns',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Immediate (8:30-8:35)', color=Color.Blue),
+        LineSeriesSpec(name='Narrow (8:35-9:00)', color=Color.Green),
+        LineSeriesSpec(name='Hourly (9:00-9:30)', color=Color.Orange),
+        LineSeriesSpec(name='Full 2hr', color=Color.Purple)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title='Breakeven')
+    ])
+)(bar_idx, cum_imm, cum_narrow, cum_hourly, cum_full)
+
+# =============================================================================
+# REPORTS - CATEGORY 4: DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='Immediate Window Return Distribution',
+    category='4. Distributions',
+    bins=50,
+    fill_color=Color.Blue,
+    x_axis_label='Return (%)',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(r_imm)
+
+histogram(
+    title='Narrow Window Return Distribution',
+    category='4. Distributions',
+    bins=50,
+    fill_color=Color.Green,
+    x_axis_label='Return (%)',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(r_narrow)
+
+histogram(
+    title='Immediate Window Range Distribution',
+    category='4. Distributions',
+    bins=50,
+    fill_color=Color.Orange,
+    x_axis_label='Range (%)',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(tr_imm)
+
+# =============================================================================
+# REPORTS - CATEGORY 5: SUMMARY STATISTICS
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Window Statistics',
+        row_size=4,
+        col_size=3,
+        row_headers=['Immediate', 'Narrow', 'Hourly', 'Full 2hr'],
+        col_headers=['Mean Return', 'Std Dev', 'Mean Range'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=4),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Std, type=CardRenderType.PercentFormat, dp=4),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=4),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Std, type=CardRenderType.PercentFormat, dp=4),
+            ColumnSpec(grid_row=1, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=4),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Std, type=CardRenderType.PercentFormat, dp=4),
+            ColumnSpec(grid_row=2, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=4),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Std, type=CardRenderType.PercentFormat, dp=4),
+            ColumnSpec(grid_row=3, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=3)
+        ]
+    ),
+    category='5. Summary'
+)(r_imm, r_imm, tr_imm, r_narrow, r_narrow, tr_narrow, r_hourly, r_hourly, tr_hourly, r_full, r_full, tr_full)

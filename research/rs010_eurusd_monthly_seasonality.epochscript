@@ -1,0 +1,205 @@
+Name: RS-010: EUR/USD Monthly Seasonality Analysis
+
+Description: RS-010: EUR/USD monthly seasonality research with heatmap, summary tables (RowSpec GROUP BY), day-of-week analysis, yearly returns, and cumulative return chart.
+
+Assets: ^EURUSD-FX
+Data Source: polygon
+Timeframe: 1D
+
+================================================================================
+
+# RS-010: EUR/USD Monthly Seasonality Analysis
+# Comprehensive seasonality with monthly, yearly, and day-of-week breakdowns
+
+# =============================================================================
+# DATA SOURCES
+# =============================================================================
+
+src_daily = market_data_source()()
+close_daily = src_daily.c
+
+src_monthly = market_data_source(timeframe=1M)()
+close_monthly = src_monthly.c
+
+src_yearly = market_data_source(timeframe=1Y)()
+close_yearly = src_yearly.c
+
+# =============================================================================
+# RETURNS CALCULATION
+# =============================================================================
+
+daily_ret = returns(period=1)(close_daily)
+monthly_ret = returns(period=1, timeframe=1M)(close_monthly)
+yearly_ret = returns(period=1, timeframe=1Y)(close_yearly)
+abs_monthly_ret = abs(monthly_ret)
+
+# Win/Loss indicators
+is_positive = 1 if monthly_ret > 0 else 0
+is_negative = 1 if monthly_ret < 0 else 0
+
+# Dates of best/worst returns
+best_return_date = arg_max(expanding=False, timeframe=1M)(monthly_ret)
+worst_return_date = arg_min(expanding=False, timeframe=1M)(monthly_ret)
+
+# Cumulative returns
+cum_ret = cumulative(agg=AggregationType.Product)(1 + daily_ret) - 1
+
+# =============================================================================
+# DATE COMPONENTS FOR GROUPING
+# =============================================================================
+
+daily_index = index()
+daily_month = datetime_extract(component=DatetimeExtractionType.month)(daily_index)
+daily_dow = datetime_extract(component=DatetimeExtractionType.day_of_week)(daily_index)
+
+monthly_index = index(timeframe=1M)
+month_num = datetime_extract(component=DatetimeExtractionType.month)(monthly_index)
+monthly_year = datetime_extract(component=DatetimeExtractionType.year)(monthly_index)
+
+yearly_index = index(timeframe=1Y)
+yearly_year = datetime_extract(component=DatetimeExtractionType.year)(yearly_index)
+
+# =============================================================================
+# 0. SUMMARY CARDS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title="Seasonality Summary",
+        cells=[
+            ColumnSpec(title="Best Return", card_agg=AggregationType.Max, type=CardRenderType.PercentFormat, dp=2, card_color=Color.Success),
+            ColumnSpec(title="Best Return Date", card_agg=AggregationType.Last, type=CardRenderType.TimestampFormat, card_color=Color.Success),
+            ColumnSpec(title="Worst Return", card_agg=AggregationType.Min, type=CardRenderType.PercentFormat, dp=2, card_color=Color.Error),
+            ColumnSpec(title="Worst Return Date", card_agg=AggregationType.Last, type=CardRenderType.TimestampFormat, card_color=Color.Error),
+            ColumnSpec(title="Average Return", card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(title="Win Rate", card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_color=Color.Blue),
+            ColumnSpec(title="Wins", card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(title="Losses", card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category="0. Summary"
+)(monthly_ret, best_return_date, monthly_ret, worst_return_date, monthly_ret, is_positive, is_positive, is_negative)
+
+# =============================================================================
+# 1. MONTHLY SEASONALITY
+# =============================================================================
+
+heatmap(
+    title="EUR/USD Monthly Returns Heatmap",
+    category="1. Monthly Seasonality",
+    x_axis_label="Month",
+    y_axis_label="Year",
+    min_color=Color.Red,
+    max_color=Color.Green,
+    show_data_labels=True,
+    data_label_format="{point.value:.2f}%",
+    value_format=AxisValueFormat.PercentFormat,
+    x_category_type=CategoryAxisType.Month,
+    timeframe=1M
+)(x=month_num, y=monthly_year, value=monthly_ret)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title="Average Monthly Return by Calendar Month",
+    category="1. Monthly Seasonality",
+    x_axis_label="Month",
+    y_axis_label="Avg Return",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    x_category_type=CategoryAxisType.Month
+)(values=daily_ret, label=daily_month)
+
+# =============================================================================
+# 2. STATISTICS TABLES
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title="Monthly Returns Summary",
+        col_headers=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+        rows=[
+            RowSpec(name="Average", agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            RowSpec(name="Median", agg=AggregationType.Median, type=CardRenderType.PercentFormat, dp=2),
+            RowSpec(name="Best", agg=AggregationType.Max, type=CardRenderType.PercentFormat, dp=2, color=Color.Success),
+            RowSpec(name="Worst", agg=AggregationType.Min, type=CardRenderType.PercentFormat, dp=2, color=Color.Error)
+        ]
+    ),
+    category="2. Statistics"
+)(monthly_ret, month_num)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title="% Positive by Month (Win Rate)",
+        col_headers=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+        rows=[
+            RowSpec(name="% Positive", agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, color=Color.Blue)
+        ]
+    ),
+    category="2. Statistics"
+)(is_positive, month_num)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title="% Negative by Month",
+        col_headers=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+        rows=[
+            RowSpec(name="% Negative", agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, color=Color.Error)
+        ]
+    ),
+    category="2. Statistics"
+)(is_negative, month_num)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title="Absolute Returns by Month",
+        col_headers=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+        rows=[
+            RowSpec(name="Abs Average", agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            RowSpec(name="Abs Best", agg=AggregationType.Max, type=CardRenderType.PercentFormat, dp=2),
+            RowSpec(name="Abs Worst", agg=AggregationType.Min, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category="2. Statistics"
+)(abs_monthly_ret, month_num)
+
+# =============================================================================
+# 3. ADDITIONAL VIEWS
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Sum,
+    title="Yearly Returns",
+    category="3. Additional",
+    x_axis_label="Year",
+    y_axis_label="Return",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    timeframe=1Y
+)(values=yearly_ret, label=yearly_year)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title="Average Return by Day of Week",
+    category="3. Additional",
+    x_axis_label="Day",
+    y_axis_label="Avg Return",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    data_labels=True,
+    color_by_value=True,
+    x_category_type=CategoryAxisType.DayOfWeek
+)(values=daily_ret, label=daily_dow)
+
+xy_lines(
+    title="Cumulative Returns",
+    category="3. Additional",
+    y_axis_label="Cumulative Return",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name="Cumulative Return", color=Color.Blue)
+    ])
+)(x_values=daily_index, y_values=cum_ret)

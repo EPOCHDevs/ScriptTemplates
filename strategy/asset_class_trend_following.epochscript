@@ -1,0 +1,50 @@
+Name: Asset Class Trend-Following Strategy
+
+Description: Quantpedia #0001: Timing-based asset allocation. Hold each ETF when above its 10-month SMA, otherwise cash. Equal weight (20% each), monthly rebalance. Based on Mebane Faber's GTAA research.
+
+Assets: SPY-Stocks, EFA-Stocks, BND-Stocks, VNQ-Stocks, GSG-Stocks
+Data Source: polygon
+Timeframe: 1D
+
+================================================================================
+
+# Asset Class Trend-Following Strategy
+# Quantpedia #0001: Timing-Based Asset Allocation
+# Source: Faber "A Quantitative Approach to Tactical Asset Allocation" (SSRN 962461)
+#
+# RULES:
+# - Universe: 5 asset class ETFs (SPY, EFA, BND, VNQ, GSG)
+# - Signal: Price > 10-month SMA → hold asset, otherwise cash
+# - Weighting: Equal weight (20% each) when held
+# - Rebalancing: Monthly (first trading day)
+
+# Data source - DAILY
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# 10-month SMA (approximately 210 trading days)
+sma_10m = ma(period=210, type=MAType.sma)(close)
+
+# Trend signal: True when price above SMA
+is_above_sma = close > sma_10m
+
+# Detect first trading day of month for rebalancing
+is_new_month = is_period_boundary(period=PeriodType.month)(index())
+
+# Monthly rebalance signals
+# Enter when asset is above SMA at month start, exit when below
+enter_long = is_new_month and is_above_sma
+exit_long = is_new_month and not is_above_sma
+
+# Hold position until next month rebalance
+held_signal = hold_until()(enter=enter_long, exit=exit_long)
+
+# Entry/Exit zones
+long_and_short_zone()(long_entry=held_signal)
+
+# Equal weight for assets that pass the trend filter
+# Uses cross-sectional equal_weight (1/N) for active assets
+weight = equal_weight()(active_mask=held_signal)
+
+# Position sizing - rebalance on first trading day of month
+position_size(type=SizeType.percent)(size=weight * 100, rebalance_on=is_new_month)

@@ -1,0 +1,220 @@
+Name: Quarterly OPEX Momentum Reversal
+
+Description: Research study: Test momentum reversal around quarterly options expiration (3rd Friday of Mar/Jun/Sep/Dec). Enter Monday of OPEX week based on 10-day momentum direction, exit 10 trading days after OPEX.
+
+Assets: SPY-Stocks
+Data Source: polygon
+Timeframe: 1D
+
+================================================================================
+
+# Quarterly OPEX Momentum Reversal Study
+# Hypothesis: 10-day momentum reverses around quarterly OPEX dates
+# Enter Monday of OPEX week, exit 10 trading days later
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# Bar index for period boundary detection
+bar_idx = index()
+
+# =============================================================================
+# 1. DETECT QUARTERLY OPEX (3rd Friday of quarter-end months)
+# =============================================================================
+
+# Monthly 3rd Friday detection using composable anchors
+is_third_friday = is_period_boundary(period=PeriodType.month, ordinal='third', day_anchor='friday')(bar_idx)
+
+# Filter to quarter-end months (Mar=3, Jun=6, Sep=9, Dec=12)
+current_month = datetime_extract(component='month')(bar_idx)
+is_quarter_end_month = (current_month == 3) or (current_month == 6) or (current_month == 9) or (current_month == 12)
+
+# Quarterly OPEX = 3rd Friday in quarter-end month
+is_opex = is_third_friday and is_quarter_end_month
+
+# Monday of OPEX week: offset=-4 from 3rd Friday
+is_opex_monday = is_period_boundary(period=PeriodType.month, ordinal='third', day_anchor='friday', offset=-4)(bar_idx) and is_quarter_end_month
+
+# =============================================================================
+# 2. MOMENTUM SIGNAL
+# =============================================================================
+
+# 10-day rate of change
+ret_10d = roc(period=10)(close)
+
+# Entry signals on OPEX Monday
+enter_long = is_opex_monday and (ret_10d < 0)
+enter_short = is_opex_monday and (ret_10d > 0)
+
+# =============================================================================
+# 3. EXIT LOGIC (10 trading days after OPEX)
+# =============================================================================
+
+bars_since_opex = barssince()(is_opex)
+exit_signal = bars_since_opex == 10
+
+# Hold positions
+in_long = hold_until()(enter=enter_long, exit=exit_signal)
+in_short = hold_until()(enter=enter_short, exit=exit_signal)
+
+# =============================================================================
+# 4. RETURNS
+# =============================================================================
+
+daily_ret = returns(period=1, type=ReturnsType.simple)(close)
+strat_return = daily_ret if in_long else (-daily_ret if in_short else 0)
+cum_return = cumulative(agg=AggregationType.Product)(1 + strat_return) - 1
+
+# Active-only returns for histogram (NaN on inactive days so zeros don't dominate)
+is_active = in_long or in_short
+active_filter = is_active / is_active
+active_return = strat_return * active_filter
+
+# =============================================================================
+# 5. TRADE COUNTERS
+# =============================================================================
+
+# Seasonality dimensions
+current_year = datetime_extract(component='year')(bar_idx)
+current_quarter = datetime_extract(component='quarter')(bar_idx)
+
+trade_flag = 1.0 if (enter_long or enter_short) else 0.0
+long_flag = 1.0 if enter_long else 0.0
+short_flag = 1.0 if enter_short else 0.0
+
+# =============================================================================
+# REPORTING
+# =============================================================================
+
+# Summary cards
+cards(
+    layout=CardLayout(
+        title="OPEX Reversal Summary",
+        cells=[
+            ColumnSpec(title="Cumulative Return", card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2, card_slot=CardSlot.Hero, card_color_map={Color.Success: ["POSITIVE"], Color.Error: ["NEGATIVE"]}),
+            ColumnSpec(title="Total Trades", card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(title="Long Entries", card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Success),
+            ColumnSpec(title="Short Entries", card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Error),
+            ColumnSpec(title="Avg Daily Return", card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=3)
+        ]
+    ),
+    category="0. Summary"
+)(cum_return, trade_flag, long_flag, short_flag, active_return)
+
+# Equity curve
+xy_lines(
+    title="Cumulative P&L",
+    category="1. Performance",
+    y_axis_label="Cumulative Return",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name="OPEX Reversal", color=Color.Blue)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title="Breakeven")
+    ])
+)(x_values=bar_idx, y_values=cum_return)
+
+# Return distribution (only non-zero days)
+histogram(
+    title="Return Distribution",
+    category="1. Performance",
+    x_axis_label="Daily Return",
+    y_axis_label="Frequency",
+    bins=30,
+    x_axis_format=AxisValueFormat.PercentFormat
+)(value=active_return)
+
+# Seasonality: total return by quarter (bar chart)
+xy_bars(
+    title="Total Return by Quarter",
+    category="2. Seasonality",
+    x_axis_label="Quarter",
+    y_axis_label="Total Return",
+    agg=AggregationType.Sum,
+    x_category_type=CategoryAxisType.Quarter,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    color_by_value=True,
+    data_labels=True,
+    border_radius=4,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ])
+)(values=active_return, label=current_quarter)
+
+# Seasonality: average return by quarter (bar chart)
+xy_bars(
+    title="Avg Daily Return by Quarter",
+    category="2. Seasonality",
+    x_axis_label="Quarter",
+    y_axis_label="Avg Daily Return",
+    agg=AggregationType.Mean,
+    x_category_type=CategoryAxisType.Quarter,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    color_by_value=True,
+    data_labels=True,
+    border_radius=4,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ])
+)(values=active_return, label=current_quarter)
+
+# Seasonality: quarter x year heatmap
+heatmap(
+    title="Quarterly Return Heatmap",
+    category="2. Seasonality",
+    x_axis_label="Quarter",
+    y_axis_label="Year",
+    min_color=Color.Error,
+    max_color=Color.Success,
+    show_data_labels=True,
+    data_label_format="{point.value:.2%}",
+    value_format=AxisValueFormat.PercentFormat,
+    x_category_type=CategoryAxisType.Quarter
+)(x=current_quarter, y=current_year, value=active_return)
+
+# Boxplot: return distribution by quarter
+boxplot(
+    title="Return Distribution by Quarter",
+    category="2. Seasonality",
+    x_axis_label="Quarter",
+    y_axis_label="Daily Return",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    x_category_type=CategoryAxisType.Quarter,
+    show_outliers=True
+)(label=current_quarter, values=active_return)
+
+# Boxplot: return distribution by year
+boxplot(
+    title="Return Distribution by Year",
+    category="2. Seasonality",
+    x_axis_label="Year",
+    y_axis_label="Daily Return",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    show_outliers=True
+)(label=current_year, values=active_return)
+
+# Entry event markers
+event_marker(
+    schema=EventMarkerSchema(
+        title="Long Entries",
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title="10d Momentum", type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title="Close", type=CardRenderType.MonetaryFormat, dp=2)
+        ]
+    )
+)(enter_long, ret_10d, close)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title="Short Entries",
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title="10d Momentum", type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title="Close", type=CardRenderType.MonetaryFormat, dp=2)
+        ]
+    )
+)(enter_short, ret_10d, close)

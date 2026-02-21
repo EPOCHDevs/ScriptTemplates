@@ -1,0 +1,263 @@
+Name: CT IB & Close Analysis
+
+Description: Replicates Convergent Trading Market Statistics Report sections: Initial Balance break probabilities, Close Location After Single IB Break, and Close stats (engulfing, within prior ranges). Uses SPY-Stocks as ES futures proxy. Categories map 1:1 to CT report page 3.
+
+Assets: SPY-Stocks
+Data Source: polygon
+Timeframe: 1Min
+
+================================================================================
+
+# =============================================================================
+# CT IB & CLOSE ANALYSIS — SPY (ES Proxy)
+# =============================================================================
+# Replicates Convergent Trading Market Statistics Report Page 3:
+# - Initial Balance (IB) break probabilities
+# - Close Location After Single IB Break (conditional tables)
+# - Close stats (engulfing, within prior ranges)
+#
+# Asset: SPY-Stocks (ES futures proxy)
+# RTH Session: 09:30-16:00 ET
+# Initial Balance: 09:30-10:00 ET (first 30 min)
+# Resolution: 5-minute bars (78 bars per RTH session)
+# =============================================================================
+
+# === DATA SOURCE ===
+src = market_data_source(timeframe=5Min)()
+close = src.c
+high = src.h
+low = src.l
+open_price = src.o
+volume = src.v
+
+# === TIME INDEX & EOD DETECTION ===
+bar_idx = index()
+bar_tod = datetime_extract(component=DatetimeExtractionType.time_of_day, timezone='America/New_York')(bar_idx)
+is_eod = bar_tod == 960
+eod_flag = (1.0 if is_eod else 0.0)
+eod_filter = eod_flag / eod_flag
+
+# === RTH SESSION OHLCV ===
+rth_sw = session_window(session=SessionType.EquityRTHSession)(open_price, high, low, close)
+s_open = rth_sw.open
+s_high = rth_sw.high
+s_low = rth_sw.low
+s_close = rth_sw.close
+s_range = s_high - s_low
+
+# === INITIAL BALANCE (09:30-10:00 ET) ===
+ib_sw = session_window(session=Session(start='09:30', end='10:00', tz='America/New_York'))(open_price, high, low, close)
+ib_h = ffill(where(ib_sw.closed, ib_sw.high))
+ib_l = ffill(where(ib_sw.closed, ib_sw.low))
+ib_width = ib_h - ib_l
+ib_mid = (ib_h + ib_l) / 2
+
+# === IB VALIDITY GUARD ===
+ib_valid_flag = (1.0 if (ib_width > 0.05) else 0.0) * eod_filter
+ib_valid_filter = ib_valid_flag / ib_valid_flag
+
+# === PRIOR DAY LEVELS ===
+prev_hl = previous_high_low(type=SessionTimeframe.day)()
+prior_high = prev_hl.previous_high
+prior_low = prev_hl.previous_low
+
+# === EOD SNAPSHOTS ===
+day_count = 1.0 * eod_filter
+open_eod = s_open * eod_filter
+high_eod = s_high * eod_filter
+low_eod = s_low * eod_filter
+close_eod = s_close * eod_filter
+range_eod = s_range * eod_filter
+ib_h_eod = ib_h * eod_filter
+ib_l_eod = ib_l * eod_filter
+ib_width_eod = ib_width * eod_filter
+ib_mid_eod = ib_mid * eod_filter
+
+# Prior session IB levels (shift + ffill pattern)
+prior_ib_h = ffill(ib_h_eod >> 1)
+prior_ib_l = ffill(ib_l_eod >> 1)
+prior_ib_width = prior_ib_h - prior_ib_l
+
+# =============================================================================
+# CATEGORY 1: INITIAL BALANCE (IB) BREAK PROBABILITIES (CT Page 3)
+# =============================================================================
+# CT Report (752 sessions):
+# - At Least One IB Broke: 98.14%
+# - Both IB Broke (Neutral Day): 29.39%
+# - IBRange Remains Within pIBRange: 4.52%
+# - Neither IB Broken: 1.86%
+# - Only IBH Broken: 36.04%
+# - Only IBL Broken: 32.71%
+# - Opens in pIB - Breaks pIB Within IB (195 samples): 82.56%
+# - Opens in pIB - Breaks pIB Within RTH (195 samples): 99.49%
+# =============================================================================
+
+# IB break flags
+ib_high_broken = (s_high > ib_h) if is_eod else False
+ib_low_broken = (s_low < ib_l) if is_eod else False
+
+at_least_one_ib = (1.0 if (ib_high_broken or ib_low_broken) else 0.0) * eod_filter
+both_ib_broken = (1.0 if (ib_high_broken and ib_low_broken) else 0.0) * eod_filter
+neither_ib_broken = (1.0 if (not ib_high_broken and not ib_low_broken) else 0.0) * eod_filter
+only_ibh_broken = (1.0 if (ib_high_broken and not ib_low_broken) else 0.0) * eod_filter
+only_ibl_broken = (1.0 if (ib_low_broken and not ib_high_broken) else 0.0) * eod_filter
+
+# IBRange Remains Within pIBRange: today's IB fits inside yesterday's IB
+ib_within_prior_ib = (1.0 if (ib_h <= prior_ib_h and ib_l >= prior_ib_l) else 0.0) * eod_filter
+
+# Opens in prior IB range: open is between yesterday's IB high and low
+opens_in_pib = (1.0 if (s_open >= prior_ib_l and s_open <= prior_ib_h) else 0.0) * eod_filter
+opens_in_pib_filter = opens_in_pib / opens_in_pib
+
+# Breaks pIB Within IB: session high > prior_ib_h OR session low < prior_ib_l
+# but only within the IB period (first 30 min). Since we compute IB as the first
+# 30-min range, we check if IB extends beyond prior IB.
+pib_broken_within_ib = (1.0 if (ib_h > prior_ib_h or ib_l < prior_ib_l) else 0.0) * opens_in_pib_filter
+
+# Breaks pIB Within RTH: any time during RTH, session exceeded prior IB
+pib_broken_within_rth = (1.0 if (s_high > prior_ib_h or s_low < prior_ib_l) else 0.0) * opens_in_pib_filter
+
+# =============================================================================
+# CATEGORY 2: CLOSE LOCATION AFTER SINGLE IB BREAK (CT Page 3)
+# =============================================================================
+# CT Report:
+# - Closes Above IBH (After Single IBH Break): 76.75% (271 samples)
+# - Closes Above MID (After Single IBH Break): 88.19% (271 samples)
+# - Closes Below IBL (After Single IBL Break): 68.70% (246 samples)
+# - Closes Below MID (After Single IBL Break): 77.24% (246 samples)
+#
+# Single IBH break = only high broken (not both). Sample: only_ibh_broken days.
+# Single IBL break = only low broken (not both). Sample: only_ibl_broken days.
+# =============================================================================
+
+# Conditional filters for single breaks
+single_ibh_filter = only_ibh_broken / only_ibh_broken
+single_ibl_filter = only_ibl_broken / only_ibl_broken
+
+# Close position after single IBH break
+close_above_ibh_single = (1.0 if (s_close > ib_h) else 0.0) * single_ibh_filter
+close_above_mid_single_ibh = (1.0 if (s_close > ib_mid) else 0.0) * single_ibh_filter
+
+# Close position after single IBL break
+close_below_ibl_single = (1.0 if (s_close < ib_l) else 0.0) * single_ibl_filter
+close_below_mid_single_ibl = (1.0 if (s_close < ib_mid) else 0.0) * single_ibl_filter
+
+# =============================================================================
+# CATEGORY 3: CLOSE STATS (CT Page 3)
+# =============================================================================
+# CT Report (752 sessions):
+# - Bearish Engulfing: 1.99% (close < prior_low AND open > prior_high)
+# - Bullish Engulfing: 0.80% (close > prior_high AND open < prior_low)
+# - Closes Within IBRange on Neutral Day: 40.27% (221 neutral day samples)
+# - Closes Within pIBRange: 15.82% (752 sessions)
+# - Closes Within pRange: 36.97% (752 sessions)
+# =============================================================================
+
+# Bearish Engulfing: today's range engulfs prior range downward
+# (open above prior high, close below prior low — full bearish reversal)
+bearish_engulfing = (1.0 if (s_open > prior_high and s_close < prior_low) else 0.0) * eod_filter
+
+# Bullish Engulfing: today's range engulfs prior range upward
+# (open below prior low, close above prior high — full bullish reversal)
+bullish_engulfing = (1.0 if (s_open < prior_low and s_close > prior_high) else 0.0) * eod_filter
+
+# Closes Within pIBRange: close is between yesterday's IB high and low
+closes_within_pib = (1.0 if (s_close >= prior_ib_l and s_close <= prior_ib_h) else 0.0) * eod_filter
+
+# Closes Within pRange: close is between yesterday's high and low
+closes_within_prange = (1.0 if (s_close >= prior_low and s_close <= prior_high) else 0.0) * eod_filter
+
+# Closes Within IB Range on Neutral Day (conditional on both IB broken)
+neutral_day_filter = both_ib_broken / both_ib_broken
+closes_within_ib_neutral = (1.0 if (s_close >= ib_l and s_close <= ib_h) else 0.0) * neutral_day_filter
+
+# =============================================================================
+# REPORTERS
+# =============================================================================
+
+# --- 0. Summary ---
+cards(
+    layout=CardLayout(
+        title='CT IB & Close Overview',
+        cells=[
+            ColumnSpec(title='At Least One IB Broke', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero, card_color=Color.Warning),
+            ColumnSpec(title='Only IBH Broken', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_color=Color.Success),
+            ColumnSpec(title='Only IBL Broken', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_color=Color.Error),
+            ColumnSpec(title='Both Broken', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_color=Color.Info),
+            ColumnSpec(title='Closes Within pRange', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1)
+        ]
+    ),
+    category='0. Summary'
+)(at_least_one_ib, only_ibh_broken, only_ibl_broken, both_ib_broken, closes_within_prange)
+
+# --- 1. Initial Balance (IB) ---
+summary_table(
+    layout=SummaryTableLayout(
+        title='Initial Balance Break Probabilities (CT Page 3)',
+        row_size=8,
+        col_size=2,
+        row_headers=['At Least One IB Broke', 'Both IB Broke (Neutral Day)', 'IBRange Within pIBRange', 'Neither IB Broken', 'Only IBH Broken', 'Only IBL Broken', 'Opens in pIB — Breaks pIB Within IB', 'Opens in pIB — Breaks pIB Within RTH'],
+        col_headers=['Rate', 'Count'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=6, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=6, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=7, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=7, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='1. Initial Balance'
+)(at_least_one_ib, at_least_one_ib, both_ib_broken, both_ib_broken, ib_within_prior_ib, ib_within_prior_ib, neither_ib_broken, neither_ib_broken, only_ibh_broken, only_ibh_broken, only_ibl_broken, only_ibl_broken, pib_broken_within_ib, pib_broken_within_ib, pib_broken_within_rth, pib_broken_within_rth)
+
+# --- 2. Close After Single IB Break ---
+summary_table(
+    layout=SummaryTableLayout(
+        title='Close Location After Single IB Break (CT Page 3)',
+        row_size=4,
+        col_size=1,
+        row_headers=['Closes Above IBH (Single IBH Break)', 'Closes Above MID (Single IBH Break)', 'Closes Below IBL (Single IBL Break)', 'Closes Below MID (Single IBL Break)'],
+        col_headers=['Rate'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='2. Close After IB Break'
+)(close_above_ibh_single, close_above_mid_single_ibh, close_below_ibl_single, close_below_mid_single_ibl)
+
+# --- 3. Close Stats ---
+summary_table(
+    layout=SummaryTableLayout(
+        title='Close Statistics (CT Page 3)',
+        row_size=5,
+        col_size=2,
+        row_headers=['Bearish Engulfing', 'Bullish Engulfing', 'Closes Within IB on Neutral Day', 'Closes Within pIBRange', 'Closes Within pRange'],
+        col_headers=['Rate', 'Count'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='3. Close'
+)(bearish_engulfing, bearish_engulfing, bullish_engulfing, bullish_engulfing, closes_within_ib_neutral, closes_within_ib_neutral, closes_within_pib, closes_within_pib, closes_within_prange, closes_within_prange)

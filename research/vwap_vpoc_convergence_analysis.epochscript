@@ -1,0 +1,582 @@
+Name: VWAP-VPOC Convergence Analysis
+
+Description: Analyzes the relationship between VWAP (institutional cost basis) and VPOC (volume-accepted price) across sessions. Detects convergence/divergence patterns, classifies close positions relative to both anchors, tracks 5-session rolling history, and identifies trajectory patterns (converging/diverging/parallel). Uses 5-minute bars with session VWAP and price_profile in volume mode.
+
+Assets: SPY-Stocks
+Data Source: polygon
+Timeframe: 1Min
+
+================================================================================
+
+# =============================================================================
+# VWAP-VPOC CONVERGENCE ANALYSIS — Equity RTH
+# =============================================================================
+# Analyzes the relationship between session VWAP (institutional cost basis)
+# and VPOC (volume-accepted price). Detects convergence/divergence, classifies
+# close position, tracks 5-session rolling history, and identifies patterns.
+# Session: Equity RTH (09:30-16:00 ET)
+# Resolution: 5-minute bars (78 bars per RTH session)
+# =============================================================================
+
+# === SECTION 1: DATA SOURCE & CORE INDICATORS ===
+src = market_data_source(timeframe=5Min)()
+close = src.c
+high = src.h
+low = src.l
+open_price = src.o
+volume = src.v
+
+# Session VWAP (resets each session)
+session_vwap = vwap()()
+
+# Volume Profile (rolling 78-bar window = full RTH session at EOD)
+profile = price_profile(mode=ProfileType.volume, window_size=78, tick_size=0.10, value_area_pct=0.7)()
+vpoc = profile.poc
+vah = profile.vah
+val = profile.val
+va_width = profile.va_width
+
+# === SECTION 2: SESSION WINDOW & EOD DETECTION ===
+rth_sw = session_window(session=SessionType.EquityRTHSession)(open_price, high, low, close)
+s_range = rth_sw.high - rth_sw.low
+
+# EOD detection: 960 = 16:00 ET in minutes since midnight
+bar_idx = index()
+bar_tod = datetime_extract(component=DatetimeExtractionType.time_of_day, timezone='America/New_York')(bar_idx)
+is_eod = bar_tod == 960
+eod_flag = (1.0 if is_eod else 0.0)
+eod_filter = eod_flag / eod_flag
+
+# Day counter for cumulative stats
+day_count = 1.0 * eod_filter
+
+# === SECTION 3: VWAP-VPOC CONVERGENCE METRICS ===
+
+# Core levels at EOD
+vwap_eod = session_vwap * eod_filter
+vpoc_eod = vpoc * eod_filter
+vah_eod = vah * eod_filter
+val_eod = val * eod_filter
+va_width_eod = va_width * eod_filter
+close_eod = rth_sw.close * eod_filter
+open_eod = rth_sw.open * eod_filter
+range_eod = s_range * eod_filter
+range_pct = (s_range / rth_sw.close * 100) * eod_filter
+
+# VWAP-VPOC Delta (points and percentage)
+delta_pts = (session_vwap - vpoc) * eod_filter
+delta_pct = ((session_vwap - vpoc) / session_vwap * 100) * eod_filter
+abs_delta_pct = (delta_pct if delta_pct >= 0 else (0 - delta_pct)) * eod_filter
+
+# Convergence classification flags
+convergence_flag = (1.0 if (abs_delta_pct <= 0.2) else 0.0) * eod_filter
+decision_zone_flag = (1.0 if (abs_delta_pct > 0.5) else 0.0) * eod_filter
+intermediate_flag = (1.0 if (abs_delta_pct > 0.2 and abs_delta_pct <= 0.5) else 0.0) * eod_filter
+
+# Directional flags
+vpoc_above_vwap = (1.0 if (vpoc > session_vwap) else 0.0) * eod_filter
+vpoc_below_vwap = (1.0 if (vpoc <= session_vwap) else 0.0) * eod_filter
+
+# === SECTION 4: CLOSE POSITION CLASSIFICATION ===
+
+# Close relative to both VWAP and VPOC
+close_above_both = (1.0 if (rth_sw.close > session_vwap and rth_sw.close > vpoc) else 0.0) * eod_filter
+close_below_both = (1.0 if (rth_sw.close < session_vwap and rth_sw.close < vpoc) else 0.0) * eod_filter
+close_between = (1.0 if ((rth_sw.close >= session_vwap and rth_sw.close <= vpoc) or (rth_sw.close <= session_vwap and rth_sw.close >= vpoc)) else 0.0) * eod_filter
+
+# Distance metrics
+close_vs_vwap = ((rth_sw.close - session_vwap) / session_vwap * 100) * eod_filter
+close_vs_vpoc = ((rth_sw.close - vpoc) / vpoc * 100) * eod_filter
+
+# === SECTION 5: PRIOR SESSION CONTEXT ===
+
+# Prior VWAP and VPOC
+prior_vwap_shifted = vwap_eod >> 1
+prior_vwap = ffill_day(prior_vwap_shifted)
+prior_vpoc_shifted = vpoc_eod >> 1
+prior_vpoc = ffill_day(prior_vpoc_shifted)
+
+# Prior VWAP-VPOC delta
+prior_delta_pts = (prior_vwap - prior_vpoc) * eod_filter
+prior_delta_pct = ((prior_vwap - prior_vpoc) / prior_vwap * 100) * eod_filter
+
+# VPOC migration from prior session
+vpoc_migration = (vpoc_eod - prior_vpoc * eod_filter)
+vpoc_migrated_up = (1.0 if (vpoc_eod > prior_vpoc * eod_filter) else 0.0) * eod_filter
+vpoc_migrated_down = (1.0 if (vpoc_eod < prior_vpoc * eod_filter) else 0.0) * eod_filter
+
+# VWAP migration from prior session
+vwap_migration = (vwap_eod - prior_vwap * eod_filter)
+
+# === SECTION 6: 5-SESSION ROLLING HISTORY ===
+
+# D-1 (prior session) - already computed above
+vwap_d1 = prior_vwap * eod_filter
+vpoc_d1 = prior_vpoc * eod_filter
+delta_pts_d1 = prior_delta_pts
+delta_pct_d1 = prior_delta_pct
+vpoc_above_d1 = (1.0 if (prior_vpoc > prior_vwap) else 0.0) * eod_filter
+
+# D-2
+prior_vwap_eod_d1 = (prior_vwap * eod_filter) >> 1
+vwap_d2 = ffill_day(prior_vwap_eod_d1) * eod_filter
+prior_vpoc_eod_d1 = (prior_vpoc * eod_filter) >> 1
+vpoc_d2 = ffill_day(prior_vpoc_eod_d1) * eod_filter
+delta_pts_d2 = (vwap_d2 - vpoc_d2) * eod_filter
+delta_pct_d2 = ((vwap_d2 - vpoc_d2) / vwap_d2 * 100) * eod_filter
+vpoc_above_d2 = (1.0 if (vpoc_d2 > vwap_d2) else 0.0) * eod_filter
+
+# D-3
+vwap_eod_d2 = vwap_d2 >> 1
+vwap_d3 = ffill_day(vwap_eod_d2) * eod_filter
+vpoc_eod_d2 = vpoc_d2 >> 1
+vpoc_d3 = ffill_day(vpoc_eod_d2) * eod_filter
+delta_pts_d3 = (vwap_d3 - vpoc_d3) * eod_filter
+delta_pct_d3 = ((vwap_d3 - vpoc_d3) / vwap_d3 * 100) * eod_filter
+vpoc_above_d3 = (1.0 if (vpoc_d3 > vwap_d3) else 0.0) * eod_filter
+
+# D-4
+vwap_eod_d3 = vwap_d3 >> 1
+vwap_d4 = ffill_day(vwap_eod_d3) * eod_filter
+vpoc_eod_d3 = vpoc_d3 >> 1
+vpoc_d4 = ffill_day(vpoc_eod_d3) * eod_filter
+delta_pts_d4 = (vwap_d4 - vpoc_d4) * eod_filter
+delta_pct_d4 = ((vwap_d4 - vpoc_d4) / vwap_d4 * 100) * eod_filter
+vpoc_above_d4 = (1.0 if (vpoc_d4 > vwap_d4) else 0.0) * eod_filter
+
+# === SECTION 7: PATTERN DETECTION ===
+
+# VPOC above VWAP count across 5 sessions (today + D-1 through D-4)
+vpoc_above_today = vpoc_above_vwap
+vpoc_above_count = (vpoc_above_today + vpoc_above_d1 + vpoc_above_d2 + vpoc_above_d3 + vpoc_above_d4) * eod_filter
+
+# Trajectory: compare today's abs delta vs D-4's abs delta
+abs_delta_today = abs_delta_pct
+abs_delta_pct_d4 = (delta_pct_d4 if delta_pct_d4 >= 0 else (0 - delta_pct_d4)) * eod_filter
+
+converging_flag = (1.0 if (abs_delta_today < abs_delta_pct_d4 * 0.8) else 0.0) * eod_filter
+diverging_flag = (1.0 if (abs_delta_today > abs_delta_pct_d4 * 1.2) else 0.0) * eod_filter
+parallel_flag = (1.0 if (abs_delta_today >= abs_delta_pct_d4 * 0.8 and abs_delta_today <= abs_delta_pct_d4 * 1.2) else 0.0) * eod_filter
+
+# Consistency flags
+all_vpoc_above = (1.0 if (vpoc_above_count > 4.5) else 0.0) * eod_filter
+all_vpoc_below = (1.0 if (vpoc_above_count < 0.5) else 0.0) * eod_filter
+mixed_pattern = (1.0 if (vpoc_above_count >= 0.5 and vpoc_above_count <= 4.5) else 0.0) * eod_filter
+
+# === SECTION 8: ANCHOR REFERENCE LEVELS ===
+
+# 100-day high (100 trading days * 78 bars = 7800 bars at 5Min)
+highest_bars_result = highestbars(period=7800)(close)
+high_100d_price = valuewhen()(highest_bars_result == 0, close)
+high_100d_ref = high_100d_price * eod_filter
+
+# 20-day swing low (20 days * 78 bars = 1560 bars at 5Min)
+lowest_bars_result = lowestbars(period=1560)(close)
+low_20d_price = valuewhen()(lowest_bars_result == 0, close)
+low_20d_ref = low_20d_price * eod_filter
+
+# Month-start close
+month_boundary = is_period_boundary(period=PeriodType.month)(bar_idx)
+month_start_close = valuewhen()(month_boundary, close)
+month_start_ref = month_start_close * eod_filter
+
+# 20-day VWMA (rolling proxy for monthly volume-weighted level)
+vwma_20d = vwma(period=1560)()
+vwma_20d_eod = vwma_20d * eod_filter
+
+# === SECTION 9: CUMULATIVE STATISTICS ===
+
+cum_days = cumulative(agg=AggregationType.Sum)(day_count if is_valid(day_count) else 0.0)
+cum_convergence = cumulative(agg=AggregationType.Sum)(convergence_flag if is_valid(convergence_flag) else 0.0)
+cum_decision_zone = cumulative(agg=AggregationType.Sum)(decision_zone_flag if is_valid(decision_zone_flag) else 0.0)
+convergence_rate = (cum_convergence / cum_days * 100) * eod_filter
+decision_zone_rate = (cum_decision_zone / cum_days * 100) * eod_filter
+
+# =============================================================================
+# DASHBOARD — 0. CONVERGENCE OVERVIEW (Hero Cards)
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Convergence Overview',
+        cells=[
+            ColumnSpec(title='Session VWAP', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2, card_color=Color.Blue),
+            ColumnSpec(title='VPOC', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2, card_color=Color.Indigo),
+            ColumnSpec(title='Delta %', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=3, card_slot=CardSlot.Hero, card_color_map={Color.Success: ['POSITIVE'], Color.Error: ['NEGATIVE']}),
+            ColumnSpec(title='Convergence Rate %', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1, info='% of sessions with |delta| <= 0.2%'),
+            ColumnSpec(title='Decision Zone Rate %', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1, info='% of sessions with |delta| > 0.5%')
+        ]
+    ),
+    category='0. Convergence Overview'
+)(vwap_eod, vpoc_eod, delta_pct, convergence_rate, decision_zone_rate)
+
+# =============================================================================
+# DASHBOARD — 1. CURRENT LEVELS (Summary Table)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='VWAP-VPOC Levels & Context',
+        row_size=9,
+        col_size=2,
+        row_headers=['Session VWAP', 'VPOC', 'Delta (pts)', 'Delta (%)', 'VAH', 'VAL', 'Prior VWAP', 'Prior VPOC', 'Prior Delta (%)'],
+        col_headers=['Last Session', 'Historical Avg'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=6, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=6, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=7, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=7, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=8, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(grid_row=8, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3)
+        ]
+    ),
+    category='1. Current Levels'
+)(vwap_eod, vwap_eod, vpoc_eod, vpoc_eod, delta_pts, delta_pts, delta_pct, delta_pct, vah_eod, vah_eod, val_eod, val_eod, prior_vwap * eod_filter, prior_vwap * eod_filter, prior_vpoc * eod_filter, prior_vpoc * eod_filter, prior_delta_pct, prior_delta_pct)
+
+# =============================================================================
+# DASHBOARD — 2. DELTA ANALYSIS (Timeseries + Scatter)
+# =============================================================================
+
+xy_lines(
+    title='VWAP-VPOC Delta % Over Time',
+    category='2. Delta Analysis',
+    y_axis_label='Delta %',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Delta %', color=Color.Blue)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.2, title='+0.2% Convergence', color=Color.Success, dash_style=DashStyle.Dash),
+        ReferenceLine(value=-0.2, title='-0.2% Convergence', color=Color.Success, dash_style=DashStyle.Dash),
+        ReferenceLine(value=0.5, title='+0.5% Decision Zone', color=Color.Warning, dash_style=DashStyle.Dot),
+        ReferenceLine(value=-0.5, title='-0.5% Decision Zone', color=Color.Warning, dash_style=DashStyle.Dot),
+        ReferenceLine(value=0, title='Zero', color=Color.Gray, dash_style=DashStyle.Solid)
+    ])
+)(x_values=bar_idx, y_values=delta_pct)
+
+xy_lines(
+    title='Session VWAP vs VPOC',
+    category='2. Delta Analysis',
+    y_axis_label='Price',
+    y_axis_format=AxisValueFormat.MonetaryFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Session VWAP', color=Color.Blue),
+        LineSeriesSpec(name='VPOC', color=Color.Indigo)
+    ])
+)(bar_idx, vwap_eod, vpoc_eod)
+
+# Scatter: VWAP vs VPOC — points clustering along y=x line = convergence
+xy_scatter(
+    title='VWAP vs VPOC Convergence',
+    category='2. Delta Analysis',
+    x_axis_label='Session VWAP ($)',
+    y_axis_label='VPOC ($)',
+    x_axis_format=AxisValueFormat.MonetaryFormat,
+    y_axis_format=AxisValueFormat.MonetaryFormat,
+    x_axis_dp=2,
+    y_axis_dp=2,
+    series=ScatterSeriesSchema(series=[
+        ScatterSeriesSpec(name='Daily Session', color=Color.Blue, marker=MarkerSymbol.CircleMarker)
+    ])
+)(vwap_eod, vpoc_eod)
+
+# Scatter: Delta % today vs Delta % D-1 — persistence/mean-reversion
+xy_scatter(
+    title='Delta % Today vs Prior Day',
+    category='2. Delta Analysis',
+    x_axis_label='Prior Day Delta (%)',
+    y_axis_label='Today Delta (%)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    x_axis_dp=3,
+    y_axis_dp=3,
+    series=ScatterSeriesSchema(series=[
+        ScatterSeriesSpec(name='Day-over-Day', color=Color.Indigo, marker=MarkerSymbol.CircleMarker)
+    ])
+)(prior_delta_pct, delta_pct)
+
+# Scatter: |Delta %| vs Session Range — does wider range produce more divergence?
+xy_scatter(
+    title='Abs Delta % vs Session Range',
+    category='2. Delta Analysis',
+    x_axis_label='Session Range (%)',
+    y_axis_label='|VWAP-VPOC Delta| (%)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    x_axis_dp=2,
+    y_axis_dp=3,
+    series=ScatterSeriesSchema(series=[
+        ScatterSeriesSpec(name='Session', color=Color.Teal, marker=MarkerSymbol.CircleMarker)
+    ])
+)(range_pct, abs_delta_pct)
+
+# =============================================================================
+# DASHBOARD — 3. SESSION HISTORY (Summary Tables)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='5-Session Rolling History',
+        row_size=5,
+        col_size=5,
+        row_headers=['Today (D)', 'D-1', 'D-2', 'D-3', 'D-4'],
+        col_headers=['VWAP', 'VPOC', 'Delta (pts)', 'Delta (%)', 'VPOC Above'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(grid_row=0, grid_col=4, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=3, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(grid_row=1, grid_col=4, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=3, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(grid_row=2, grid_col=4, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=3, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(grid_row=3, grid_col=4, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=3, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(grid_row=4, grid_col=4, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0)
+        ]
+    ),
+    category='3. Session History'
+)(vwap_eod, vpoc_eod, delta_pts, delta_pct, vpoc_above_vwap, vwap_d1, vpoc_d1, delta_pts_d1, delta_pct_d1, vpoc_above_d1, vwap_d2, vpoc_d2, delta_pts_d2, delta_pct_d2, vpoc_above_d2, vwap_d3, vpoc_d3, delta_pts_d3, delta_pct_d3, vpoc_above_d3, vwap_d4, vpoc_d4, delta_pts_d4, delta_pct_d4, vpoc_above_d4)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Pattern Summary',
+        row_size=3,
+        col_size=2,
+        row_headers=['VPOC Above Count (0-5)', 'All Same Direction', 'Mixed Pattern'],
+        col_headers=['Last Session', 'Historical Rate'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1)
+        ]
+    ),
+    category='3. Session History'
+)(vpoc_above_count, vpoc_above_count, all_vpoc_above + all_vpoc_below, all_vpoc_above + all_vpoc_below, mixed_pattern, mixed_pattern)
+
+# =============================================================================
+# DASHBOARD — 4. PATTERN & TRAJECTORY
+# =============================================================================
+
+xy_bars(
+    title='Trajectory Distribution',
+    category='4. Pattern & Trajectory',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Converging', color=Color.Success),
+        BarSeriesSpec(name='Diverging', color=Color.Error),
+        BarSeriesSpec(name='Parallel', color=Color.Gray)
+    ])
+)(converging_flag, diverging_flag, parallel_flag)
+
+xy_bars(
+    title='Close Position Distribution',
+    category='4. Pattern & Trajectory',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Above Both (Bullish)', color=Color.Success),
+        BarSeriesSpec(name='Below Both (Bearish)', color=Color.Error),
+        BarSeriesSpec(name='Between (Contested)', color=Color.Warning)
+    ])
+)(close_above_both, close_below_both, close_between)
+
+xy_lines(
+    title='5-Day VPOC Above Count (0-5)',
+    category='4. Pattern & Trajectory',
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='VPOC Above Count', color=Color.Indigo)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=5, title='All Above (5)', color=Color.Success, dash_style=DashStyle.Dash),
+        ReferenceLine(value=0, title='All Below (0)', color=Color.Error, dash_style=DashStyle.Dash),
+        ReferenceLine(value=2.5, title='Neutral (2.5)', color=Color.Gray, dash_style=DashStyle.Dot)
+    ]),
+    step=StepType.StepRight
+)(x_values=bar_idx, y_values=vpoc_above_count)
+
+# =============================================================================
+# DASHBOARD — 5. CLOSE POSITION
+# =============================================================================
+
+# Scatter: Close distance from VWAP vs Close distance from VPOC
+xy_scatter(
+    title='Close vs VWAP % vs Close vs VPOC %',
+    category='5. Close Position',
+    x_axis_label='Close vs VWAP (%)',
+    y_axis_label='Close vs VPOC (%)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    x_axis_dp=3,
+    y_axis_dp=3,
+    series=ScatterSeriesSchema(series=[
+        ScatterSeriesSpec(name='Session', color=Color.Blue, marker=MarkerSymbol.CircleMarker)
+    ])
+)(close_vs_vwap, close_vs_vpoc)
+
+histogram(
+    title='Close Distance from VWAP (%)',
+    category='5. Close Position',
+    bins=30,
+    fill_color=Color.Blue,
+    x_axis_label='Close vs VWAP (%)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(close_vs_vwap)
+
+histogram(
+    title='Close Distance from VPOC (%)',
+    category='5. Close Position',
+    bins=30,
+    fill_color=Color.Indigo,
+    x_axis_label='Close vs VPOC (%)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(close_vs_vpoc)
+
+# =============================================================================
+# DASHBOARD — 6. DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='VWAP-VPOC Delta % Distribution',
+    category='6. Distributions',
+    bins=30,
+    fill_color=Color.Blue,
+    x_axis_label='Delta (%)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(delta_pct)
+
+histogram(
+    title='Absolute Delta % Distribution',
+    category='6. Distributions',
+    bins=25,
+    fill_color=Color.Teal,
+    x_axis_label='|Delta %|',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(abs_delta_pct)
+
+boxplot(
+    title='VWAP-VPOC Delta (points)',
+    category='6. Distributions',
+    y_axis_label='Delta (pts)',
+    show_outliers=True,
+    whisker_iqr=1.5,
+    colors=['Blue'],
+    median_color=Color.Warning,
+    series_names=['Delta (pts)']
+)(values=delta_pts)
+
+boxplot(
+    title='VWAP-VPOC Delta (percent)',
+    category='6. Distributions',
+    y_axis_label='Delta (%)',
+    show_outliers=True,
+    whisker_iqr=1.5,
+    colors=['Indigo'],
+    median_color=Color.Warning,
+    series_names=['Delta (%)']
+)(values=delta_pct)
+
+# =============================================================================
+# DASHBOARD — 7. ANCHOR LEVELS (Summary Table)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Anchor Reference Levels',
+        row_size=6,
+        col_size=2,
+        row_headers=['Session VWAP', 'VPOC', '100-Day High Price', '20-Day Swing Low Price', 'Month-Start Close', '20-Day VWMA'],
+        col_headers=['Last', 'Historical Avg'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2)
+        ]
+    ),
+    category='7. Anchor Levels'
+)(vwap_eod, vwap_eod, vpoc_eod, vpoc_eod, high_100d_ref, high_100d_ref, low_20d_ref, low_20d_ref, month_start_ref, month_start_ref, vwma_20d_eod, vwma_20d_eod)
+
+# =============================================================================
+# EVENT MARKERS
+# =============================================================================
+
+# High Conviction Convergence (|delta_pct| <= 0.2%)
+event_marker(
+    schema=EventMarkerSchema(
+        title='High Conviction Convergence',
+        icon=Icon.TargetIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Delta %', type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='VWAP', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='VPOC', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='Close', type=CardRenderType.MonetaryFormat, dp=2)
+        ]
+    )
+)((convergence_flag > 0.5) if is_eod else False, delta_pct, session_vwap * eod_filter, vpoc * eod_filter, close_eod)
+
+# Decision Zone Divergence (|delta_pct| > 0.5%)
+event_marker(
+    schema=EventMarkerSchema(
+        title='Decision Zone Divergence',
+        icon=Icon.AlertTriangleIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Delta %', type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='VWAP', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='VPOC', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='VPOC Above VWAP', type=CardRenderType.DecimalFormat, dp=0)
+        ]
+    )
+)((decision_zone_flag > 0.5) if is_eod else False, delta_pct, session_vwap * eod_filter, vpoc * eod_filter, vpoc_above_vwap)

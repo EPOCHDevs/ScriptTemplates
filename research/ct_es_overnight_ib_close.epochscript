@@ -1,0 +1,242 @@
+Name: CT Market Stats: Overnight, IB & Close — ES Futures
+
+Description: Replicates Convergent Trading Market Statistics Report: Overnight Session Levels, Initial Balance, Close Location After Single IB Break, and Close sections. ES E-mini S&P 500 Futures, May 2021 - May 2024.
+
+Assets: ES-Futures
+Data Source: polygon
+Timeframe: 1Min
+
+================================================================================
+
+# =============================================================================
+# CT MARKET STATISTICS REPORT: OVERNIGHT, IB & CLOSE
+# ES E-mini S&P 500 Futures
+# =============================================================================
+# Sessions (all times Eastern):
+#   RTH:  09:30 - 16:00 ET
+#   IB:   09:30 - 10:30 ET (60 minutes)
+#   ETH:  18:00 - 09:30 ET (full Globex overnight)
+# =============================================================================
+
+# === DATA SOURCE ===
+src = market_data_source()()
+
+# === CONTINUOUS CONTRACT ===
+cont = futures_continuation(s_rollover_method=RolloverType.LiquidityBased, s_adjustment_method=AdjustmentType.NoAdjustment, i_offset=0)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+close = cont.c
+high = cont.h
+low = cont.l
+open_price = cont.o
+
+# === HOLIDAY FILTER ===
+is_holiday = holiday(days_before=0, days_after=0, holiday_calendar=HolidayCalendar.CMEGlobexEquitiesHolidayCalendar)
+
+# === SESSION WINDOWS ===
+rth_sw = session_window(session=SessionType.EquityRTHSession)(open_price, high, low, close)
+eth_sw = session_window(session=Session(start='18:00', end='09:30', tz='America/New_York'))(open_price, high, low, close)
+ib_sw = session_window(session=Session(start='09:30', end='10:30', tz='America/New_York'))(open_price, high, low, close)
+
+# === BLACK FRIDAY FILTER ===
+# rth_sw.closed fires on Sunday 18:00 for Black Friday (data gap),
+# so calendar detection at close time fails. Instead, capture the flag
+# at session OPEN (Friday 09:30) and ffill to persist to close bar.
+is_friday = day_of_week(weekday=Weekday.Friday)
+is_november = month_of_year(month=Month.November)
+is_4th_week = week_of_month(week=WeekOfMonth.Fourth)
+bf_at_open = where(rth_sw.opened, (1.0 if (is_friday and is_november and is_4th_week) else 0.0))
+is_black_friday_session = ffill(bf_at_open) > 0.5
+
+rth_valid = (rth_sw.closed and not is_holiday and not is_black_friday_session)
+eth_valid = (eth_sw.closed and not is_holiday)
+ib_valid = (ib_sw.closed and not is_holiday)
+
+# === OVERNIGHT LEVELS (captured at ETH close, ffilled through RTH) ===
+on_high = ffill(where(eth_valid, eth_sw.high))
+on_low = ffill(where(eth_valid, eth_sw.low))
+on_mid = (on_high + on_low) / 2.0
+
+# === OVERNIGHT VOLUME PROFILE (VPOC, VAH, VAL) ===
+# Use session parameter to slice input to ETH bars only before computing profile.
+# ETH session = 18:00-09:30 ET = 930 minutes = 930 bars at 1Min.
+# The engine filters out non-ETH bars, so the rolling window only sees overnight data.
+on_profile = price_profile(session=Session(start='18:00', end='09:30', tz='America/New_York'), window_size=930, tick_size=0.25, value_area_pct=0.70, mode=ProfileType.market)(high, low, close, cont.v)
+on_vpoc = ffill(on_profile.poc)
+on_vah = ffill(on_profile.vah)
+on_val = ffill(on_profile.val)
+
+# === IB LEVELS (captured at IB close, ffilled through RTH) ===
+ib_high_level = ffill(where(ib_valid, ib_sw.high))
+ib_low_level = ffill(where(ib_valid, ib_sw.low))
+ib_mid_level = (ib_high_level + ib_low_level) / 2.0
+
+# === PREVIOUS DAY LEVELS ===
+ib_high_at_close = where(rth_valid, ib_high_level)
+prev_ib_high = ffill(ib_high_at_close >> 1)
+ib_low_at_close = where(rth_valid, ib_low_level)
+prev_ib_low = ffill(ib_low_at_close >> 1)
+
+rth_high_at_close = where(rth_valid, rth_sw.high)
+prev_rth_high = ffill(rth_high_at_close >> 1)
+rth_low_at_close = where(rth_valid, rth_sw.low)
+prev_rth_low = ffill(rth_low_at_close >> 1)
+
+# Previous RTH open/close for body-based engulfing
+rth_open_at_close = where(rth_valid, rth_sw.open)
+prev_rth_open = ffill(rth_open_at_close >> 1)
+rth_close_at_close = where(rth_valid, rth_sw.close)
+prev_rth_close = ffill(rth_close_at_close >> 1)
+
+# =============================================================================
+# SECTION 1: OVERNIGHT SESSION LEVELS
+# =============================================================================
+
+day_count = where(rth_valid, 1.0)
+onh_and_onl = where(rth_valid, (1.0 if (rth_sw.high >= on_high and rth_sw.low <= on_low) else 0.0))
+onh_or_onl = where(rth_valid, (1.0 if (rth_sw.high >= on_high or rth_sw.low <= on_low) else 0.0))
+onh_touched = where(rth_valid, (1.0 if rth_sw.high >= on_high else 0.0))
+onl_touched = where(rth_valid, (1.0 if rth_sw.low <= on_low else 0.0))
+onmid_touched = where(rth_valid, (1.0 if (rth_sw.low <= on_mid and rth_sw.high >= on_mid) else 0.0))
+onvah_touched = where(rth_valid, (1.0 if (rth_sw.low <= on_vah and rth_sw.high >= on_vah) else 0.0))
+onval_touched = where(rth_valid, (1.0 if (rth_sw.low <= on_val and rth_sw.high >= on_val) else 0.0))
+onvpoc_touched = where(rth_valid, (1.0 if (rth_sw.low <= on_vpoc and rth_sw.high >= on_vpoc) else 0.0))
+
+# =============================================================================
+# SECTION 2: INITIAL BALANCE (IB)
+# =============================================================================
+
+ibh_broken = (rth_sw.high > ib_high_level)
+ibl_broken = (rth_sw.low < ib_low_level)
+
+at_least_one_ib = where(rth_valid, (1.0 if (ibh_broken or ibl_broken) else 0.0))
+both_ib_broke = where(rth_valid, (1.0 if (ibh_broken and ibl_broken) else 0.0))
+ib_within_pib = where(rth_valid, (1.0 if (ib_high_level <= prev_ib_high and ib_low_level >= prev_ib_low) else 0.0))
+neither_ib = where(rth_valid, (1.0 if (not ibh_broken and not ibl_broken) else 0.0))
+only_ibh = where(rth_valid, (1.0 if (ibh_broken and not ibl_broken) else 0.0))
+only_ibl = where(rth_valid, (1.0 if (ibl_broken and not ibh_broken) else 0.0))
+
+opens_in_pib_flag = (rth_sw.open >= prev_ib_low and rth_sw.open <= prev_ib_high)
+pib_valid = (rth_valid and opens_in_pib_flag)
+pib_count = where(pib_valid, 1.0)
+breaks_pib_in_ib = where(pib_valid, (1.0 if (ib_high_level > prev_ib_high or ib_low_level < prev_ib_low) else 0.0))
+breaks_pib_in_rth = where(pib_valid, (1.0 if (rth_sw.high > prev_ib_high or rth_sw.low < prev_ib_low) else 0.0))
+
+# =============================================================================
+# SECTION 3: CLOSE LOCATION AFTER SINGLE IB BREAK
+# =============================================================================
+
+rth_mid_level = (rth_sw.high + rth_sw.low) / 2.0
+
+single_ibh_valid = (rth_valid and ibh_broken and not ibl_broken)
+closes_above_ibh = where(single_ibh_valid, (1.0 if rth_sw.close >= ib_high_level else 0.0))
+closes_above_mid_ibh = where(single_ibh_valid, (1.0 if rth_sw.close >= rth_mid_level else 0.0))
+ibh_break_count = where(single_ibh_valid, 1.0)
+
+single_ibl_valid = (rth_valid and ibl_broken and not ibh_broken)
+closes_below_ibl = where(single_ibl_valid, (1.0 if rth_sw.close <= ib_low_level else 0.0))
+closes_below_mid_ibl = where(single_ibl_valid, (1.0 if rth_sw.close <= rth_mid_level else 0.0))
+ibl_break_count = where(single_ibl_valid, 1.0)
+
+# =============================================================================
+# SECTION 4: CLOSE
+# =============================================================================
+
+# Classical candlestick engulfing on RTH session bodies
+# Bearish: prev bullish + today bearish + today body engulfs prev body
+bearish_engulf = where(rth_valid, (1.0 if (prev_rth_close > prev_rth_open and rth_sw.close < rth_sw.open and rth_sw.open > prev_rth_close and rth_sw.close < prev_rth_open) else 0.0))
+# Bullish: prev bearish + today bullish + today body engulfs prev body
+bullish_engulf = where(rth_valid, (1.0 if (prev_rth_open > prev_rth_close and rth_sw.close > rth_sw.open and rth_sw.open < prev_rth_close and rth_sw.close > prev_rth_open) else 0.0))
+
+neutral_valid = (rth_valid and ibh_broken and ibl_broken)
+neutral_count = where(neutral_valid, 1.0)
+closes_within_ib_neutral = where(neutral_valid, (1.0 if (rth_sw.close <= ib_high_level and rth_sw.close >= ib_low_level) else 0.0))
+
+closes_within_pib = where(rth_valid, (1.0 if (rth_sw.close <= prev_ib_high and rth_sw.close >= prev_ib_low) else 0.0))
+closes_within_prange = where(rth_valid, (1.0 if (rth_sw.close <= prev_rth_high and rth_sw.close >= prev_rth_low) else 0.0))
+
+# =============================================================================
+# REPORTERS — Summary Tables
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Overnight Session Levels',
+        row_size=9,
+        col_size=1,
+        row_headers=['Samples', 'ONH & ONL Touched', 'ONH or ONL Touched', 'ONH Touched', 'ONL Touched', 'ONMID Touched', 'ONVAH Touched', 'ONVAL Touched', 'ONVPOC Touched'],
+        col_headers=['Value'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=6, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=7, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=8, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='CT Market Statistics'
+)(day_count, onh_and_onl, onh_or_onl, onh_touched, onl_touched, onmid_touched, onvah_touched, onval_touched, onvpoc_touched)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Initial Balance (IB)',
+        row_size=10,
+        col_size=1,
+        row_headers=['Samples', 'At Least One IB Broke', 'Both IB Broke (Neutral Day)', 'IBRange Within pIBRange', 'Neither IB Broken', 'Only IBH Broken', 'Only IBL Broken', 'Opens in pIB Samples', 'Opens in pIB: Breaks pIB Within IB', 'Opens in pIB: Breaks pIB Within RTH'],
+        col_headers=['Rate'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=6, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=7, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=8, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=9, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='CT Market Statistics'
+)(day_count, at_least_one_ib, both_ib_broke, ib_within_pib, neither_ib, only_ibh, only_ibl, pib_count, breaks_pib_in_ib, breaks_pib_in_rth)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Close Location After Single IB Break',
+        row_size=6,
+        col_size=1,
+        row_headers=['Single IBH Break Samples', 'Closes Above IBH', 'Closes Above MID', 'Single IBL Break Samples', 'Closes Below IBL', 'Closes Below MID'],
+        col_headers=['Value'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='CT Market Statistics'
+)(ibh_break_count, closes_above_ibh, closes_above_mid_ibh, ibl_break_count, closes_below_ibl, closes_below_mid_ibl)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Close',
+        row_size=7,
+        col_size=1,
+        row_headers=['Samples', 'Bearish Engulfing', 'Bullish Engulfing', 'Neutral Day Samples', 'Closes Within IBRange (Neutral Day)', 'Closes Within pIBRange', 'Closes Within pRange'],
+        col_headers=['Rate'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=6, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='CT Market Statistics'
+)(day_count, bearish_engulf, bullish_engulf, neutral_count, closes_within_ib_neutral, closes_within_pib, closes_within_prange)

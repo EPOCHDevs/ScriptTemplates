@@ -1,0 +1,114 @@
+Name: FED Model Strategy
+
+Description: Quantpedia #0050: FED Model market timing strategy. Uses the yield gap between earnings yield and 10-year Treasury yield to time the equity market. When bond yields are falling (or low relative to history), go long equities; when rising significantly, move to cash. Monthly rebalancing based on Treasury rate changes.
+
+Assets: SPY-Stocks, SHY-Stocks
+Data Source: polygon
+Timeframe: 1D
+
+================================================================================
+
+# FED Model Strategy
+# Quantpedia #0050: Market Timing Using Yield Gap
+# Source: Asness - The FED Model and Expected Asset Returns
+#
+# RULES:
+# - Compare equity earnings yield to 10-year Treasury bond yield
+# - Calculate yield gap: YG = EY - y (earnings yield - bond yield)
+# - Use rolling regression to predict excess stock returns from yield gap
+# - If predicted excess returns > 0: 100% in equities (SPY)
+# - If predicted excess returns <= 0: 100% in risk-free (SHY)
+# - Rebalancing: Monthly
+#
+# ADAPTATION:
+# Since aggregate S&P 500 earnings yield data is not directly available,
+# we implement a practical version using Treasury yield dynamics:
+# - Falling rates (yield gap improving): Go long SPY
+# - Rising rates (yield gap deteriorating): Go long SHY
+# - Use momentum in Treasury yields as the signal
+
+# Data source - DAILY for precise execution
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# Load 10-Year Treasury Yield
+treasury_obs_date, treasury_10y, treasury_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury10Y)()
+
+# Forward fill Treasury yield
+treasury_10y_filled = ffill(treasury_10y)
+
+# Calculate rate changes for signal generation
+# 3-month change (approximately 63 trading days)
+treasury_change_3m = mom(period=63)(treasury_10y_filled)
+
+# Asset identification
+is_spy = is_asset_ref(ticker="SPY")()
+is_shy = is_asset_ref(ticker="SHY")()
+
+# Detect first trading day of month for rebalancing
+is_new_month = is_period_boundary(period=PeriodType.month)(index())
+
+# FED Model Signal Logic:
+# According to the FED model, when Treasury yields are falling,
+# the yield gap (EY - bond yield) is improving, making equities more attractive.
+# When Treasury yields are rising, bonds become more competitive.
+#
+# We use a threshold to avoid excessive switching:
+# - Significant rate decrease (< -25 bps over 3M): Bullish for equities
+# - Significant rate increase (> +25 bps over 3M): Bearish for equities
+# - Small changes: Maintain previous position (neutral zone)
+
+threshold_bps = 0.25  # 25 basis points threshold
+
+# Signal: Rates falling = bullish equities, rates rising = bullish bonds
+is_rates_falling = treasury_change_3m < -threshold_bps
+is_rates_rising = treasury_change_3m > threshold_bps
+is_neutral = not is_rates_falling and not is_rates_rising
+
+# Alternative approach: Level-based signal
+# When Treasury yields are historically low, equities are attractive
+# This approximates the "yield gap" being favorable
+historical_avg_yield = ma(period=252, type=MAType.sma)(treasury_10y_filled)  # 1-year rolling average
+yield_below_avg = treasury_10y_filled < historical_avg_yield
+yield_above_avg = treasury_10y_filled > historical_avg_yield
+
+# Combined signal: Use rate momentum as primary signal
+# Falling rates OR yield below average = bullish equities
+# Rising rates AND yield above average = bullish bonds
+go_long_spy = is_rates_falling or (is_neutral and yield_below_avg)
+go_long_shy = is_rates_rising and yield_above_avg
+
+# Default to SPY if in neutral zone and yield below average
+# Default to SHY if in neutral zone and yield above average  
+neutral_default_spy = is_neutral and yield_below_avg
+neutral_default_shy = is_neutral and yield_above_avg
+
+# Final selection logic
+select_spy = go_long_spy or neutral_default_spy
+select_shy = go_long_shy or neutral_default_shy or (not select_spy and is_shy)
+
+# Make it mutually exclusive - one asset at a time
+final_select_spy = select_spy and is_spy
+final_select_shy = not select_spy and is_shy
+
+# Combined selection
+is_selected = final_select_spy or final_select_shy
+
+# Monthly rebalance signals
+enter_long = is_new_month and is_selected
+exit_long = is_new_month and not is_selected
+
+# Hold position until next month rebalance
+held_signal = hold_until()(enter=enter_long, exit=exit_long)
+
+# Entry/Exit zones
+long_and_short_zone()(long_entry=held_signal)
+
+# Position weights: 100% in selected asset
+# SPY gets 100% when selected, SHY gets 100% when SPY not selected
+spy_weight = 1.0 if final_select_spy else 0.0
+shy_weight = 1.0 if final_select_shy else 0.0
+weights = spy_weight if is_spy else shy_weight
+
+# Position sizing - ONLY rebalance on first trading day of month
+position_size(type=SizeType.percent)(size=weights * 100, rebalance_on=is_new_month)

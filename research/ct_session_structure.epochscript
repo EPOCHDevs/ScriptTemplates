@@ -1,0 +1,348 @@
+Name: CT Session Structure
+
+Description: Replicates Convergent Trading Market Statistics Report sections: Harmonic Rotations (zigzag swing detection), Auction Day Type, Volume distributions, and Range distributions. Uses SPY-Stocks as ES futures proxy with pre/post RTH data. Categories map 1:1 to CT report pages for easy debugging.
+
+Assets: SPY-Stocks
+Data Source: polygon
+Timeframe: 5Min
+
+================================================================================
+
+# =============================================================================
+# CT SESSION STRUCTURE — SPY (ES Proxy)
+# =============================================================================
+# Replicates Convergent Trading Market Statistics Report sections:
+# - Page 1: 20 Session Harmonic Rotations (zigzag swing detection)
+# - Page 1: Auction Day Type (Neutral Day, Neutral Extreme, follows-Neutral)
+# - Page 4: Volume distributions (RTH vs Pre-Market)
+# - Page 4: Range distributions (RTH, Pre-Market, IB)
+#
+# Asset: SPY-Stocks (ES futures proxy, with pre/post RTH data)
+# RTH Session: 09:30-16:00 ET (matches ES 08:30-15:00 CT)
+# Initial Balance: 09:30-10:00 ET (first 30 min)
+# Pre-Market: 04:00-09:30 ET (proxy for ES Overnight/Globex)
+# Resolution: 5-minute bars (78 bars per RTH session)
+# =============================================================================
+
+# === DATA SOURCE ===
+# 5Min bars with extended hours (pre-market + RTH)
+# extended_market_data_source includes pre-market (04:00-09:30 ET) by default
+src = extended_market_data_source(timeframe=5Min)()
+close = src.c
+high = src.h
+low = src.l
+open_price = src.o
+volume = src.v
+
+# === TIME INDEX & EOD DETECTION ===
+bar_idx = index()
+bar_tod = datetime_extract(component=DatetimeExtractionType.time_of_day, timezone='America/New_York')(bar_idx)
+is_eod = bar_tod == 960
+eod_flag = (1.0 if is_eod else 0.0)
+eod_filter = eod_flag / eod_flag
+
+# === RTH SESSION OHLCV (session_window: OHLC + volume Sum) ===
+rth_sw = session_window(session=SessionType.EquityRTHSession, agg=[AggregationType.Sum])(open_price, high, low, close, volume)
+s_open = rth_sw.open
+s_high = rth_sw.high
+s_low = rth_sw.low
+s_close = rth_sw.close
+s_vol = rth_sw.result
+s_range = s_high - s_low
+
+# === PRE-MARKET SESSION (04:00-09:30 ET = ES Overnight proxy) ===
+pm_sw = session_window(session=Session(start='04:00', end='09:30', tz='America/New_York'), agg=[AggregationType.Sum])(open_price, high, low, close, volume)
+pm_high_raw = pm_sw.high
+pm_low_raw = pm_sw.low
+pm_vol_raw = pm_sw.result
+pm_high = ffill_day(pm_high_raw)
+pm_low = ffill_day(pm_low_raw)
+pm_vol = ffill_day(pm_vol_raw)
+pm_range = pm_high - pm_low
+
+# === INITIAL BALANCE (09:30-10:00 ET) ===
+ib_sw = session_window(session=Session(start='09:30', end='10:00', tz='America/New_York'))(open_price, high, low, close)
+ib_high_raw = ib_sw.high
+ib_low_raw = ib_sw.low
+ib_h = ffill_day(ib_high_raw)
+ib_l = ffill_day(ib_low_raw)
+ib_width = ib_h - ib_l
+
+# === IB VALIDITY GUARD ===
+ib_valid_flag = (1.0 if (ib_width > 0.05) else 0.0) * eod_filter
+ib_valid_filter = ib_valid_flag / ib_valid_flag
+
+# === EOD SESSION METRICS ===
+day_count = 1.0 * eod_filter
+range_eod = s_range * eod_filter
+vol_eod = s_vol * eod_filter
+ib_width_eod = ib_width * eod_filter
+pm_range_eod = pm_range * eod_filter
+pm_vol_eod = pm_vol * eod_filter
+close_eod = s_close * eod_filter
+close_pctile = ((s_close - s_low) / s_range * 100) * eod_filter
+
+# =============================================================================
+# CATEGORY 1: HARMONIC ROTATIONS (Zigzag Swing Detection)
+# =============================================================================
+# CT Report shows histograms of individual zigzag leg sizes.
+# swing_highs_lows identifies local peaks/valleys using swing_length=3
+# (3 bars each side = 15-min confirmation window at 5Min resolution).
+#
+# Rotation = distance between alternating swing points:
+#   - Up rotation: swing_low -> swing_high (bullish leg)
+#   - Down rotation: swing_high -> swing_low (bearish leg)
+#
+# CT mode ~2.25pts (ES); SPY equivalent ~0.22pts (1/10th scale factor).
+# Session efficiency retained as complementary trending/choppy indicator.
+# =============================================================================
+
+# --- Swing Detection ---
+shl = swing_highs_lows(swing_length=3)()
+swing_dir = shl.high_low
+swing_level = shl.level
+
+# Isolate swing high prices (NaN at non-swing-high bars)
+sh_mask = (1.0 if (swing_dir == 1) else 0.0)
+sh_filter = sh_mask / sh_mask
+sh_price = swing_level * sh_filter
+
+# Isolate swing low prices (NaN at non-swing-low bars)
+sl_mask = (1.0 if (swing_dir == -1) else 0.0)
+sl_filter = sl_mask / sl_mask
+sl_price = swing_level * sl_filter
+
+# Forward-fill most recent swing high/low prices
+last_sh = ffill(sh_price)
+last_sl = ffill(sl_price)
+
+# --- Rotation Sizes ---
+# Up rotation: at each swing high, distance from prior swing low
+up_rotation = abs(swing_level - last_sl) * sh_filter
+# Down rotation: at each swing low, distance from prior swing high
+down_rotation = abs(last_sh - swing_level) * sl_filter
+
+# --- Per-Session Rotation Counts & Averages ---
+# session_window with extra variadic inputs: sh_mask(Sum), sl_mask(Sum), up_rotation(Mean), down_rotation(Mean), bar_move_abs(Sum)
+bar_move_abs = abs(close - (close >> 1))
+rth_extra_sw = session_window(session=SessionType.EquityRTHSession, agg=[AggregationType.Sum, AggregationType.Sum, AggregationType.Mean, AggregationType.Mean, AggregationType.Sum])(open_price, high, low, close, sh_mask, sl_mask, up_rotation, down_rotation, bar_move_abs)
+up_count_raw = rth_extra_sw.result[0]
+down_count_raw = rth_extra_sw.result[1]
+avg_up_raw = rth_extra_sw.result[2]
+avg_down_raw = rth_extra_sw.result[3]
+total_distance = rth_extra_sw.result[4]
+up_count_eod = up_count_raw * eod_filter
+down_count_eod = down_count_raw * eod_filter
+total_rotations_eod = (up_count_raw + down_count_raw) * eod_filter
+avg_up_eod = avg_up_raw * eod_filter
+avg_down_eod = avg_down_raw * eod_filter
+
+# --- Session Efficiency (complementary metric) ---
+total_distance_eod = total_distance * eod_filter
+efficiency = (s_range / total_distance) * eod_filter
+
+# =============================================================================
+# CATEGORY 2: AUCTION DAY TYPE (CT Page 1)
+# =============================================================================
+# CT definitions:
+# - Neutral Day: price exceeds BOTH IBH and IBL during RTH (29.39% in CT)
+# - Neutral Extreme: Neutral Day + close in top/bottom 30% (50.68% of neutral)
+# - Neutral Follows Neutral: P(neutral today | neutral yesterday) (27.15%)
+# =============================================================================
+
+# IB breakout flags
+ib_high_broken = (1.0 if (s_high > ib_h) else 0.0) * eod_filter
+ib_low_broken = (1.0 if (s_low < ib_l) else 0.0) * eod_filter
+
+# Neutral Day = both IB levels broken
+neutral_day_flag = (1.0 if (s_high > ib_h and s_low < ib_l) else 0.0) * eod_filter
+neutral_day_filter = neutral_day_flag / neutral_day_flag
+
+# Neutral Extreme = Neutral + close at extreme (top/bottom 30%)
+neutral_extreme_raw = (1.0 if (s_high > ib_h and s_low < ib_l and (close_pctile > 70 or close_pctile < 30)) else 0.0) * eod_filter
+# Rate conditioned on neutral days: Mean = P(extreme | neutral)
+neutral_extreme_rate = neutral_extreme_raw * neutral_day_filter
+
+# Neutral follows Neutral: P(neutral today | neutral yesterday)
+prior_neutral_shifted = neutral_day_flag >> 1
+prior_neutral = ffill(prior_neutral_shifted)
+prior_neutral_filter = prior_neutral / prior_neutral
+neutral_follows_neutral = neutral_day_flag * prior_neutral_filter
+
+# Unconditional neutral rate: Mean = P(neutral day)
+neutral_day_rate = neutral_day_flag
+
+# =============================================================================
+# REPORTERS
+# =============================================================================
+
+# --- 0. Summary ---
+cards(
+    layout=CardLayout(
+        title='CT Session Structure Overview',
+        cells=[
+            ColumnSpec(title='Neutral Day %', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero, card_color=Color.Warning),
+            ColumnSpec(title='Avg Rotations/Sess', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(title='RTH Avg Range', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='IB Avg Width', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='Avg Efficiency', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3)
+        ]
+    ),
+    category='0. Summary'
+)(neutral_day_rate, total_rotations_eod, range_eod, ib_width_eod, efficiency)
+
+# --- 1. Harmonic Rotations ---
+cards(
+    layout=CardLayout(
+        title='Harmonic Rotation Metrics',
+        cells=[
+            ColumnSpec(title='Avg Rotations/Session', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1, card_slot=CardSlot.Hero, card_color=Color.Teal),
+            ColumnSpec(title='Avg Up Rotation (pts)', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(title='Avg Down Rotation (pts)', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(title='Avg Efficiency', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3)
+        ]
+    ),
+    category='1. Harmonic Rotations'
+)(total_rotations_eod, avg_up_eod, avg_down_eod, efficiency)
+
+histogram(
+    title='Up Rotation Sizes (Swing Low to Swing High)',
+    category='1. Harmonic Rotations',
+    bins=40,
+    fill_color=Color.Teal,
+    x_axis_label='Rotation Size (pts)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(up_rotation)
+
+histogram(
+    title='Down Rotation Sizes (Swing High to Swing Low)',
+    category='1. Harmonic Rotations',
+    bins=40,
+    fill_color=Color.Error,
+    x_axis_label='Rotation Size (pts)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(down_rotation)
+
+histogram(
+    title='Session Efficiency (Range / Total Distance)',
+    category='1. Harmonic Rotations',
+    bins=25,
+    fill_color=Color.Indigo,
+    x_axis_label='Efficiency Ratio',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(efficiency)
+
+histogram(
+    title='Rotations per Session',
+    category='1. Harmonic Rotations',
+    bins=20,
+    fill_color=Color.Blue,
+    x_axis_label='Number of Rotations',
+    x_axis_format=AxisValueFormat.IntegerFormat,
+    y_axis_label='Frequency'
+)(total_rotations_eod)
+
+# --- 2. Auction ---
+cards(
+    layout=CardLayout(
+        title='Auction Day Type (CT Page 1)',
+        cells=[
+            ColumnSpec(title='Neutral Day', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, card_slot=CardSlot.Hero, card_color=Color.Warning),
+            ColumnSpec(title='Neutral Follows Neutral', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, card_color=Color.Info),
+            ColumnSpec(title='Neutral Extreme Day', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, card_color=Color.Error)
+        ]
+    ),
+    category='2. Auction'
+)(neutral_day_rate, neutral_follows_neutral, neutral_extreme_rate)
+
+# --- 3. Volume (CT Page 4) ---
+histogram(
+    title='Daily Session Volume RTH',
+    category='3. Volume',
+    bins=30,
+    fill_color=Color.Blue,
+    x_axis_label='Volume',
+    x_axis_format=AxisValueFormat.IntegerFormat,
+    y_axis_label='Frequency'
+)(vol_eod)
+
+histogram(
+    title='Pre-Market Volume (ETH Proxy)',
+    category='3. Volume',
+    bins=30,
+    fill_color=Color.Teal,
+    x_axis_label='Volume',
+    x_axis_format=AxisValueFormat.IntegerFormat,
+    y_axis_label='Frequency'
+)(pm_vol_eod)
+
+cards(
+    layout=CardLayout(
+        title='Volume Statistics',
+        cells=[
+            ColumnSpec(title='RTH Mean Vol', card_agg=AggregationType.Mean, type=CardRenderType.IntegerFormat),
+            ColumnSpec(title='RTH Median Vol', card_agg=AggregationType.Median, type=CardRenderType.IntegerFormat),
+            ColumnSpec(title='Pre-Mkt Mean Vol', card_agg=AggregationType.Mean, type=CardRenderType.IntegerFormat),
+            ColumnSpec(title='Pre-Mkt Median Vol', card_agg=AggregationType.Median, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='3. Volume'
+)(vol_eod, vol_eod, pm_vol_eod, pm_vol_eod)
+
+# --- 4. Range (CT Page 4) ---
+histogram(
+    title='Daily Session Range RTH',
+    category='4. Range',
+    bins=30,
+    fill_color=Color.Blue,
+    x_axis_label='Range (pts)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(range_eod)
+
+histogram(
+    title='Pre-Market Range (ETH Proxy)',
+    category='4. Range',
+    bins=30,
+    fill_color=Color.Teal,
+    x_axis_label='Range (pts)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(pm_range_eod)
+
+histogram(
+    title='Initial Balance Range',
+    category='4. Range',
+    bins=30,
+    fill_color=Color.Indigo,
+    x_axis_label='IB Range (pts)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(ib_width_eod)
+
+cards(
+    layout=CardLayout(
+        title='Range Statistics',
+        cells=[
+            ColumnSpec(title='RTH Mean Range', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='RTH Median Range', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='Pre-Mkt Mean Range', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='IB Mean Range', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='IB Median Range', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    ),
+    category='4. Range'
+)(range_eod, range_eod, pm_range_eod, ib_width_eod, ib_width_eod)
+
+boxplot(
+    title='Range Comparison: RTH vs Pre-Mkt vs IB',
+    category='4. Range',
+    y_axis_label='Points',
+    show_outliers=True,
+    whisker_iqr=1.5,
+    colors=['Blue', 'Teal', 'Indigo'],
+    median_color=Color.Warning
+)(range_eod, pm_range_eod, ib_width_eod)

@@ -1,0 +1,178 @@
+Name: RS-007: FX Monthly Seasonality Analysis
+
+Description: Validate Investopedia claims on FX seasonality (Kathy Lien, 2024): USD/CAD Oct/Nov 63% win rate, Apr worst; USD/JPY Oct 68% win rate, Aug strongest JPY month.
+
+Assets: ^USDCAD-FX, ^USDJPY-FX
+Data Source: polygon
+Timeframe: 1D
+
+================================================================================
+
+# RS-007: FX Monthly Seasonality Research
+# Source: Investopedia - Seasonal Trends in the Forex Market
+# Author: Kathy Lien (Updated May 2024)
+#
+# CLAIMS TO VALIDATE:
+# USD/CAD: October/November 63% win rate, +0.5% avg. April worst (25%, -1.3%)
+# USD/JPY: October 68% win rate. August strongest JPY month.
+
+# =============================================================================
+# DATA SOURCES
+# =============================================================================
+
+src_daily = market_data_source(timeframe=1D)()
+close_daily = src_daily.c
+
+src_monthly = market_data_source(timeframe=1M)()
+close_monthly = src_monthly.c
+
+# =============================================================================
+# RETURNS CALCULATION
+# =============================================================================
+
+daily_ret = returns(period=1)(close_daily)
+monthly_ret = returns(period=1, timeframe=1M)(close_monthly)
+abs_monthly_ret = abs(monthly_ret)
+
+# Win/Loss indicators (1 if positive, 0 if negative)
+is_positive = 1 if monthly_ret > 0 else 0
+is_negative = 1 if monthly_ret < 0 else 0
+
+# =============================================================================
+# DATE COMPONENTS FOR GROUPING
+# =============================================================================
+
+daily_index = index()
+daily_month = datetime_extract(component=DatetimeExtractionType.month)(daily_index)
+
+monthly_index = index(timeframe=1M)
+month_num = datetime_extract(component=DatetimeExtractionType.month)(monthly_index)
+monthly_year = datetime_extract(component=DatetimeExtractionType.year)(monthly_index)
+
+
+# =============================================================================
+# SUMMARY CARDS - Key Statistics
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title="Seasonality Summary",
+        cells=[
+            ColumnSpec(title="Best Return", card_agg=AggregationType.Max, type=CardRenderType.PercentFormat, dp=2, card_color=Color.Success),
+            ColumnSpec(title="Worst Return", card_agg=AggregationType.Min, type=CardRenderType.PercentFormat, dp=2, card_color=Color.Error),
+            ColumnSpec(title="Average Return", card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(title="Win Rate", card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_color=Color.Blue),
+            ColumnSpec(title="Wins", card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(title="Losses", card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category="0. Summary"
+)(monthly_ret, monthly_ret, monthly_ret, is_positive, is_positive, is_negative)
+
+# =============================================================================
+# CHART 1: Monthly Returns Heatmap
+# =============================================================================
+heatmap(
+    title="Monthly Returns Heatmap",
+    category="1. Seasonality",
+    x_axis_label="Month",
+    y_axis_label="Year",
+    min_color=Color.Red,
+    max_color=Color.Green,
+    show_data_labels=True,
+    data_label_format="{point.value:.2f}%",
+    value_format=AxisValueFormat.PercentFormat,
+    x_category_type=CategoryAxisType.Month,
+    timeframe=1M
+)(x=month_num, y=monthly_year, value=monthly_ret)
+
+# =============================================================================
+# CHART 2: Average Return by Month (Bar Chart)
+# =============================================================================
+xy_bars(
+    agg=AggregationType.Mean,
+    title="Average Monthly Return by Calendar Month",
+    category="1. Seasonality",
+    x_axis_label="Month",
+    y_axis_label="Avg Return",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    x_category_type=CategoryAxisType.Month
+)(values=daily_ret, label=daily_month)
+
+# =============================================================================
+# CHART 3: % Positive by Month (Win Rate)
+# =============================================================================
+xy_bars(
+    agg=AggregationType.Mean,
+    title="% Positive by Month (Win Rate)",
+    category="1. Seasonality",
+    x_axis_label="Month",
+    y_axis_label="Win Rate",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    data_labels=True,
+    color_by_value=True,
+    x_category_type=CategoryAxisType.Month,
+    timeframe=1M
+)(values=is_positive, label=month_num)
+
+# =============================================================================
+# TABLE 1: Monthly Returns Summary
+# =============================================================================
+summary_table(
+    layout=SummaryTableLayout(
+        title="Monthly Returns Summary",
+        col_headers=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+        rows=[
+            RowSpec(name="Average", agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            RowSpec(name="Median", agg=AggregationType.Median, type=CardRenderType.PercentFormat, dp=2),
+            RowSpec(name="Best", agg=AggregationType.Max, type=CardRenderType.PercentFormat, dp=2, color=Color.Success),
+            RowSpec(name="Worst", agg=AggregationType.Min, type=CardRenderType.PercentFormat, dp=2, color=Color.Error)
+        ]
+    ),
+    category="2. Statistics"
+)(monthly_ret, month_num)
+
+# =============================================================================
+# TABLE 2: Win Rate by Month
+# =============================================================================
+summary_table(
+    layout=SummaryTableLayout(
+        title="% Positive by Month (Win Rate)",
+        col_headers=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+        rows=[
+            RowSpec(name="% Positive", agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, color=Color.Blue)
+        ]
+    ),
+    category="2. Statistics"
+)(is_positive, month_num)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title="% Negative by Month",
+        col_headers=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+        rows=[
+            RowSpec(name="% Negative", agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, color=Color.Error)
+        ]
+    ),
+    category="2. Statistics"
+)(is_negative, month_num)
+
+# =============================================================================
+# TABLE 3: Absolute Returns
+# =============================================================================
+summary_table(
+    layout=SummaryTableLayout(
+        title="Absolute Returns by Month",
+        col_headers=["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+        rows=[
+            RowSpec(name="Abs Average", agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            RowSpec(name="Abs Best", agg=AggregationType.Max, type=CardRenderType.PercentFormat, dp=2),
+            RowSpec(name="Abs Worst", agg=AggregationType.Min, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category="2. Statistics"
+)(abs_monthly_ret, month_num)

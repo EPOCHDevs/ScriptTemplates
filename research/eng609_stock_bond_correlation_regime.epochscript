@@ -1,0 +1,175 @@
+Name: Implications of Regime-Shifting Stock and Bond Correlations
+
+Description: ENG-609: Analyze stock-bond correlation regime shifts based on AQR research. H1: SBC was +0.18 (1926-1999), -0.20 (2000-2022). Driven by inflation uncertainty.
+
+Assets: SPY-Stocks
+Data Source: polygon
+Timeframe: 1W
+
+================================================================================
+
+# Stock-Bond Correlation Time Series
+# Using SPY and TLT weekly returns
+
+# Stock returns (SPY) - use market_data_source since SPY is in assets
+spy_src = market_data_source()()
+close_spy = spy_src.c
+
+# Bond returns (TLT) - reference since not in assets
+tlt_src = reference_stocks(ticker='TLT')()
+close_tlt = tlt_src.c
+
+# Weekly returns
+ret_spy = returns(period=1)(close_spy)
+ret_tlt = returns(period=1)(close_tlt)
+
+# Rolling correlations (1-year, 2-year, 3-year)
+sbc_1y = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_tlt)
+sbc_2y = rolling_corr(window=104, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_tlt)
+sbc_3y = rolling_corr(window=156, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_tlt)
+
+# Index for x-axis
+idx = index()()
+
+# Chart 1: Rolling SBC Time Series (H1)
+xy_lines(
+    title="Stock-Bond Correlation Regime Shifts (SPY vs TLT)",
+    category="H1 - SBC Regime Shifts",
+    x_axis_label="Date",
+    y_axis_label="Correlation",
+    reference_lines=ReferenceLineSchema(lines=[ReferenceLine(value=0, title="Zero", color=Color.Gray)]),
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name="1-Year Rolling", color=Color.Blue),
+        LineSeriesSpec(name="2-Year Rolling", color=Color.Orange),
+        LineSeriesSpec(name="3-Year Rolling", color=Color.Green)
+    ])
+)(x_values=idx, y_values=(sbc_1y, sbc_2y, sbc_3y))
+
+# ============================================
+# Chart 5a/5b: Model Inputs (H5)
+# ============================================
+
+# FRED economic indicators (returns: observation_date, result, revision)
+cpi_date, cpi_data, cpi_rev = common_economic_indicators(category=MacroEconomicsIndicator.CPI)()
+indpro_date, indpro_data, indpro_rev = common_economic_indicators(category=MacroEconomicsIndicator.IndustrialProduction)()
+
+# Year-over-year changes
+cpi_yoy = returns(period=52)(cpi_data)
+indpro_yoy = returns(period=52)(indpro_data)
+
+# Rolling volatility (2-year = 104 weeks)
+inflation_vol = stddev(period=104)(cpi_yoy)
+growth_vol = stddev(period=104)(indpro_yoy)
+
+# Growth-inflation correlation (2-year rolling)
+growth_inf_corr = rolling_corr(window=104, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=cpi_yoy, y=indpro_yoy)
+
+# Chart 5a: Inflation & Growth Uncertainty
+xy_lines(
+    title="Inflation & Growth Uncertainty (Rolling 2-Year Volatility)",
+    category="H5 - Model Inputs",
+    x_axis_label="Date",
+    y_axis_label="Volatility (YoY %)",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name="Inflation Uncertainty (CPI Vol)", color=Color.Red),
+        LineSeriesSpec(name="Growth Uncertainty (INDPRO Vol)", color=Color.Blue)
+    ])
+)(x_values=idx, y_values=(inflation_vol, growth_vol))
+
+# Chart 5b: Growth-Inflation Correlation
+xy_lines(
+    title="Growth-Inflation Correlation (Rolling 2-Year)",
+    category="H5 - Model Inputs",
+    x_axis_label="Date",
+    y_axis_label="Correlation",
+    reference_lines=ReferenceLineSchema(lines=[ReferenceLine(value=0, title="Zero", color=Color.Gray)]),
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name="CPI vs Industrial Production", color=Color.Purple)
+    ])
+)(x_values=idx, y_values=growth_inf_corr)
+
+# ============================================
+# Chart 4: Returns by Macroeconomic Regime (Exhibit 3)
+# ============================================
+
+# Compute expanding median for regime classification
+growth_median = cumulative(agg=AggregationType.Median)(indpro_yoy)
+inflation_median = cumulative(agg=AggregationType.Median)(cpi_yoy)
+
+# Regime flags (boolean: above median = up regime)
+growth_up_flag = indpro_yoy > growth_median
+inflation_up_flag = cpi_yoy > inflation_median
+
+# Regime indicator for grouping:
+# 1 = Growth Up, 2 = Growth Down, 3 = Inflation Up, 4 = Inflation Down
+regime_growth = 1 if growth_up_flag else 2
+regime_inflation = 3 if inflation_up_flag else 4
+
+# Chart 4a: Stock Returns by Growth Regime
+xy_bars(
+    agg=AggregationType.Mean,
+    title="Average Stock Return by Growth Regime",
+    category="H3 - Returns by Regime",
+    x_axis_label="Regime",
+    y_axis_label="Avg Weekly Return",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name="US Stocks (SPY)", color=Color.Blue)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[ReferenceLine(value=0, title="Zero", color=Color.Gray)])
+)(values=ret_spy, label=regime_growth)
+
+# Chart 4b: Bond Returns by Growth Regime
+xy_bars(
+    agg=AggregationType.Mean,
+    title="Average Bond Return by Growth Regime",
+    category="H3 - Returns by Regime",
+    x_axis_label="Regime",
+    y_axis_label="Avg Weekly Return",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name="US Bonds (TLT)", color=Color.Teal)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[ReferenceLine(value=0, title="Zero", color=Color.Gray)])
+)(values=ret_tlt, label=regime_growth)
+
+# Chart 4c: Stock Returns by Inflation Regime
+xy_bars(
+    agg=AggregationType.Mean,
+    title="Average Stock Return by Inflation Regime",
+    category="H3 - Returns by Regime",
+    x_axis_label="Regime",
+    y_axis_label="Avg Weekly Return",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name="US Stocks (SPY)", color=Color.Blue)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[ReferenceLine(value=0, title="Zero", color=Color.Gray)])
+)(values=ret_spy, label=regime_inflation)
+
+# Chart 4d: Bond Returns by Inflation Regime
+xy_bars(
+    agg=AggregationType.Mean,
+    title="Average Bond Return by Inflation Regime",
+    category="H3 - Returns by Regime",
+    x_axis_label="Regime",
+    y_axis_label="Avg Weekly Return",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name="US Bonds (TLT)", color=Color.Teal)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[ReferenceLine(value=0, title="Zero", color=Color.Gray)])
+)(values=ret_tlt, label=regime_inflation)

@@ -1,0 +1,234 @@
+Name: CT Market Stats: Open vs Previous Range — ES Futures
+
+Description: Replicates CT Market Statistics Report Page 2: Open Compared to Previous Session's Range. Analyzes touch probabilities for previous session levels conditioned on opening above, within, or below the previous RTH range.
+
+Assets: ES-Futures
+Data Source: polygon
+Timeframe: 1Min
+
+================================================================================
+
+# =============================================================================
+# CT MARKET STATISTICS REPORT: OPEN VS PREVIOUS SESSION'S RANGE (Page 2)
+# ES E-mini S&P 500 Futures
+# =============================================================================
+
+# === DATA SOURCE ===
+src = market_data_source()()
+
+# === CONTINUOUS CONTRACT ===
+cont = futures_continuation(s_rollover_method=RolloverType.LiquidityBased, s_adjustment_method=AdjustmentType.NoAdjustment, i_offset=0)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+close = cont.c
+high = cont.h
+low = cont.l
+open_price = cont.o
+
+# === HOLIDAY FILTER ===
+is_holiday = holiday(days_before=0, days_after=0, holiday_calendar=HolidayCalendar.CMEGlobexEquitiesHolidayCalendar)
+
+# === SESSION WINDOWS ===
+rth_sw = session_window(session=SessionType.EquityRTHSession)(open_price, high, low, close)
+ib_sw = session_window(session=Session(start='09:30', end='10:30', tz='America/New_York'))(open_price, high, low, close)
+
+# === BLACK FRIDAY FILTER ===
+is_friday = day_of_week(weekday=Weekday.Friday)
+is_november = month_of_year(month=Month.November)
+is_4th_week = week_of_month(week=WeekOfMonth.Fourth)
+bf_at_open = where(rth_sw.opened, (1.0 if (is_friday and is_november and is_4th_week) else 0.0))
+is_black_friday_session = ffill(bf_at_open) > 0.5
+
+rth_valid = (rth_sw.closed and not is_holiday and not is_black_friday_session)
+ib_valid = (ib_sw.closed and not is_holiday)
+
+# === RTH PRICE PROFILE (for previous day VPOC/VAH/VAL) ===
+rth_profile = price_profile(session=Session(start='09:30', end='16:00', tz='America/New_York'), window_size=390, tick_size=0.25, value_area_pct=0.70, mode=ProfileType.market)(high, low, close, cont.v)
+rth_vpoc = ffill(rth_profile.poc)
+rth_vah = ffill(rth_profile.vah)
+rth_val = ffill(rth_profile.val)
+
+# === CURRENT SESSION LEVELS ===
+ib_high_level = ffill(where(ib_valid, ib_sw.high))
+ib_low_level = ffill(where(ib_valid, ib_sw.low))
+
+# === PREVIOUS DAY LEVELS ===
+rth_close_at_eod = where(rth_valid, rth_sw.close)
+prev_close = ffill(rth_close_at_eod >> 1)
+
+rth_high_at_eod = where(rth_valid, rth_sw.high)
+prev_hod = ffill(rth_high_at_eod >> 1)
+
+rth_low_at_eod = where(rth_valid, rth_sw.low)
+prev_lod = ffill(rth_low_at_eod >> 1)
+
+rth_open_at_eod = where(rth_valid, rth_sw.open)
+prev_open = ffill(rth_open_at_eod >> 1)
+
+prev_mid = (prev_hod + prev_lod) / 2.0
+
+ib_high_at_eod = where(rth_valid, ib_high_level)
+prev_ibh = ffill(ib_high_at_eod >> 1)
+ib_low_at_eod = where(rth_valid, ib_low_level)
+prev_ibl = ffill(ib_low_at_eod >> 1)
+
+vpoc_at_eod = where(rth_valid, rth_vpoc)
+prev_vpoc = ffill(vpoc_at_eod >> 1)
+vah_at_eod = where(rth_valid, rth_vah)
+prev_vah = ffill(vah_at_eod >> 1)
+val_at_eod = where(rth_valid, rth_val)
+prev_val = ffill(val_at_eod >> 1)
+
+# === OPEN CLASSIFICATION ===
+opens_above = (rth_sw.open > prev_hod)
+opens_below = (rth_sw.open < prev_lod)
+opens_within = (rth_sw.open >= prev_lod and rth_sw.open <= prev_hod)
+
+above_valid = (rth_valid and opens_above)
+within_valid = (rth_valid and opens_within)
+below_valid = (rth_valid and opens_below)
+
+# =============================================================================
+# OPENS ABOVE PREVIOUS RANGE
+# =============================================================================
+above_count = where(above_valid, 1.0)
+
+# 1/2 Gap of pHOD: midpoint between prev HOD and today's open
+half_gap_above = (prev_hod + rth_sw.open) / 2.0
+above_half_gap = where(above_valid, (1.0 if (rth_sw.low <= half_gap_above and rth_sw.high >= half_gap_above) else 0.0))
+
+# pClose Touched (Closes Gap)
+above_pclose = where(above_valid, (1.0 if (rth_sw.low <= prev_close and rth_sw.high >= prev_close) else 0.0))
+
+# pHOD Touched (Closes Session Gap)
+above_phod = where(above_valid, (1.0 if (rth_sw.low <= prev_hod and rth_sw.high >= prev_hod) else 0.0))
+
+# Previous level touches
+above_pibh = where(above_valid, (1.0 if (rth_sw.low <= prev_ibh and rth_sw.high >= prev_ibh) else 0.0))
+above_pibl = where(above_valid, (1.0 if (rth_sw.low <= prev_ibl and rth_sw.high >= prev_ibl) else 0.0))
+above_plod = where(above_valid, (1.0 if (rth_sw.low <= prev_lod and rth_sw.high >= prev_lod) else 0.0))
+above_pmid = where(above_valid, (1.0 if (rth_sw.low <= prev_mid and rth_sw.high >= prev_mid) else 0.0))
+above_popen = where(above_valid, (1.0 if (rth_sw.low <= prev_open and rth_sw.high >= prev_open) else 0.0))
+above_pvah = where(above_valid, (1.0 if (rth_sw.low <= prev_vah and rth_sw.high >= prev_vah) else 0.0))
+above_pval = where(above_valid, (1.0 if (rth_sw.low <= prev_val and rth_sw.high >= prev_val) else 0.0))
+above_pvpoc = where(above_valid, (1.0 if (rth_sw.low <= prev_vpoc and rth_sw.high >= prev_vpoc) else 0.0))
+
+# =============================================================================
+# OPENS WITHIN PREVIOUS RANGE
+# =============================================================================
+within_count = where(within_valid, 1.0)
+
+within_pclose = where(within_valid, (1.0 if (rth_sw.low <= prev_close and rth_sw.high >= prev_close) else 0.0))
+within_phod = where(within_valid, (1.0 if (rth_sw.low <= prev_hod and rth_sw.high >= prev_hod) else 0.0))
+within_pibh = where(within_valid, (1.0 if (rth_sw.low <= prev_ibh and rth_sw.high >= prev_ibh) else 0.0))
+within_pibl = where(within_valid, (1.0 if (rth_sw.low <= prev_ibl and rth_sw.high >= prev_ibl) else 0.0))
+within_plod = where(within_valid, (1.0 if (rth_sw.low <= prev_lod and rth_sw.high >= prev_lod) else 0.0))
+within_pmid = where(within_valid, (1.0 if (rth_sw.low <= prev_mid and rth_sw.high >= prev_mid) else 0.0))
+within_popen = where(within_valid, (1.0 if (rth_sw.low <= prev_open and rth_sw.high >= prev_open) else 0.0))
+within_pvah = where(within_valid, (1.0 if (rth_sw.low <= prev_vah and rth_sw.high >= prev_vah) else 0.0))
+within_pval = where(within_valid, (1.0 if (rth_sw.low <= prev_val and rth_sw.high >= prev_val) else 0.0))
+within_pvpoc = where(within_valid, (1.0 if (rth_sw.low <= prev_vpoc and rth_sw.high >= prev_vpoc) else 0.0))
+
+# =============================================================================
+# OPENS BELOW PREVIOUS RANGE
+# =============================================================================
+below_count = where(below_valid, 1.0)
+
+# 1/2 Gap of pLOD: midpoint between prev LOD and today's open
+half_gap_below = (prev_lod + rth_sw.open) / 2.0
+below_half_gap = where(below_valid, (1.0 if (rth_sw.low <= half_gap_below and rth_sw.high >= half_gap_below) else 0.0))
+
+# pClose Touched (Closes Gap)
+below_pclose = where(below_valid, (1.0 if (rth_sw.low <= prev_close and rth_sw.high >= prev_close) else 0.0))
+
+# pHOD Touched
+below_phod = where(below_valid, (1.0 if (rth_sw.low <= prev_hod and rth_sw.high >= prev_hod) else 0.0))
+
+# Previous level touches
+below_pibh = where(below_valid, (1.0 if (rth_sw.low <= prev_ibh and rth_sw.high >= prev_ibh) else 0.0))
+below_pibl = where(below_valid, (1.0 if (rth_sw.low <= prev_ibl and rth_sw.high >= prev_ibl) else 0.0))
+
+# pLOD Touched (Closes Session Gap)
+below_plod = where(below_valid, (1.0 if (rth_sw.low <= prev_lod and rth_sw.high >= prev_lod) else 0.0))
+
+below_pmid = where(below_valid, (1.0 if (rth_sw.low <= prev_mid and rth_sw.high >= prev_mid) else 0.0))
+below_popen = where(below_valid, (1.0 if (rth_sw.low <= prev_open and rth_sw.high >= prev_open) else 0.0))
+below_pvah = where(below_valid, (1.0 if (rth_sw.low <= prev_vah and rth_sw.high >= prev_vah) else 0.0))
+below_pval = where(below_valid, (1.0 if (rth_sw.low <= prev_val and rth_sw.high >= prev_val) else 0.0))
+below_pvpoc = where(below_valid, (1.0 if (rth_sw.low <= prev_vpoc and rth_sw.high >= prev_vpoc) else 0.0))
+
+# =============================================================================
+# REPORTERS — Summary Tables
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Opens Above Previous Range',
+        row_size=12,
+        col_size=1,
+        row_headers=['Samples', '1/2 Gap of pHOD Touched', 'pClose Touched (Closes Gap)', 'pHOD Touched (Closes Session Gap)', 'pIBH Touched', 'pIBL Touched', 'pLOD Touched', 'pMID Touched', 'pOpen Touched', 'pVAH Touched', 'pVAL Touched', 'pVPOC Touched'],
+        col_headers=['Rate'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=6, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=7, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=8, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=9, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=10, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=11, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='CT Market Statistics'
+)(above_count, above_half_gap, above_pclose, above_phod, above_pibh, above_pibl, above_plod, above_pmid, above_popen, above_pvah, above_pval, above_pvpoc)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Opens Within Previous Range',
+        row_size=11,
+        col_size=1,
+        row_headers=['Samples', 'pClose Touched', 'pHOD Touched', 'pIBH Touched', 'pIBL Touched', 'pLOD Touched', 'pMID Touched', 'pOpen Touched', 'pVAH Touched', 'pVAL Touched', 'pVPOC Touched'],
+        col_headers=['Rate'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=6, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=7, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=8, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=9, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=10, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='CT Market Statistics'
+)(within_count, within_pclose, within_phod, within_pibh, within_pibl, within_plod, within_pmid, within_popen, within_pvah, within_pval, within_pvpoc)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Opens Below Previous Range',
+        row_size=12,
+        col_size=1,
+        row_headers=['Samples', '1/2 Gap of pLOD Touched', 'pClose Touched (Closes Gap)', 'pHOD Touched', 'pIBH Touched', 'pIBL Touched', 'pLOD Touched (Closes Session Gap)', 'pMID Touched', 'pOpen Touched', 'pVAH Touched', 'pVAL Touched', 'pVPOC Touched'],
+        col_headers=['Rate'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=6, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=7, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=8, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=9, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=10, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=11, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='CT Market Statistics'
+)(below_count, below_half_gap, below_pclose, below_phod, below_pibh, below_pibl, below_plod, below_pmid, below_popen, below_pvah, below_pval, below_pvpoc)

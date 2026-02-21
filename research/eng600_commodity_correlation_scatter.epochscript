@@ -1,0 +1,262 @@
+Name: Commodity Correlations (12M Weekly Returns)
+
+Description: ENG-600 Research: Recreate The Daily Shot scatter chart showing each commodity's correlation to US Dollar (X-axis) and S&P 500 (Y-axis). Uses 12-month rolling correlations on weekly returns.
+
+Assets: 
+Data Source: polygon
+Timeframe: 1W
+
+================================================================================
+
+# Commodity Correlations (12M Weekly Returns)
+# ENG-600: Recreate The Daily Shot scatter chart
+# X-axis: Correlation to US Dollar Index (FRED DTWEXBGS)
+# Y-axis: Correlation to S&P 500 (SPY)
+# Methodology: 52-week rolling correlation on weekly returns
+#
+# Data: FRED IMF Global Price series + ETFs
+
+# ============================================================================
+# REFERENCE DATA: USD Index and S&P 500
+# ============================================================================
+
+# US Dollar Index (Broad, Daily -> use monthly returns)
+usd_src = economic_indicators(series_id='DTWEXBGS', use_alfred=False)()
+close_usd = ffill(usd_src.result)
+
+# S&P 500 via SPY ETF
+spy_src = reference_stocks(ticker='SPY')()
+close_spy = spy_src.c
+
+# ============================================================================
+# COMMODITY DATA FROM FRED (Monthly IMF Global Prices)
+# ============================================================================
+
+# Metals
+copper_src = economic_indicators(series_id='PCOPPUSDM', use_alfred=False)()
+close_copper = ffill(copper_src.result)
+
+aluminum_src = economic_indicators(series_id='PALUMUSDM', use_alfred=False)()
+close_aluminum = ffill(aluminum_src.result)
+
+nickel_src = economic_indicators(series_id='PNICKUSDM', use_alfred=False)()
+close_nickel = ffill(nickel_src.result)
+
+lead_src = economic_indicators(series_id='PLEADUSDM', use_alfred=False)()
+close_lead = ffill(lead_src.result)
+
+iron_ore_src = economic_indicators(series_id='PIORECRUSDM', use_alfred=False)()
+close_iron_ore = ffill(iron_ore_src.result)
+
+# Gold and Silver via ETFs (FRED gold prices not available via API)
+gld_src = reference_stocks(ticker='GLD')()
+close_gold = gld_src.c
+
+slv_src = reference_stocks(ticker='SLV')()
+close_silver = slv_src.c
+
+# Energy
+oil_wti_src = economic_indicators(series_id='POILWTIUSDM', use_alfred=False)()
+close_oil = ffill(oil_wti_src.result)
+
+brent_src = economic_indicators(series_id='POILBREUSDM', use_alfred=False)()
+close_brent = ffill(brent_src.result)
+
+gas_src = economic_indicators(series_id='PNGASUSUSDM', use_alfred=False)()
+close_gas = ffill(gas_src.result)
+
+# Grains
+wheat_src = economic_indicators(series_id='PWHEAMTUSDM', use_alfred=False)()
+close_wheat = ffill(wheat_src.result)
+
+corn_src = economic_indicators(series_id='PMAIZMTUSDM', use_alfred=False)()
+close_corn = ffill(corn_src.result)
+
+soybean_src = economic_indicators(series_id='PSOYBUSDM', use_alfred=False)()
+close_soybean = ffill(soybean_src.result)
+
+# Softs
+sugar_src = economic_indicators(series_id='PSUGAISAUSDM', use_alfred=False)()
+close_sugar = ffill(sugar_src.result)
+
+coffee_src = economic_indicators(series_id='PCOFFOTMUSDM', use_alfred=False)()
+close_coffee = ffill(coffee_src.result)
+
+cocoa_src = economic_indicators(series_id='PCOCOUSDM', use_alfred=False)()
+close_cocoa = ffill(cocoa_src.result)
+
+cotton_src = economic_indicators(series_id='PCOTTINDUSDM', use_alfred=False)()
+close_cotton = ffill(cotton_src.result)
+
+# Meats
+beef_src = economic_indicators(series_id='PBEEFUSDM', use_alfred=False)()
+close_beef = ffill(beef_src.result)
+
+pork_src = economic_indicators(series_id='PPORKUSDM', use_alfred=False)()
+close_pork = ffill(pork_src.result)
+
+# Lumber
+lumber_src = economic_indicators(series_id='PLOGOREUSDM', use_alfred=False)()
+close_lumber = ffill(lumber_src.result)
+
+# ============================================================================
+# WEEKLY RETURNS over 12 months (52 weeks)
+# Rolling 52-week correlation to match Daily Shot methodology
+# ============================================================================
+
+ret_usd = returns(period=1)(close_usd)
+ret_spy = returns(period=1)(close_spy)
+
+ret_copper = returns(period=1)(close_copper)
+ret_aluminum = returns(period=1)(close_aluminum)
+ret_nickel = returns(period=1)(close_nickel)
+ret_lead = returns(period=1)(close_lead)
+ret_iron_ore = returns(period=1)(close_iron_ore)
+ret_gold = returns(period=1)(close_gold)
+ret_silver = returns(period=1)(close_silver)
+ret_oil = returns(period=1)(close_oil)
+ret_brent = returns(period=1)(close_brent)
+ret_gas = returns(period=1)(close_gas)
+ret_wheat = returns(period=1)(close_wheat)
+ret_corn = returns(period=1)(close_corn)
+ret_soybean = returns(period=1)(close_soybean)
+ret_sugar = returns(period=1)(close_sugar)
+ret_coffee = returns(period=1)(close_coffee)
+ret_cocoa = returns(period=1)(close_cocoa)
+ret_cotton = returns(period=1)(close_cotton)
+ret_beef = returns(period=1)(close_beef)
+ret_pork = returns(period=1)(close_pork)
+ret_lumber = returns(period=1)(close_lumber)
+
+# ============================================================================
+# 20-WEEK ROLLING CORRELATION: USD vs Lumber (xy_lines chart)
+# ============================================================================
+
+corr_lumber_usd_20w = rolling_corr(window=20, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_lumber)
+idx_lumber = index()()
+
+xy_lines(
+    title="USD Index vs Lumber Correlation (20-week Rolling)",
+    category="Time Series",
+    x_axis_label="Week",
+    y_axis_label="Correlation",
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name="Correlation", color=Color.Teal)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title="Zero")
+    ])
+)(idx_lumber, corr_lumber_usd_20w)
+
+# ============================================================================
+# CORRELATION TO USD (52-week rolling on weekly returns)
+# ============================================================================
+
+corr_copper_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_copper)
+corr_aluminum_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_aluminum)
+corr_nickel_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_nickel)
+corr_lead_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_lead)
+corr_iron_ore_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_iron_ore)
+corr_gold_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_gold)
+corr_silver_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_silver)
+corr_oil_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_oil)
+corr_brent_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_brent)
+corr_gas_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_gas)
+corr_wheat_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_wheat)
+corr_corn_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_corn)
+corr_soybean_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_soybean)
+corr_sugar_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_sugar)
+corr_coffee_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_coffee)
+corr_cocoa_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_cocoa)
+corr_cotton_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_cotton)
+corr_beef_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_beef)
+corr_pork_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_pork)
+corr_lumber_usd = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_usd, y=ret_lumber)
+
+# ============================================================================
+# CORRELATION TO S&P 500 (52-week rolling on weekly returns)
+# ============================================================================
+
+corr_copper_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_copper)
+corr_aluminum_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_aluminum)
+corr_nickel_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_nickel)
+corr_lead_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_lead)
+corr_iron_ore_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_iron_ore)
+corr_gold_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_gold)
+corr_silver_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_silver)
+corr_oil_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_oil)
+corr_brent_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_brent)
+corr_gas_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_gas)
+corr_wheat_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_wheat)
+corr_corn_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_corn)
+corr_soybean_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_soybean)
+corr_sugar_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_sugar)
+corr_coffee_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_coffee)
+corr_cocoa_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_cocoa)
+corr_cotton_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_cotton)
+corr_beef_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_beef)
+corr_pork_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_pork)
+corr_lumber_spy = rolling_corr(window=52, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_lumber)
+
+# ============================================================================
+# ============================================================================
+# LABELED SCATTER: All commodities in one chart
+# X-axis: Correlation to USD
+# Y-axis: Correlation to S&P 500
+# ============================================================================
+
+labeled_scatter(
+    title="Commodity Correlations (12M Weekly Returns)",
+    category="Summary",
+    x_axis_label="Correlation to USD Index",
+    y_axis_label="Correlation to S&P 500",
+    x_reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title="Zero")
+    ]),
+    y_reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title="Zero")
+    ]),
+    points=LabeledPointSchema(points=[
+        LabeledPointSpec(label="Copper", color=Color.Orange, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Aluminum", color=Color.Slate, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Nickel", color=Color.Gray, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Lead", color=Color.Zinc, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Iron Ore", color=Color.Stone, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Gold", color=Color.Gold, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Silver", color=Color.Silver, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="WTI Oil", color=Color.Emerald, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Brent", color=Color.Green, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Natural Gas", color=Color.Cyan, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Wheat", color=Color.Amber, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Corn", color=Color.Yellow, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Soybeans", color=Color.Lime, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Sugar", color=Color.Pink, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Coffee", color=Color.Rose, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Cocoa", color=Color.Fuchsia, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Cotton", color=Color.Sky, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Beef", color=Color.Red, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Pork", color=Color.Violet, x_agg=AggregationType.Last, y_agg=AggregationType.Last),
+        LabeledPointSpec(label="Lumber", color=Color.Teal, x_agg=AggregationType.Last, y_agg=AggregationType.Last)
+    ])
+)(
+    corr_copper_usd, corr_copper_spy,
+    corr_aluminum_usd, corr_aluminum_spy,
+    corr_nickel_usd, corr_nickel_spy,
+    corr_lead_usd, corr_lead_spy,
+    corr_iron_ore_usd, corr_iron_ore_spy,
+    corr_gold_usd, corr_gold_spy,
+    corr_silver_usd, corr_silver_spy,
+    corr_oil_usd, corr_oil_spy,
+    corr_brent_usd, corr_brent_spy,
+    corr_gas_usd, corr_gas_spy,
+    corr_wheat_usd, corr_wheat_spy,
+    corr_corn_usd, corr_corn_spy,
+    corr_soybean_usd, corr_soybean_spy,
+    corr_sugar_usd, corr_sugar_spy,
+    corr_coffee_usd, corr_coffee_spy,
+    corr_cocoa_usd, corr_cocoa_spy,
+    corr_cotton_usd, corr_cotton_spy,
+    corr_beef_usd, corr_beef_spy,
+    corr_pork_usd, corr_pork_spy,
+    corr_lumber_usd, corr_lumber_spy
+)

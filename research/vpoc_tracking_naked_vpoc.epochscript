@@ -1,0 +1,495 @@
+Name: VPOC Tracking & Naked VPOC Analysis
+
+Description: Multi-session VPOC tracking research study for equity RTH sessions. Analyzes VPOC migration patterns across 10 sessions, detects naked (untested) VPOCs from 9 prior sessions, and classifies prior-session VPOC test behavior as bounce vs break. Uses valuewhen(occurrence=N) for clean multi-session lookback. Dashboard categories: 6. VPOC Migration, 7. Naked VPOCs, 8. VPOC Test Behavior. Event markers for naked VPOC proximity, VPOC bounces/breaks, and migration streaks.
+
+Assets: SPY-Stocks
+Data Source: polygon
+Timeframe: 1Min
+
+================================================================================
+
+# =============================================================================
+# VPOC TRACKING & NAKED VPOC ANALYSIS — Equity RTH
+# =============================================================================
+# Multi-session VPOC tracking research study.
+# Components:
+#   1. VPOC Migration Tracking (10 sessions)
+#   2. Naked VPOC Detection (9 prior sessions)
+#   3. VPOC Test Behavior Analysis (prior session tests)
+# Session: Equity RTH (09:30-16:00 ET)
+# Resolution: 5-minute bars (78 bars per RTH session)
+# Key technique: valuewhen(occurrence=N) for multi-session lookback
+# =============================================================================
+
+# === DATA SOURCE ===
+src = market_data_source(timeframe=5Min)()
+close = src.c
+high = src.h
+low = src.l
+open_price = src.o
+volume = src.v
+
+# === VOLUME PROFILE (rolling 78-bar window = full session at EOD) ===
+profile = price_profile(mode=ProfileType.volume, window_size=78, tick_size=0.10, value_area_pct=0.7)()
+vpoc = profile.poc
+vah = profile.vah
+val = profile.val
+va_width = profile.va_width
+
+# === SESSION OHLCV ===
+rth_sw = session_window(session=SessionType.EquityRTHSession, agg=[AggregationType.Sum])(open_price, high, low, close, volume)
+s_vol = rth_sw.result
+s_range = rth_sw.high - rth_sw.low
+
+# === EOD DETECTION ===
+bar_idx = index()
+bar_tod = datetime_extract(component=DatetimeExtractionType.time_of_day, timezone='America/New_York')(bar_idx)
+is_eod = bar_tod == 960
+eod_flag = (1.0 if is_eod else 0.0)
+eod_filter = eod_flag / eod_flag
+
+# === SESSION METRICS ===
+day_count = 1.0 * eod_filter
+close_eod = rth_sw.close * eod_filter
+range_eod = s_range * eod_filter
+vol_eod = s_vol * eod_filter
+cum_vol = cumulative(agg=AggregationType.Sum)(vol_eod if is_valid(vol_eod) else 0.0)
+cum_days_vol = cumulative(agg=AggregationType.Sum)(day_count if is_valid(day_count) else 0.0)
+avg_daily_vol = cum_vol / cum_days_vol
+vol_ratio = (vol_eod / avg_daily_vol) * eod_filter
+
+# =============================================================================
+# HISTORICAL VPOC EXTRACTION VIA VALUEWHEN
+# =============================================================================
+# vpoc_s0 = most recent completed session VPOC (occurrence=0)
+vpoc_s0 = valuewhen(occurrence=0)(is_eod, vpoc)
+vpoc_s1 = valuewhen(occurrence=1)(is_eod, vpoc)
+vpoc_s2 = valuewhen(occurrence=2)(is_eod, vpoc)
+vpoc_s3 = valuewhen(occurrence=3)(is_eod, vpoc)
+vpoc_s4 = valuewhen(occurrence=4)(is_eod, vpoc)
+vpoc_s5 = valuewhen(occurrence=5)(is_eod, vpoc)
+vpoc_s6 = valuewhen(occurrence=6)(is_eod, vpoc)
+vpoc_s7 = valuewhen(occurrence=7)(is_eod, vpoc)
+vpoc_s8 = valuewhen(occurrence=8)(is_eod, vpoc)
+vpoc_s9 = valuewhen(occurrence=9)(is_eod, vpoc)
+
+# VA widths and session ranges for prominence detection
+vaw_s1 = valuewhen(occurrence=1)(is_eod, va_width)
+vaw_s2 = valuewhen(occurrence=2)(is_eod, va_width)
+vaw_s3 = valuewhen(occurrence=3)(is_eod, va_width)
+vaw_s4 = valuewhen(occurrence=4)(is_eod, va_width)
+vaw_s5 = valuewhen(occurrence=5)(is_eod, va_width)
+range_s1 = valuewhen(occurrence=1)(is_eod, s_range)
+range_s2 = valuewhen(occurrence=2)(is_eod, s_range)
+range_s3 = valuewhen(occurrence=3)(is_eod, s_range)
+range_s4 = valuewhen(occurrence=4)(is_eod, s_range)
+range_s5 = valuewhen(occurrence=5)(is_eod, s_range)
+
+# =============================================================================
+# COMPONENT 1: VPOC MIGRATION TRACKING (10 Sessions)
+# =============================================================================
+
+# Migration deltas
+mig_chg_0 = (vpoc_s0 - vpoc_s1) * eod_filter
+mig_chg_1 = (vpoc_s1 - vpoc_s2) * eod_filter
+mig_chg_2 = (vpoc_s2 - vpoc_s3) * eod_filter
+mig_chg_3 = (vpoc_s3 - vpoc_s4) * eod_filter
+mig_chg_4 = (vpoc_s4 - vpoc_s5) * eod_filter
+mig_chg_5 = (vpoc_s5 - vpoc_s6) * eod_filter
+mig_chg_6 = (vpoc_s6 - vpoc_s7) * eod_filter
+mig_chg_7 = (vpoc_s7 - vpoc_s8) * eod_filter
+mig_chg_8 = (vpoc_s8 - vpoc_s9) * eod_filter
+
+# Direction flags: 1=up, -1=down, 0=unchanged
+mig_dir_0 = (1.0 if (mig_chg_0 > 0) else (-1.0 if (mig_chg_0 < 0) else 0.0)) * eod_filter
+mig_dir_1 = (1.0 if (mig_chg_1 > 0) else (-1.0 if (mig_chg_1 < 0) else 0.0)) * eod_filter
+mig_dir_2 = (1.0 if (mig_chg_2 > 0) else (-1.0 if (mig_chg_2 < 0) else 0.0)) * eod_filter
+mig_dir_3 = (1.0 if (mig_chg_3 > 0) else (-1.0 if (mig_chg_3 < 0) else 0.0)) * eod_filter
+mig_dir_4 = (1.0 if (mig_chg_4 > 0) else (-1.0 if (mig_chg_4 < 0) else 0.0)) * eod_filter
+mig_dir_5 = (1.0 if (mig_chg_5 > 0) else (-1.0 if (mig_chg_5 < 0) else 0.0)) * eod_filter
+mig_dir_6 = (1.0 if (mig_chg_6 > 0) else (-1.0 if (mig_chg_6 < 0) else 0.0)) * eod_filter
+mig_dir_7 = (1.0 if (mig_chg_7 > 0) else (-1.0 if (mig_chg_7 < 0) else 0.0)) * eod_filter
+mig_dir_8 = (1.0 if (mig_chg_8 > 0) else (-1.0 if (mig_chg_8 < 0) else 0.0)) * eod_filter
+
+# Summary stats
+net_migration = (vpoc_s0 - vpoc_s9) * eod_filter
+avg_daily_shift = (abs(mig_chg_0) + abs(mig_chg_1) + abs(mig_chg_2) + abs(mig_chg_3) + abs(mig_chg_4) + abs(mig_chg_5) + abs(mig_chg_6) + abs(mig_chg_7) + abs(mig_chg_8)) / 9.0 * eod_filter
+
+# Up/down counts
+mig_up_0 = (1.0 if (mig_dir_0 > 0) else 0.0) * eod_filter
+mig_up_1 = (1.0 if (mig_dir_1 > 0) else 0.0) * eod_filter
+mig_up_2 = (1.0 if (mig_dir_2 > 0) else 0.0) * eod_filter
+mig_up_3 = (1.0 if (mig_dir_3 > 0) else 0.0) * eod_filter
+mig_up_4 = (1.0 if (mig_dir_4 > 0) else 0.0) * eod_filter
+mig_up_5 = (1.0 if (mig_dir_5 > 0) else 0.0) * eod_filter
+mig_up_6 = (1.0 if (mig_dir_6 > 0) else 0.0) * eod_filter
+mig_up_7 = (1.0 if (mig_dir_7 > 0) else 0.0) * eod_filter
+mig_up_8 = (1.0 if (mig_dir_8 > 0) else 0.0) * eod_filter
+mig_up_count = (mig_up_0 + mig_up_1 + mig_up_2 + mig_up_3 + mig_up_4 + mig_up_5 + mig_up_6 + mig_up_7 + mig_up_8) * eod_filter
+mig_down_count = (9.0 - mig_up_count) * eod_filter
+
+# Consecutive streak from most recent
+streak_2 = (1.0 if (mig_dir_0 == mig_dir_1) else 0.0) * eod_filter
+streak_3 = (1.0 if (mig_dir_0 == mig_dir_1 and mig_dir_1 == mig_dir_2) else 0.0) * eod_filter
+streak_4 = (1.0 if (mig_dir_0 == mig_dir_1 and mig_dir_1 == mig_dir_2 and mig_dir_2 == mig_dir_3) else 0.0) * eod_filter
+streak_5 = (1.0 if (mig_dir_0 == mig_dir_1 and mig_dir_1 == mig_dir_2 and mig_dir_2 == mig_dir_3 and mig_dir_3 == mig_dir_4) else 0.0) * eod_filter
+streak_len = (1.0 + streak_2 + streak_3 + streak_4 + streak_5) * eod_filter
+current_dir = mig_dir_0
+mig_trend_flag = (1.0 if (mig_up_count >= 7 or mig_down_count >= 7) else 0.0) * eod_filter
+
+# =============================================================================
+# COMPONENT 2: NAKED VPOC DETECTION (Sessions s1-s9)
+# =============================================================================
+# Rolling min/max over N*78 bars to check if price traded through VPOC level
+
+rolling_low_1 = min(period=78)(low)
+rolling_high_1 = max(period=78)(high)
+rolling_low_2 = min(period=156)(low)
+rolling_high_2 = max(period=156)(high)
+rolling_low_3 = min(period=234)(low)
+rolling_high_3 = max(period=234)(high)
+rolling_low_4 = min(period=312)(low)
+rolling_high_4 = max(period=312)(high)
+rolling_low_5 = min(period=390)(low)
+rolling_high_5 = max(period=390)(high)
+rolling_low_6 = min(period=468)(low)
+rolling_high_6 = max(period=468)(high)
+rolling_low_7 = min(period=546)(low)
+rolling_high_7 = max(period=546)(high)
+rolling_low_8 = min(period=624)(low)
+rolling_high_8 = max(period=624)(high)
+rolling_low_9 = min(period=702)(low)
+rolling_high_9 = max(period=702)(high)
+
+# Tested: price range encompassed the VPOC level since that session
+tested_s1 = (rolling_low_1 <= vpoc_s1 and rolling_high_1 >= vpoc_s1) if is_eod else False
+tested_s2 = (rolling_low_2 <= vpoc_s2 and rolling_high_2 >= vpoc_s2) if is_eod else False
+tested_s3 = (rolling_low_3 <= vpoc_s3 and rolling_high_3 >= vpoc_s3) if is_eod else False
+tested_s4 = (rolling_low_4 <= vpoc_s4 and rolling_high_4 >= vpoc_s4) if is_eod else False
+tested_s5 = (rolling_low_5 <= vpoc_s5 and rolling_high_5 >= vpoc_s5) if is_eod else False
+tested_s6 = (rolling_low_6 <= vpoc_s6 and rolling_high_6 >= vpoc_s6) if is_eod else False
+tested_s7 = (rolling_low_7 <= vpoc_s7 and rolling_high_7 >= vpoc_s7) if is_eod else False
+tested_s8 = (rolling_low_8 <= vpoc_s8 and rolling_high_8 >= vpoc_s8) if is_eod else False
+tested_s9 = (rolling_low_9 <= vpoc_s9 and rolling_high_9 >= vpoc_s9) if is_eod else False
+
+# Naked flags
+naked_s1 = (not tested_s1) if is_eod else False
+naked_s2 = (not tested_s2) if is_eod else False
+naked_s3 = (not tested_s3) if is_eod else False
+naked_s4 = (not tested_s4) if is_eod else False
+naked_s5 = (not tested_s5) if is_eod else False
+naked_s6 = (not tested_s6) if is_eod else False
+naked_s7 = (not tested_s7) if is_eod else False
+naked_s8 = (not tested_s8) if is_eod else False
+naked_s9 = (not tested_s9) if is_eod else False
+
+# Naked count
+nk1 = (1.0 if naked_s1 else 0.0) * eod_filter
+nk2 = (1.0 if naked_s2 else 0.0) * eod_filter
+nk3 = (1.0 if naked_s3 else 0.0) * eod_filter
+nk4 = (1.0 if naked_s4 else 0.0) * eod_filter
+nk5 = (1.0 if naked_s5 else 0.0) * eod_filter
+nk6 = (1.0 if naked_s6 else 0.0) * eod_filter
+nk7 = (1.0 if naked_s7 else 0.0) * eod_filter
+nk8 = (1.0 if naked_s8 else 0.0) * eod_filter
+nk9 = (1.0 if naked_s9 else 0.0) * eod_filter
+total_naked = (nk1 + nk2 + nk3 + nk4 + nk5 + nk6 + nk7 + nk8 + nk9) * eod_filter
+
+# Distances (points and fraction for PercentFormat)
+dist_s1 = abs(rth_sw.close - vpoc_s1) * eod_filter
+dist_s2 = abs(rth_sw.close - vpoc_s2) * eod_filter
+dist_s3 = abs(rth_sw.close - vpoc_s3) * eod_filter
+dist_s4 = abs(rth_sw.close - vpoc_s4) * eod_filter
+dist_s5 = abs(rth_sw.close - vpoc_s5) * eod_filter
+dpct_s1 = dist_s1 / close_eod
+dpct_s2 = dist_s2 / close_eod
+dpct_s3 = dist_s3 / close_eod
+dpct_s4 = dist_s4 / close_eod
+dpct_s5 = dist_s5 / close_eod
+
+# Tested numeric for table display (1=tested, 0=naked)
+tn1 = (1.0 if tested_s1 else 0.0) * eod_filter
+tn2 = (1.0 if tested_s2 else 0.0) * eod_filter
+tn3 = (1.0 if tested_s3 else 0.0) * eod_filter
+tn4 = (1.0 if tested_s4 else 0.0) * eod_filter
+tn5 = (1.0 if tested_s5 else 0.0) * eod_filter
+
+# Prominent VPOC: narrow VA relative to session range (< 0.5)
+prom_s1 = (1.0 if (vaw_s1 / range_s1 < 0.5) else 0.0) * eod_filter
+prom_s2 = (1.0 if (vaw_s2 / range_s2 < 0.5) else 0.0) * eod_filter
+prom_s3 = (1.0 if (vaw_s3 / range_s3 < 0.5) else 0.0) * eod_filter
+prom_s4 = (1.0 if (vaw_s4 / range_s4 < 0.5) else 0.0) * eod_filter
+prom_s5 = (1.0 if (vaw_s5 / range_s5 < 0.5) else 0.0) * eod_filter
+
+# High-priority: naked and within 1% of current close
+hp1 = (1.0 if (naked_s1 and dpct_s1 < 0.01) else 0.0) * eod_filter
+hp2 = (1.0 if (naked_s2 and dpct_s2 < 0.01) else 0.0) * eod_filter
+hp3 = (1.0 if (naked_s3 and dpct_s3 < 0.01) else 0.0) * eod_filter
+hp4 = (1.0 if (naked_s4 and dpct_s4 < 0.01) else 0.0) * eod_filter
+hp5 = (1.0 if (naked_s5 and dpct_s5 < 0.01) else 0.0) * eod_filter
+hp_count = (hp1 + hp2 + hp3 + hp4 + hp5) * eod_filter
+
+# Nearest naked VPOC distance
+nd1 = (dist_s1 if naked_s1 else 9999.0) if is_eod else 9999.0
+nd2 = (dist_s2 if naked_s2 else 9999.0) if is_eod else 9999.0
+nd3 = (dist_s3 if naked_s3 else 9999.0) if is_eod else 9999.0
+nd4 = (dist_s4 if naked_s4 else 9999.0) if is_eod else 9999.0
+nd5 = (dist_s5 if naked_s5 else 9999.0) if is_eod else 9999.0
+na1 = (nd1 if (nd1 <= nd2) else nd2)
+na2 = (na1 if (na1 <= nd3) else nd3)
+na3 = (na2 if (na2 <= nd4) else nd4)
+nearest_naked_dist = (na3 if (na3 <= nd5) else nd5) * eod_filter
+nearest_naked_pct = nearest_naked_dist / close_eod
+
+# =============================================================================
+# COMPONENT 3: VPOC TEST BEHAVIOR ANALYSIS (Prior Session)
+# =============================================================================
+
+prior_vpoc = vpoc_s1
+
+# Did current session test prior VPOC?
+tested_prior_vpoc = (rth_sw.low <= prior_vpoc and rth_sw.high >= prior_vpoc) if is_eod else False
+
+# Direction of approach
+approach_from_above = (rth_sw.open > prior_vpoc) if is_eod else False
+approach_from_below = (rth_sw.open < prior_vpoc) if is_eod else False
+
+# Outcome classification
+vpoc_bounce = (tested_prior_vpoc and ((approach_from_above and rth_sw.close > prior_vpoc) or (approach_from_below and rth_sw.close < prior_vpoc))) if is_eod else False
+vpoc_break = (tested_prior_vpoc and ((approach_from_above and rth_sw.close <= prior_vpoc) or (approach_from_below and rth_sw.close >= prior_vpoc))) if is_eod else False
+
+# Numeric flags
+tested_pv_flag = (1.0 if tested_prior_vpoc else 0.0) * eod_filter
+bounce_flag = (1.0 if vpoc_bounce else 0.0) * eod_filter
+break_flag = (1.0 if vpoc_break else 0.0) * eod_filter
+untested_flag = (day_count - tested_pv_flag)
+
+# Approach direction flags
+from_above_flag = (1.0 if (tested_prior_vpoc and approach_from_above) else 0.0) * eod_filter
+from_below_flag = (1.0 if (tested_prior_vpoc and approach_from_below) else 0.0) * eod_filter
+
+# Cumulative statistics
+cum_tests = cumulative(agg=AggregationType.Sum)(tested_pv_flag if is_valid(tested_pv_flag) else 0.0)
+cum_bounces = cumulative(agg=AggregationType.Sum)(bounce_flag if is_valid(bounce_flag) else 0.0)
+cum_breaks = cumulative(agg=AggregationType.Sum)(break_flag if is_valid(break_flag) else 0.0)
+cum_from_above = cumulative(agg=AggregationType.Sum)(from_above_flag if is_valid(from_above_flag) else 0.0)
+cum_from_below = cumulative(agg=AggregationType.Sum)(from_below_flag if is_valid(from_below_flag) else 0.0)
+
+# Rates as fractions (PercentFormat will display as %)
+bounce_rate = (cum_bounces / cum_tests) * eod_filter
+break_rate = (cum_breaks / cum_tests) * eod_filter
+pct_from_above = (cum_from_above / cum_tests) * eod_filter
+pct_from_below = (cum_from_below / cum_tests) * eod_filter
+
+# =============================================================================
+# DASHBOARD — 6. VPOC MIGRATION
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='VPOC Migration (10 Sessions)',
+        cells=[
+            ColumnSpec(title='Net Migration (pts)', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2, card_slot=CardSlot.Hero, card_color_map={Color.Success: ['POSITIVE'], Color.Error: ['NEGATIVE']}),
+            ColumnSpec(title='Avg Daily Shift', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='Streak Length', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(title='Current Dir', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0, info='1=Up, -1=Down, 0=Flat'),
+            ColumnSpec(title='Trending?', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0, info='1=Trending (7+ same dir)')
+        ]
+    ),
+    category='6. VPOC Migration'
+)(net_migration, avg_daily_shift, streak_len, current_dir, mig_trend_flag)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Recent VPOC Migration',
+        row_size=5,
+        col_size=3,
+        row_headers=['Most Recent', '2 Sessions Ago', '3 Sessions Ago', '4 Sessions Ago', '5 Sessions Ago'],
+        col_headers=['VPOC Level', 'Change (pts)', 'Direction'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2, grid_color_map={Color.Success: ['POSITIVE'], Color.Error: ['NEGATIVE']}),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2, grid_color_map={Color.Success: ['POSITIVE'], Color.Error: ['NEGATIVE']}),
+            ColumnSpec(grid_row=1, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2, grid_color_map={Color.Success: ['POSITIVE'], Color.Error: ['NEGATIVE']}),
+            ColumnSpec(grid_row=2, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2, grid_color_map={Color.Success: ['POSITIVE'], Color.Error: ['NEGATIVE']}),
+            ColumnSpec(grid_row=3, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2, grid_color_map={Color.Success: ['POSITIVE'], Color.Error: ['NEGATIVE']}),
+            ColumnSpec(grid_row=4, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0)
+        ]
+    ),
+    category='6. VPOC Migration'
+)(vpoc_s0 * eod_filter, mig_chg_0, mig_dir_0, vpoc_s1 * eod_filter, mig_chg_1, mig_dir_1, vpoc_s2 * eod_filter, mig_chg_2, mig_dir_2, vpoc_s3 * eod_filter, mig_chg_3, mig_dir_3, vpoc_s4 * eod_filter, mig_chg_4, mig_dir_4)
+
+xy_bars(
+    title='Migration Direction (Last 9 Sessions)',
+    category='6. VPOC Migration',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Migrated Up', color=Color.Success),
+        BarSeriesSpec(name='Migrated Down', color=Color.Error)
+    ])
+)(mig_up_count, mig_down_count)
+
+# =============================================================================
+# DASHBOARD — 7. NAKED VPOCs
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Naked VPOC Summary',
+        cells=[
+            ColumnSpec(title='Total Naked VPOCs', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0, card_slot=CardSlot.Hero, card_color=Color.Warning),
+            ColumnSpec(title='Nearest Naked (pts)', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='Nearest Naked (%)', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(title='High-Priority (<1%)', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0, card_color=Color.Error)
+        ]
+    ),
+    category='7. Naked VPOCs'
+)(total_naked, nearest_naked_dist, nearest_naked_pct, hp_count)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Naked VPOC Levels (5 Most Recent)',
+        row_size=5,
+        col_size=5,
+        row_headers=['1 Session Ago', '2 Sessions Ago', '3 Sessions Ago', '4 Sessions Ago', '5 Sessions Ago'],
+        col_headers=['VPOC Level', 'Tested?', 'Dist (pts)', 'Dist (%)', 'Prominent?'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=4, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=1, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=3, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=4, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=2, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=3, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=4, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=3, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=3, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=4, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=4, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=3, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=4, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0)
+        ]
+    ),
+    category='7. Naked VPOCs'
+)(vpoc_s1 * eod_filter, tn1, dist_s1, dpct_s1, prom_s1, vpoc_s2 * eod_filter, tn2, dist_s2, dpct_s2, prom_s2, vpoc_s3 * eod_filter, tn3, dist_s3, dpct_s3, prom_s3, vpoc_s4 * eod_filter, tn4, dist_s4, dpct_s4, prom_s4, vpoc_s5 * eod_filter, tn5, dist_s5, dpct_s5, prom_s5)
+
+# =============================================================================
+# DASHBOARD — 8. VPOC TEST BEHAVIOR
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='VPOC Test Behavior (Prior Session)',
+        cells=[
+            ColumnSpec(title='Bounce Rate', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero, card_color=Color.Success),
+            ColumnSpec(title='Break Rate', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1, card_color=Color.Error),
+            ColumnSpec(title='Total Tests', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(title='From Above', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(title='From Below', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1)
+        ]
+    ),
+    category='8. VPOC Test Behavior'
+)(bounce_rate, break_rate, cum_tests * eod_filter, pct_from_above, pct_from_below)
+
+xy_bars(
+    title='Prior VPOC Test Outcomes',
+    category='8. VPOC Test Behavior',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Bounce (Defended)', color=Color.Success),
+        BarSeriesSpec(name='Break (Accepted)', color=Color.Error),
+        BarSeriesSpec(name='Untested', color=Color.Gray)
+    ])
+)(bounce_flag, break_flag, untested_flag)
+
+# =============================================================================
+# EVENT MARKERS
+# =============================================================================
+
+# Naked VPOC Nearby (any naked VPOC within 1% of current close)
+any_naked_nearby = ((naked_s1 and dpct_s1 < 0.01) or (naked_s2 and dpct_s2 < 0.01) or (naked_s3 and dpct_s3 < 0.01) or (naked_s4 and dpct_s4 < 0.01) or (naked_s5 and dpct_s5 < 0.01)) if is_eod else False
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Naked VPOC Nearby',
+        icon=Icon.TargetIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Naked VPOCs', type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='Nearest (pts)', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Nearest (%)', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Close', type=CardRenderType.MonetaryFormat, dp=2)
+        ]
+    )
+)(any_naked_nearby, total_naked, nearest_naked_dist, nearest_naked_pct, close_eod)
+
+# VPOC Bounce marker
+event_marker(
+    schema=EventMarkerSchema(
+        title='VPOC Bounce',
+        icon=Icon.ArrowUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Prior VPOC', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='Close', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Vol Ratio', type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    )
+)(vpoc_bounce, vpoc_s1 * eod_filter, close_eod, vol_ratio)
+
+# VPOC Break marker
+event_marker(
+    schema=EventMarkerSchema(
+        title='VPOC Break',
+        icon=Icon.ArrowDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Prior VPOC', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='Close', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Vol Ratio', type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    )
+)(vpoc_break, vpoc_s1 * eod_filter, close_eod, vol_ratio)
+
+# VPOC Migration Streak (5+ same direction)
+is_long_streak = (streak_len >= 5) if is_eod else False
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='VPOC Migration Streak (5+)',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Streak Length', type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='Direction', type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(card_slot=CardSlot.Details, title='Net Migration', type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    )
+)(is_long_streak, streak_len, current_dir, net_migration)

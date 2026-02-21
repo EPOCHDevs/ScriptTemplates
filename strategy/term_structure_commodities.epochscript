@@ -1,0 +1,62 @@
+Name: Term Structure Effect in Commodities (Quantpedia #0022)
+
+Description: Sort 20 commodity futures by carry (front/back - 1). Go long top quintile (4 assets, backwardation), short bottom quintile (4 assets, contango). Equal weight 1/N per leg (100% long + 100% short). Monthly rebalance. Matches Quantpedia #0022 universe exactly.
+
+Assets: CL-Futures, HO-Futures, NG-Futures, RB-Futures, GC-Futures, SI-Futures, PL-Futures, PA-Futures, HG-Futures, ZC-Futures, ZW-Futures, ZS-Futures, ZM-Futures, ZO-Futures, SB-Futures, CC-Futures, LB-Futures, LE-Futures, HE-Futures, GF-Futures
+Data Source: polygon
+Timeframe: 1D
+
+================================================================================
+
+# Term Structure Effect in Commodities (Quantpedia #0022)
+# Source: Gorton, Hayashi, Rouwenhorst - "The Fundamentals of Commodity Futures Returns"
+#
+# RULES:
+# - Universe: 22 commodity futures (energies, metals, grains, softs, meats)
+# - Signal: Carry (roll return) = front close / back close - 1
+# - Selection: Long top 20% (highest carry = backwardation), Short bottom 20% (lowest carry = contango)
+# - Weighting: Equal weight within long/short portfolios
+# - Rebalancing: Monthly (first trading day)
+
+# Raw contract data
+src = market_data_source(timeframe=1D)()
+
+# Continuation series
+cont = futures_continuation(timeframe=1D, s_rollover_method=RolloverType.FirstOfMonth, s_adjustment_method=AdjustmentType.BackwardPanamaCanal)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+
+# Carry signal: positive = backwardation, negative = contango
+carry = cont.carry
+
+# Cross-sectional selection: top/bottom quintile = int(N/5) = 4 assets per leg
+# Quantpedia: quantile = int(len(sorted_by_roll) / 5); long = sorted[:quantile]; short = sorted[-quantile:]
+is_long = cs_select(direction=CSSelectDirection.top, mode=CSSelectMode.count, k=4)(carry)
+is_short = cs_select(direction=CSSelectDirection.bottom, mode=CSSelectMode.count, k=4)(carry)
+
+# Detect first trading day of month
+is_new_month = is_period_boundary(period=PeriodType.month)(index())
+
+# Monthly rebalance signals for LONG positions
+enter_long = is_new_month and is_long
+exit_long = is_new_month and not is_long
+held_long = hold_until()(enter=enter_long, exit=exit_long)
+
+# Monthly rebalance signals for SHORT positions
+enter_short = is_new_month and is_short
+exit_short = is_new_month and not is_short
+held_short = hold_until()(enter=enter_short, exit=exit_short)
+
+# Entry/Exit zones
+long_and_short_zone()(long_entry=held_long, short_entry=held_short)
+
+# Contract selection
+rollover_policy()(active=cont.s)
+
+# Equal weight SEPARATELY for long and short legs (matches Quantpedia sizing)
+# Quantpedia: SetHoldings(symbol, 1/len(longs)) for longs, -1/len(shorts) for shorts
+# This gives 100% long + 100% short gross exposure
+long_weights = equal_weight()(held_long)
+short_weights = equal_weight()(held_short)
+weights = long_weights + short_weights
+
+# Position sizing - ONLY rebalance on first trading day of month
+position_size(type=SizeType.percent)(size=weights * 100, rebalance_on=is_new_month)

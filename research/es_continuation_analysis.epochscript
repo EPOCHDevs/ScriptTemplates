@@ -1,0 +1,229 @@
+Name: ES Futures Continuation Analysis
+
+Description: Comprehensive analysis of ES futures continuation: compares all 4 adjustment methods x 3 rollover strategies. Evaluates return distributions, cumulative performance, and volatility metrics across 10 years of data.
+
+Assets: ES-Futures
+Data Source: polygon
+Timeframe: 1D
+
+================================================================================
+
+# ES Futures Continuation Analysis
+# Compare adjustment methods and rollover strategies across 10 years
+
+# Raw contract data
+src = market_data_source(timeframe=1D)()
+
+# ============================================================
+# ADJUSTMENT METHOD COMPARISON (all FirstOfMonth rollover)
+# ============================================================
+
+# 1. BackwardPanamaCanal (baseline)
+cont_bpc = futures_continuation(timeframe=1D, s_rollover_method=RolloverType.FirstOfMonth, s_adjustment_method=AdjustmentType.BackwardPanamaCanal)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+ret_bpc = roc(period=1)(cont_bpc.c)
+cum_bpc = cumulative(agg=AggregationType.Product)(1 + ret_bpc) - 1
+vol_bpc = stddev(period=21)(ret_bpc)
+
+# 2. BackwardRatio
+cont_br = futures_continuation(timeframe=1D, s_rollover_method=RolloverType.FirstOfMonth, s_adjustment_method=AdjustmentType.BackwardRatio)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+ret_br = roc(period=1)(cont_br.c)
+cum_br = cumulative(agg=AggregationType.Product)(1 + ret_br) - 1
+vol_br = stddev(period=21)(ret_br)
+
+# 3. ForwardPanamaCanal
+cont_fpc = futures_continuation(timeframe=1D, s_rollover_method=RolloverType.FirstOfMonth, s_adjustment_method=AdjustmentType.ForwardPanamaCanal)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+ret_fpc = roc(period=1)(cont_fpc.c)
+cum_fpc = cumulative(agg=AggregationType.Product)(1 + ret_fpc) - 1
+vol_fpc = stddev(period=21)(ret_fpc)
+
+# 4. ForwardRatio
+cont_fr = futures_continuation(timeframe=1D, s_rollover_method=RolloverType.FirstOfMonth, s_adjustment_method=AdjustmentType.ForwardRatio)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+ret_fr = roc(period=1)(cont_fr.c)
+cum_fr = cumulative(agg=AggregationType.Product)(1 + ret_fr) - 1
+vol_fr = stddev(period=21)(ret_fr)
+
+# ============================================================
+# ROLLOVER METHOD COMPARISON (all BackwardPanamaCanal)
+# ============================================================
+
+# 5. LastTradingDay (offset=3)
+cont_ltd = futures_continuation(timeframe=1D, s_rollover_method=RolloverType.LastTradingDay, s_adjustment_method=AdjustmentType.BackwardPanamaCanal, i_offset=3)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+ret_ltd = roc(period=1)(cont_ltd.c)
+cum_ltd = cumulative(agg=AggregationType.Product)(1 + ret_ltd) - 1
+vol_ltd = stddev(period=21)(ret_ltd)
+
+# 6. LiquidityBased
+cont_liq = futures_continuation(timeframe=1D, s_rollover_method=RolloverType.LiquidityBased, s_adjustment_method=AdjustmentType.BackwardPanamaCanal)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+ret_liq = roc(period=1)(cont_liq.c)
+cum_liq = cumulative(agg=AggregationType.Product)(1 + ret_liq) - 1
+vol_liq = stddev(period=21)(ret_liq)
+
+# Bar index for x-axis
+bar_index = index()
+
+# ============================================================
+# 0. CUMULATIVE PERFORMANCE — Adjustment Methods (overlaid)
+# ============================================================
+xy_lines(
+    title="Cumulative Returns: All Adjustment Methods",
+    category="0. Cumulative Performance",
+    x_axis_label="Trading Day",
+    y_axis_label="Cumulative Return",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Backward Panama', color=Color.Blue),
+        LineSeriesSpec(name='Backward Ratio', color=Color.Green),
+        LineSeriesSpec(name='Forward Panama', color=Color.Orange),
+        LineSeriesSpec(name='Forward Ratio', color=Color.Purple)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title='Breakeven')])
+)(bar_index, cum_bpc, cum_br, cum_fpc, cum_fr)
+
+# ============================================================
+# 0a. ROLLING VOLATILITY — Adjustment Methods (overlaid)
+# ============================================================
+xy_lines(
+    title="21-Day Rolling Volatility: All Adjustment Methods",
+    category="0a. Rolling Volatility",
+    x_axis_label="Trading Day",
+    y_axis_label="Volatility (StdDev)",
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Backward Panama', color=Color.Blue),
+        LineSeriesSpec(name='Backward Ratio', color=Color.Green),
+        LineSeriesSpec(name='Forward Panama', color=Color.Orange),
+        LineSeriesSpec(name='Forward Ratio', color=Color.Purple)
+    ])
+)(bar_index, vol_bpc, vol_br, vol_fpc, vol_fr)
+
+# ============================================================
+# 0b. CUMULATIVE PERFORMANCE — Rollover Methods (overlaid)
+# ============================================================
+xy_lines(
+    title="Cumulative Returns: All Rollover Methods",
+    category="0b. Rollover Comparison",
+    x_axis_label="Trading Day",
+    y_axis_label="Cumulative Return",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='FirstOfMonth', color=Color.Blue),
+        LineSeriesSpec(name='LastTradingDay (offset=3)', color=Color.Green),
+        LineSeriesSpec(name='LiquidityBased', color=Color.Orange)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title='Breakeven')])
+)(bar_index, cum_bpc, cum_ltd, cum_liq)
+
+# ============================================================
+# 1. METHOD CORRELATION — Do adjustment methods produce different returns?
+# If scatter hugs the diagonal, methods are interchangeable
+# ============================================================
+xy_scatter(
+    title="Backward Panama vs Backward Ratio Returns",
+    category="1. Method Correlation",
+    x_axis_label="Backward Panama Daily Return",
+    y_axis_label="Daily Return",
+    x_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=ScatterSeriesSchema(series=[
+        ScatterSeriesSpec(name='Backward Ratio', color=Color.Green, marker=MarkerSymbol.CircleMarker)
+    ])
+)(ret_bpc, ret_br)
+
+xy_scatter(
+    title="Backward Panama vs Forward Panama Returns",
+    category="1. Method Correlation",
+    x_axis_label="Backward Panama Daily Return",
+    y_axis_label="Daily Return",
+    x_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=ScatterSeriesSchema(series=[
+        ScatterSeriesSpec(name='Forward Panama', color=Color.Orange, marker=MarkerSymbol.DiamondMarker)
+    ])
+)(ret_bpc, ret_fpc)
+
+xy_scatter(
+    title="Backward Panama vs Forward Ratio Returns",
+    category="1. Method Correlation",
+    x_axis_label="Backward Panama Daily Return",
+    y_axis_label="Daily Return",
+    x_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=ScatterSeriesSchema(series=[
+        ScatterSeriesSpec(name='Forward Ratio', color=Color.Purple, marker=MarkerSymbol.TriangleMarker)
+    ])
+)(ret_bpc, ret_fr)
+
+# ============================================================
+# 2. RETURN DISTRIBUTIONS — Adjustment Methods
+# ============================================================
+histogram(
+    title="Returns: Backward Panama Canal",
+    category="2. Return Distributions",
+    x_axis_label="Daily Return",
+    y_axis_label="Frequency",
+    bins=50,
+    x_axis_format=AxisValueFormat.PercentFormat,
+    fill_color=Color.Blue
+)(value=ret_bpc)
+
+histogram(
+    title="Returns: Backward Ratio",
+    category="2. Return Distributions",
+    x_axis_label="Daily Return",
+    y_axis_label="Frequency",
+    bins=50,
+    x_axis_format=AxisValueFormat.PercentFormat,
+    fill_color=Color.Green
+)(value=ret_br)
+
+histogram(
+    title="Returns: Forward Panama Canal",
+    category="2. Return Distributions",
+    x_axis_label="Daily Return",
+    y_axis_label="Frequency",
+    bins=50,
+    x_axis_format=AxisValueFormat.PercentFormat,
+    fill_color=Color.Orange
+)(value=ret_fpc)
+
+histogram(
+    title="Returns: Forward Ratio",
+    category="2. Return Distributions",
+    x_axis_label="Daily Return",
+    y_axis_label="Frequency",
+    bins=50,
+    x_axis_format=AxisValueFormat.PercentFormat,
+    fill_color=Color.Purple
+)(value=ret_fr)
+
+# ============================================================
+# 3. ROLLOVER DISTRIBUTIONS
+# ============================================================
+histogram(
+    title="Returns: FirstOfMonth Roll",
+    category="3. Rollover Distributions",
+    x_axis_label="Daily Return",
+    y_axis_label="Frequency",
+    bins=50,
+    x_axis_format=AxisValueFormat.PercentFormat,
+    fill_color=Color.Blue
+)(value=ret_bpc)
+
+histogram(
+    title="Returns: LastTradingDay Roll (offset=3)",
+    category="3. Rollover Distributions",
+    x_axis_label="Daily Return",
+    y_axis_label="Frequency",
+    bins=50,
+    x_axis_format=AxisValueFormat.PercentFormat,
+    fill_color=Color.Green
+)(value=ret_ltd)
+
+histogram(
+    title="Returns: LiquidityBased Roll",
+    category="3. Rollover Distributions",
+    x_axis_label="Daily Return",
+    y_axis_label="Frequency",
+    bins=50,
+    x_axis_format=AxisValueFormat.PercentFormat,
+    fill_color=Color.Orange
+)(value=ret_liq)

@@ -1,0 +1,717 @@
+Name: Volume Profile Session Analysis
+
+Description: Comprehensive volume profile analysis for equity RTH sessions. Computes VPOC, Value Area (VAH/VAL), Initial Balance (first 30 min), close position analysis, IB extension ratios, day type classification (Dalton), and profile shape classification (P/b/D/Elongated). Uses 5-minute bars with price_profile transform in volume mode.
+
+Assets: SPY-Stocks
+Data Source: polygon
+Timeframe: 1Min
+
+================================================================================
+
+# =============================================================================
+# VOLUME PROFILE SESSION ANALYSIS — Equity RTH
+# =============================================================================
+# Comprehensive Market Profile / Auction Theory analysis per session.
+# Computes: VPOC, VAH, VAL, IB, close analysis, day type, profile shape.
+# Session: Equity RTH (09:30-16:00 ET)
+# Initial Balance: First 30 minutes (09:30-10:00 ET)
+# Resolution: 5-minute bars (78 bars per RTH session)
+# =============================================================================
+
+# === DATA SOURCE ===
+src = market_data_source(timeframe=5Min)()
+close = src.c
+high = src.h
+low = src.l
+open_price = src.o
+volume = src.v
+
+# === VOLUME PROFILE (rolling 78-bar window = full session at EOD) ===
+# At EOD, the 78-bar window aligns with the complete RTH session.
+# tick_size=0.10 gives ~30-100 bins for typical SPY daily range.
+profile = price_profile(mode=ProfileType.volume, window_size=78, tick_size=0.10, value_area_pct=0.7, ib_periods=6)()
+vpoc = profile.poc
+vah = profile.vah
+val = profile.val
+va_width = profile.va_width
+
+# === SESSION OHLCV (session_window: OHLC + volume Sum) ===
+rth_sw = session_window(session=SessionType.EquityRTHSession, agg=[AggregationType.Sum])(open_price, high, low, close, volume)
+s_open = rth_sw.open
+s_high = rth_sw.high
+s_low = rth_sw.low
+s_close = rth_sw.close
+s_vol = rth_sw.result
+s_range = s_high - s_low
+
+# === INITIAL BALANCE (09:30-10:00 ET = first 30 minutes) ===
+ib_sw = session_window(session=Session(start='09:30', end='10:00', tz='America/New_York'))(open_price, high, low, close)
+ib_high_raw = ib_sw.high
+ib_low_raw = ib_sw.low
+ib_h = ffill_day(ib_high_raw)
+ib_l = ffill_day(ib_low_raw)
+ib_mid = (ib_h + ib_l) / 2
+ib_width = ib_h - ib_l
+
+# === VWAP ===
+session_vwap = vwap()()
+
+# === PRIOR DAY LEVELS ===
+prev_hl = previous_high_low(type=SessionTimeframe.day)()
+prior_high = prev_hl.previous_high
+prior_low = prev_hl.previous_low
+
+# === EOD DETECTION (datetime_extract — exactly 1 bar per day) ===
+# Use time_of_day component: 960 = minutes since midnight at 16:00 ET (session close)
+bar_idx = index()
+bar_tod = datetime_extract(component=DatetimeExtractionType.time_of_day, timezone='America/New_York')(bar_idx)
+is_eod = bar_tod == 960
+eod_flag = (1.0 if is_eod else 0.0)
+eod_filter = eod_flag / eod_flag
+
+# === IB VALIDITY GUARD (NaN out metrics when IB width ~ 0) ===
+# Prevents inf in extension ratios from division by zero IB width
+ib_valid_flag = (1.0 if (ib_width > 0.05) else 0.0) * eod_filter
+ib_valid_filter = ib_valid_flag / ib_valid_flag
+
+# =============================================================================
+# SESSION METRICS (EOD only via eod_filter — NaN on non-EOD bars)
+# =============================================================================
+
+# Session OHLC at EOD
+day_count = 1.0 * eod_filter
+open_eod = s_open * eod_filter
+high_eod = s_high * eod_filter
+low_eod = s_low * eod_filter
+close_eod = s_close * eod_filter
+vol_eod = s_vol * eod_filter
+range_eod = s_range * eod_filter
+range_pct = (s_range / s_close * 100) * eod_filter
+
+# Volume conviction (cumulative average comparison)
+cum_vol = cumulative(agg=AggregationType.Sum)(vol_eod if is_valid(vol_eod) else 0.0)
+cum_days_vol = cumulative(agg=AggregationType.Sum)(day_count if is_valid(day_count) else 0.0)
+avg_daily_vol = cum_vol / cum_days_vol
+vol_ratio = (vol_eod / avg_daily_vol) * eod_filter
+vol_low = (1.0 if (vol_ratio < 0.8) else 0.0) * eod_filter
+vol_normal = (1.0 if (vol_ratio >= 0.8 and vol_ratio <= 1.2) else 0.0) * eod_filter
+vol_high = (1.0 if (vol_ratio > 1.2 and vol_ratio <= 1.5) else 0.0) * eod_filter
+vol_extreme = (1.0 if (vol_ratio > 1.5) else 0.0) * eod_filter
+
+# Volume Profile levels at EOD
+vpoc_eod = vpoc * eod_filter
+vah_eod = vah * eod_filter
+val_eod = val * eod_filter
+va_width_eod = va_width * eod_filter
+va_width_pct = (va_width / s_close * 100) * eod_filter
+
+# IB levels at EOD
+ib_h_eod = ib_h * eod_filter
+ib_l_eod = ib_l * eod_filter
+ib_width_eod = ib_width * eod_filter
+ib_width_pct = (ib_width / s_close * 100) * eod_filter
+ib_pct_of_range = (ib_width / s_range * 100) * eod_filter
+
+# Position metrics (used by day type, profile shape, and opening type sections)
+vpoc_position = ((vpoc - s_low) / s_range) * eod_filter
+va_coverage = (va_width / s_range) * eod_filter
+
+# =============================================================================
+# CLOSE ANALYSIS
+# =============================================================================
+
+# Close percentile within session range (0% = low, 100% = high)
+close_pctile = ((s_close - s_low) / s_range * 100) * eod_filter
+
+# Close position relative to Value Area
+close_above_vah_flag = (1.0 if (s_close > vah) else 0.0) * eod_filter
+close_below_val_flag = (1.0 if (s_close < val) else 0.0) * eod_filter
+close_inside_va_flag = (1.0 if (s_close >= val and s_close <= vah) else 0.0) * eod_filter
+
+# Close position relative to VPOC
+close_above_vpoc_flag = (1.0 if (s_close > vpoc) else 0.0) * eod_filter
+close_below_vpoc_flag = (1.0 if (s_close <= vpoc) else 0.0) * eod_filter
+
+# Close position relative to IB
+close_above_ib_flag = (1.0 if (s_close > ib_h) else 0.0) * eod_filter
+close_below_ib_flag = (1.0 if (s_close < ib_l) else 0.0) * eod_filter
+close_inside_ib_flag = (1.0 if (s_close >= ib_l and s_close <= ib_h) else 0.0) * eod_filter
+
+# =============================================================================
+# IB EXTENSION & DAY TYPE CLASSIFICATION
+# =============================================================================
+
+# Extensions beyond IB
+upside_ext = (s_high - ib_h) * eod_filter
+downside_ext = (ib_l - s_low) * eod_filter
+up_ext_ratio = (upside_ext / ib_width_eod) * ib_valid_filter
+down_ext_ratio = (downside_ext / ib_width_eod) * ib_valid_filter
+
+# Day Type Classification (Dalton 6-type — calibrated for equity 30-min IB)
+# Priority: Normal Day > Trend > Double Dist > Neutral Extreme > Neutral > Normal Variation
+
+# Intermediate flags for dual extension
+has_dual_ext = (up_ext_ratio > 1.5 and down_ext_ratio > 1.5) if is_eod else False
+has_both_ext = (up_ext_ratio > 1.0 and down_ext_ratio > 1.0) if is_eod else False
+
+# Normal Day: IB ≈ range, minimal extension (85-90% of range within IB)
+is_normal_day = (s_range < ib_width * 1.5) if is_eod else False
+
+# Trend Day: large one-sided extension + close at extreme (one-timeframe activity)
+is_trend_up = (not is_normal_day and up_ext_ratio > 4.0 and close_pctile > 75) if is_eod else False
+is_trend_down = (not is_normal_day and down_ext_ratio > 4.0 and close_pctile < 25) if is_eod else False
+is_trend_day = (is_trend_up or is_trend_down) if is_eod else False
+
+# Double Distribution: two distinct value areas (both sides extended, VPOC off-center)
+is_double_dist_day = (not is_normal_day and not is_trend_day and has_dual_ext and (vpoc_position < 0.35 or vpoc_position > 0.65)) if is_eod else False
+
+# Neutral Extreme: IB extended both directions, close near extreme
+is_neutral_extreme = (not is_normal_day and not is_trend_day and not is_double_dist_day and has_both_ext and (close_pctile > 70 or close_pctile < 30)) if is_eod else False
+
+# Neutral Day: IB extended both directions, close near middle
+is_neutral_day = (not is_normal_day and not is_trend_day and not is_double_dist_day and not is_neutral_extreme and has_both_ext) if is_eod else False
+
+# Normal Variation: moderate one-sided extension (everything else)
+is_normal_var = (not is_normal_day and not is_trend_day and not is_double_dist_day and not is_neutral_extreme and not is_neutral_day) if is_eod else False
+
+# Day type counts (for historical stats)
+normal_day_cnt = (1.0 if is_normal_day else 0.0) * eod_filter
+trend_up_cnt = (1.0 if is_trend_up else 0.0) * eod_filter
+trend_down_cnt = (1.0 if is_trend_down else 0.0) * eod_filter
+double_dist_day_cnt = (1.0 if is_double_dist_day else 0.0) * eod_filter
+neutral_extreme_cnt = (1.0 if is_neutral_extreme else 0.0) * eod_filter
+neutral_day_cnt = (1.0 if is_neutral_day else 0.0) * eod_filter
+normal_var_cnt = (1.0 if is_normal_var else 0.0) * eod_filter
+
+
+# =============================================================================
+# PROFILE SHAPE CLASSIFICATION
+# =============================================================================
+
+# B-shape (double distribution): two volume clusters with thin middle zone
+# Detected via: significant extension on BOTH sides of IB + VPOC off-center
+is_double_dist = (va_coverage >= 0.50 and up_ext_ratio > 1.5 and down_ext_ratio > 1.5 and (vpoc_position < 0.35 or vpoc_position > 0.65)) if is_eod else False
+
+# Shape flags (B-shape checked first; P/b/Elongated exclude it)
+# P-shape: VPOC in upper third, volume concentrated at highs (short covering)
+p_shape_flag = (1.0 if (vpoc_position > 0.65 and va_coverage < 0.65 and not is_double_dist) else 0.0) * eod_filter
+# b-shape: VPOC in lower third, volume concentrated at lows (long liquidation)
+b_shape_flag = (1.0 if (vpoc_position < 0.35 and va_coverage < 0.65 and not is_double_dist) else 0.0) * eod_filter
+# D-shape: VPOC near center, bell curve distribution (balanced two-way trade)
+d_shape_flag = (1.0 if (vpoc_position >= 0.35 and vpoc_position <= 0.65 and va_coverage < 0.65) else 0.0) * eod_filter
+# B-shape (double distribution): two-timeframe activity at different price levels
+double_dist_flag = (1.0 if is_double_dist else 0.0) * eod_filter
+# Elongated: VA covers most of the range (trending, even volume spread)
+elongated_flag = (1.0 if (va_coverage >= 0.65 and not is_double_dist) else 0.0) * eod_filter
+
+# =============================================================================
+# PRIOR SESSION CONTEXT
+# =============================================================================
+
+# Gap analysis
+gap_size = (s_open - prior_high) * eod_filter
+gap_up_flag = (1.0 if (s_open > prior_high) else 0.0) * eod_filter
+gap_down_flag = (1.0 if (s_open < prior_low) else 0.0) * eod_filter
+no_gap_flag = (1.0 if (s_open >= prior_low and s_open <= prior_high) else 0.0) * eod_filter
+
+# Did session test prior day levels?
+tested_prior_high = (1.0 if (s_high >= prior_high) else 0.0) * eod_filter
+tested_prior_low = (1.0 if (s_low <= prior_low) else 0.0) * eod_filter
+
+# VPOC migration (compare today's VPOC to prior day's VPOC)
+prior_vpoc_shifted = vpoc_eod >> 1
+prior_vpoc = ffill(prior_vpoc_shifted)
+vpoc_migration = (vpoc_eod - prior_vpoc) * eod_filter
+vpoc_migrated_up = (1.0 if (vpoc_eod > prior_vpoc) else 0.0) * eod_filter
+vpoc_migrated_down = (1.0 if (vpoc_eod < prior_vpoc) else 0.0) * eod_filter
+
+# Prior session value area levels (for opening type classification)
+prior_vah_shifted = vah_eod >> 1
+prior_vah = ffill(prior_vah_shifted)
+prior_val_shifted = val_eod >> 1
+prior_val = ffill(prior_val_shifted)
+
+# =============================================================================
+# OPENING TYPE CLASSIFICATION (relative to prior session VA)
+# =============================================================================
+# Classifies opening behavior based on where price opened relative to prior
+# session's value area and how the session resolved.
+
+# Open position relative to prior session's value area
+open_above_prior_vah = (s_open > prior_vah) if is_eod else False
+open_below_prior_val = (s_open < prior_val) if is_eod else False
+open_inside_prior_va = (s_open >= prior_val and s_open <= prior_vah) if is_eod else False
+
+# Open-Drive: Opened outside prior VA and drove further away aggressively
+# Close stays outside VA confirming directional conviction
+is_open_drive_up = (open_above_prior_vah and s_close > prior_vah and up_ext_ratio > 1.0) if is_eod else False
+is_open_drive_down = (open_below_prior_val and s_close < prior_val and down_ext_ratio > 1.0) if is_eod else False
+
+# Open-Test-Drive: Opened inside VA, tested one direction, then drove the other
+# Open inside VA but strong one-sided extension with close following the drive
+is_open_test_drive = (open_inside_prior_va and ((up_ext_ratio > 2.0 and down_ext_ratio < 0.5 and close_pctile > 55) or (down_ext_ratio > 2.0 and up_ext_ratio < 0.5 and close_pctile < 45))) if is_eod else False
+
+# Open-Rejection-Reverse: Opened outside VA, attempted further, failed, reversed back in
+# Open outside VA but close came back inside (or to the other side)
+is_open_reject_rev = ((open_above_prior_vah and s_close <= prior_vah) or (open_below_prior_val and s_close >= prior_val)) if is_eod else False
+
+# Open-Auction: Opened inside prior VA and rotated within range
+is_open_auction = (not is_open_drive_up and not is_open_drive_down and not is_open_test_drive and not is_open_reject_rev) if is_eod else False
+
+# Opening type counts
+open_drive_up_cnt = (1.0 if is_open_drive_up else 0.0) * eod_filter
+open_drive_down_cnt = (1.0 if is_open_drive_down else 0.0) * eod_filter
+open_test_drive_cnt = (1.0 if is_open_test_drive else 0.0) * eod_filter
+open_reject_rev_cnt = (1.0 if is_open_reject_rev else 0.0) * eod_filter
+open_auction_cnt = (1.0 if is_open_auction else 0.0) * eod_filter
+
+# =============================================================================
+# EXCESS / TAILS
+# =============================================================================
+
+# Upper tail: distance from session high to VAH (rejection at highs)
+upper_tail = (s_high - vah) * eod_filter
+lower_tail = (val - s_low) * eod_filter
+
+# Poor highs/lows: session extreme near VA boundary (no rejection = incomplete auction)
+poor_high = (1.0 if (upper_tail < ib_width * 0.25) else 0.0) * eod_filter * ib_valid_filter
+poor_low = (1.0 if (lower_tail < ib_width * 0.25) else 0.0) * eod_filter * ib_valid_filter
+excess_high = (1.0 if (upper_tail >= ib_width * 0.5) else 0.0) * eod_filter * ib_valid_filter
+excess_low = (1.0 if (lower_tail >= ib_width * 0.5) else 0.0) * eod_filter * ib_valid_filter
+
+# Unfinished business: poor high or poor low signals next session may revisit
+unfinished_up = poor_high
+unfinished_down = poor_low
+
+# =============================================================================
+# INTRADAY VA MIGRATION
+# =============================================================================
+# Compare developing VA at mid-session (12:45 ET) vs final VA at EOD.
+# If VPOC migrated outside IB, value area clearly shifted during session.
+
+# Mid-session VA snapshot (12:45 ET = roughly session midpoint)
+# session_window with extra variadic inputs: vah(Last), val(Last), vpoc(Last)
+mid_sw = session_window(session=Session(start='09:30', end='12:45', tz='America/New_York'), agg=[AggregationType.Last, AggregationType.Last, AggregationType.Last])(open_price, high, low, close, vah, val, vpoc)
+mid_vah_raw = mid_sw.result[0]
+mid_val_raw = mid_sw.result[1]
+mid_vpoc_raw = mid_sw.result[2]
+mid_vah = ffill_day(mid_vah_raw)
+mid_val = ffill_day(mid_val_raw)
+mid_vpoc = ffill_day(mid_vpoc_raw)
+
+# VA migration: final VPOC vs IB midpoint (early session center)
+va_migration_from_ib = (vpoc - ib_mid) * eod_filter
+va_migrated_above_ib = (1.0 if (vpoc > ib_h) else 0.0) * eod_filter
+va_migrated_below_ib = (1.0 if (vpoc < ib_l) else 0.0) * eod_filter
+va_anchored_in_ib = (1.0 if (vpoc >= ib_l and vpoc <= ib_h) else 0.0) * eod_filter
+
+# VA migration: final VA vs mid-session developing VA
+va_shift_up = (vah - mid_vah) * eod_filter
+va_shift_down = (mid_val - val) * eod_filter
+vpoc_shift = (vpoc - mid_vpoc) * eod_filter
+va_migrated_late = (1.0 if ((vah - mid_vah) > ib_width * 0.5 or (mid_val - val) > ib_width * 0.5) else 0.0) * eod_filter * ib_valid_filter
+
+# =============================================================================
+# CUMULATIVE STATISTICS
+# =============================================================================
+
+# Running counts for historical context
+cum_day = cumulative(agg=AggregationType.Sum)(day_count if is_valid(day_count) else 0.0)
+cum_close_above_vah = cumulative(agg=AggregationType.Sum)(close_above_vah_flag if is_valid(close_above_vah_flag) else 0.0)
+cum_close_below_val = cumulative(agg=AggregationType.Sum)(close_below_val_flag if is_valid(close_below_val_flag) else 0.0)
+cum_close_inside_va = cumulative(agg=AggregationType.Sum)(close_inside_va_flag if is_valid(close_inside_va_flag) else 0.0)
+
+# =============================================================================
+# DASHBOARD — 0. SESSION OVERVIEW (Hero Cards)
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Session Overview',
+        cells=[
+            ColumnSpec(title='Close', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2, card_slot=CardSlot.Hero, card_color_map={Color.Success: ['POSITIVE'], Color.Error: ['NEGATIVE']}),
+            ColumnSpec(title='VPOC', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2, card_color=Color.Blue),
+            ColumnSpec(title='IB Width', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='Close Pctile', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1, info='0=Low, 100=High'),
+            ColumnSpec(title='Vol Ratio', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2, info='vs avg: <0.8=Low, 0.8-1.2=Normal, >1.2=High, >1.5=Extreme')
+        ]
+    ),
+    category='0. Session Overview'
+)(close_eod, vpoc_eod, ib_width_eod, close_pctile, vol_ratio)
+
+# =============================================================================
+# DASHBOARD — 1. KEY LEVELS (Summary Table)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Volume Profile & IB Levels',
+        row_size=13,
+        col_size=2,
+        row_headers=['VPOC', 'Prior VPOC', 'VPOC Migration (pts)', 'VAH', 'VAL', 'Prior VAH', 'Prior VAL', 'VA Width (pts)', 'VA % of Range', 'IB Width (pts)', 'IB % of Range', 'Up Ext (x IB)', 'Down Ext (x IB)'],
+        col_headers=['Last Session', 'Avg (Historical)'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=6, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=6, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=7, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=7, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=8, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=8, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=9, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=9, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=10, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=10, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=11, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=11, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=12, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=12, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    ),
+    category='1. Key Levels'
+)(vpoc_eod, vpoc_eod, prior_vpoc * eod_filter, prior_vpoc * eod_filter, vpoc_migration, vpoc_migration, vah_eod, vah_eod, val_eod, val_eod, prior_vah * eod_filter, prior_vah * eod_filter, prior_val * eod_filter, prior_val * eod_filter, va_width_eod, va_width_eod, va_coverage * 100 * eod_filter, va_coverage * 100 * eod_filter, ib_width_eod, ib_width_eod, ib_pct_of_range, ib_pct_of_range, up_ext_ratio, up_ext_ratio, down_ext_ratio, down_ext_ratio)
+
+# =============================================================================
+# DASHBOARD — 2. CLOSE & EXTENSION ANALYSIS (Summary Table)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Close Position & IB Extension',
+        row_size=7,
+        col_size=2,
+        row_headers=['Close Above VAH', 'Close Below VAL', 'Close Inside VA', 'Close Above VPOC', 'Close Above IB', 'Up Extension (x IB)', 'Down Extension (x IB)'],
+        col_headers=['Last Session', 'Historical Rate'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=6, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=6, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    ),
+    category='2. Close Analysis'
+)(close_above_vah_flag, close_above_vah_flag, close_below_val_flag, close_below_val_flag, close_inside_va_flag, close_inside_va_flag, close_above_vpoc_flag, close_above_vpoc_flag, close_above_ib_flag, close_above_ib_flag, up_ext_ratio, up_ext_ratio, down_ext_ratio, down_ext_ratio)
+
+# =============================================================================
+# DASHBOARD — 3. DAY TYPE & PROFILE SHAPE (Summary Tables)
+# =============================================================================
+
+xy_bars(
+    title='Volume Conviction Distribution',
+    category='3. Classification',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Low (<0.8x)', color=Color.Gray),
+        BarSeriesSpec(name='Normal (0.8-1.2x)', color=Color.Blue),
+        BarSeriesSpec(name='High (1.2-1.5x)', color=Color.Success),
+        BarSeriesSpec(name='Extreme (>1.5x)', color=Color.Warning)
+    ])
+)(vol_low, vol_normal, vol_high, vol_extreme)
+
+xy_bars(
+    title='Day Type Distribution',
+    category='3. Classification',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Normal Day', color=Color.Gray),
+        BarSeriesSpec(name='Normal Variation', color=Color.Blue),
+        BarSeriesSpec(name='Trend Up', color=Color.Success),
+        BarSeriesSpec(name='Trend Down', color=Color.Error),
+        BarSeriesSpec(name='Double Dist', color=Color.Indigo),
+        BarSeriesSpec(name='Neutral', color=Color.Teal),
+        BarSeriesSpec(name='Neutral Extreme', color=Color.Warning)
+    ])
+)(normal_day_cnt, normal_var_cnt, trend_up_cnt, trend_down_cnt, double_dist_day_cnt, neutral_day_cnt, neutral_extreme_cnt)
+
+xy_bars(
+    title='Opening Type Distribution',
+    category='3. Classification',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Drive Up', color=Color.Success),
+        BarSeriesSpec(name='Drive Down', color=Color.Error),
+        BarSeriesSpec(name='Test-Drive', color=Color.Blue),
+        BarSeriesSpec(name='Reject-Reverse', color=Color.Warning),
+        BarSeriesSpec(name='Auction', color=Color.Gray)
+    ])
+)(open_drive_up_cnt, open_drive_down_cnt, open_test_drive_cnt, open_reject_rev_cnt, open_auction_cnt)
+
+xy_bars(
+    title='VPOC Migration Direction',
+    category='3. Classification',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Migrated Up', color=Color.Success),
+        BarSeriesSpec(name='Migrated Down', color=Color.Error)
+    ])
+)(vpoc_migrated_up, vpoc_migrated_down)
+
+xy_bars(
+    title='Intraday VA Migration',
+    category='3. Classification',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='VPOC Above IB', color=Color.Success),
+        BarSeriesSpec(name='VPOC Below IB', color=Color.Error),
+        BarSeriesSpec(name='VPOC Anchored in IB', color=Color.Gray),
+        BarSeriesSpec(name='Late VA Shift (>0.5x IB)', color=Color.Warning)
+    ])
+)(va_migrated_above_ib, va_migrated_below_ib, va_anchored_in_ib, va_migrated_late)
+
+xy_bars(
+    title='Profile Shape Distribution',
+    category='3. Classification',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='P-Shape (Buyers)', color=Color.Success),
+        BarSeriesSpec(name='b-Shape (Sellers)', color=Color.Error),
+        BarSeriesSpec(name='D-Shape (Balanced)', color=Color.Blue),
+        BarSeriesSpec(name='B-Shape (Double Dist)', color=Color.Indigo),
+        BarSeriesSpec(name='Elongated (Trending)', color=Color.Warning)
+    ])
+)(p_shape_flag, b_shape_flag, d_shape_flag, double_dist_flag, elongated_flag)
+
+# =============================================================================
+# DASHBOARD — 4. EXCESS, TAILS & PRIOR SESSION (Summary Table)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Excess, Tails & Prior Session',
+        row_size=6,
+        col_size=2,
+        row_headers=['Poor High (Magnet)', 'Poor Low (Magnet)', 'Excess at High', 'Excess at Low', 'Gap Up', 'Gap Down'],
+        col_headers=['Last Session', 'Historical Rate'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=5, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1)
+        ]
+    ),
+    category='4. Auction Quality'
+)(poor_high, poor_high, poor_low, poor_low, excess_high, excess_high, excess_low, excess_low, gap_up_flag, gap_up_flag, gap_down_flag, gap_down_flag)
+
+# =============================================================================
+# DASHBOARD — 5. DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='Close Percentile Distribution',
+    category='5. Distributions',
+    bins=20,
+    fill_color=Color.Blue,
+    x_axis_label='Close Percentile (0=Low, 100=High)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(close_pctile)
+
+histogram(
+    title='IB Width Distribution',
+    category='5. Distributions',
+    bins=25,
+    fill_color=Color.Teal,
+    x_axis_label='IB Width (points)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(ib_width_eod)
+
+histogram(
+    title='VA Width Distribution',
+    category='5. Distributions',
+    bins=25,
+    fill_color=Color.Indigo,
+    x_axis_label='VA Width (points)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(va_width_eod)
+
+histogram(
+    title='VPOC Position Distribution',
+    category='5. Distributions',
+    bins=20,
+    fill_color=Color.Gold,
+    x_axis_label='VPOC Position (0=Low, 1=High)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(vpoc_position)
+
+histogram(
+    title='VPOC Shift from Mid-Session (pts)',
+    category='5. Distributions',
+    bins=25,
+    fill_color=Color.Teal,
+    x_axis_label='VPOC Shift (final - mid-session, pts)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(vpoc_shift)
+
+boxplot(
+    title='Width Distributions: IB vs VA',
+    category='5. Distributions',
+    y_axis_label='Points',
+    show_outliers=True,
+    whisker_iqr=1.5,
+    colors=['Teal', 'Indigo'],
+    median_color=Color.Warning
+)(ib_width_eod, va_width_eod)
+
+boxplot(
+    title='IB Extension Beyond IB Width',
+    category='5. Distributions',
+    y_axis_label='x IB Width',
+    show_outliers=True,
+    whisker_iqr=1.5,
+    colors=['Green', 'Red'],
+    median_color=Color.Warning
+)(up_ext_ratio, down_ext_ratio)
+
+# =============================================================================
+# EVENT MARKERS
+# =============================================================================
+
+# Trend Up Day marker
+event_marker(
+    schema=EventMarkerSchema(
+        title='Trend Up Day',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Close Percentile', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='VPOC', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='VAH', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='VAL', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='Up Ext (x IB)', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Range (pts)', type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    )
+)(is_trend_up, close_pctile, vpoc, vah, val, up_ext_ratio, range_eod)
+
+# Trend Down Day marker
+event_marker(
+    schema=EventMarkerSchema(
+        title='Trend Down Day',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Close Percentile', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='VPOC', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='VAH', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='VAL', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='Down Ext (x IB)', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Range (pts)', type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    )
+)(is_trend_down, close_pctile, vpoc, vah, val, down_ext_ratio, range_eod)
+
+# Poor High/Low marker (incomplete auction)
+event_marker(
+    schema=EventMarkerSchema(
+        title='Poor High (Magnet)',
+        icon=Icon.AlertTriangleIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Session High', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Upper Tail (pts)', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='VAH', type=CardRenderType.MonetaryFormat, dp=2)
+        ]
+    )
+)((poor_high > 0.5) if is_eod else False, high_eod, upper_tail, vah_eod)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Poor Low (Magnet)',
+        icon=Icon.AlertTriangleIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Session Low', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Lower Tail (pts)', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='VAL', type=CardRenderType.MonetaryFormat, dp=2)
+        ]
+    )
+)((poor_low > 0.5) if is_eod else False, low_eod, lower_tail, val_eod)
+
+# Open-Drive Day marker (strong conviction opening outside prior VA)
+event_marker(
+    schema=EventMarkerSchema(
+        title='Open-Drive Day',
+        icon=Icon.ZapIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Close Pctile', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Prior VAH', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Prior VAL', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='Up Ext (x IB)', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Down Ext (x IB)', type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    )
+)((is_open_drive_up or is_open_drive_down) if is_eod else False, close_pctile, prior_vah * eod_filter, prior_val * eod_filter, up_ext_ratio, down_ext_ratio)
+
+# Open-Rejection-Reverse marker (opened outside VA, failed, reversed back)
+event_marker(
+    schema=EventMarkerSchema(
+        title='Open-Rejection-Reverse',
+        icon=Icon.RepeatIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Close Pctile', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Prior VAH', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Prior VAL', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='Up Ext (x IB)', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Down Ext (x IB)', type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    )
+)(is_open_reject_rev if is_eod else False, close_pctile, prior_vah * eod_filter, prior_val * eod_filter, up_ext_ratio, down_ext_ratio)

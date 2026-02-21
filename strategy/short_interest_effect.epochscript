@@ -1,0 +1,84 @@
+Name: Short Interest Effect - Long-Short Strategy
+
+Description: Quantpedia #0045: Short Interest Effect - Long-Short Version. Long stocks with lowest short interest (bottom decile), short stocks with highest short interest (top decile). Monthly rebalancing, equal weighted.
+
+Assets: NYSE, AMEX, NASDAQ
+Data Source: polygon
+Timeframe: 1D
+
+================================================================================
+
+# Short Interest Effect - Long-Short Strategy
+# Quantpedia #0045: Short Interest Effect - Long-Short Version
+# Source: Akbas, Boehmer, Erturk, Sorescu - "Why Do Short Interest Levels Predict Stock Returns?"
+#
+# RULES:
+# - Universe: NYSE, AMEX, NASDAQ stocks
+# - Signal: Short interest ratio = short interest / shares outstanding
+# - Selection:
+#   - Long: Bottom decile (lowest 10% short interest) - expect outperformance
+#   - Short: Top decile (highest 10% short interest) - expect underperformance
+# - Weighting: Equal weight within each leg
+# - Rebalancing: Monthly (first trading day)
+
+# Data source - DAILY
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# SHORT INTEREST SIGNAL
+# =============================================================================
+
+# Get short interest data
+si = short_interest()()
+
+# Get shares outstanding from income statement (quarterly data)
+income_stmt = income_statement(period=ReportingPeriod.quarterly)()
+
+# Calculate short interest ratio (short interest / shares outstanding)
+shares_valid = income_stmt.basic_shares > 0
+short_interest_ratio = where(shares_valid, si.short_interest / income_stmt.basic_shares)
+
+# Forward fill to handle gaps between data updates
+short_interest_ratio_filled = ffill(short_interest_ratio)
+
+# =============================================================================
+# CROSS-SECTIONAL SELECTION
+# =============================================================================
+
+# Bottom 10% by short interest ratio (low short interest - LONG)
+is_low_si = cs_select(direction=CSSelectDirection.bottom, mode=CSSelectMode.percent, k=10)(short_interest_ratio_filled)
+
+# Top 10% by short interest ratio (high short interest - SHORT)
+is_high_si = cs_select(direction=CSSelectDirection.top, mode=CSSelectMode.percent, k=10)(short_interest_ratio_filled)
+
+# =============================================================================
+# MONTHLY REBALANCING
+# =============================================================================
+
+# Detect first trading day of month
+is_new_month = is_period_boundary(period=PeriodType.month)(index())
+
+# LONG signals - low short interest stocks
+enter_long = is_new_month and is_low_si
+exit_long = is_new_month and not is_low_si
+held_long = hold_until()(enter=enter_long, exit=exit_long)
+
+# SHORT signals - high short interest stocks
+enter_short = is_new_month and is_high_si
+exit_short = is_new_month and not is_high_si
+held_short = hold_until()(enter=enter_short, exit=exit_short)
+
+# =============================================================================
+# POSITION SIZING
+# =============================================================================
+
+# long_and_short_zone handles direction: +1 (long), -1 (short), 0 (flat)
+long_and_short_zone()(long_entry=held_long, short_entry=held_short)
+
+# Equal weight across ALL active positions (both long and short)
+is_active = held_long or held_short
+weights = equal_weight()(is_active)
+
+# Position sizing - size is always positive, direction from long_and_short_zone
+position_size(type=SizeType.percent)(size=weights * 100, rebalance_on=is_new_month)

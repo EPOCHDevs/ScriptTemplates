@@ -1,0 +1,190 @@
+Name: CT Market Stats: Auction & Opening Location — ES Futures
+
+Description: Replicates CT Market Statistics Report Page 1: Auction (Neutral Day analysis) and Opening Location sections. ES E-mini S&P 500 Futures, May 2021 - May 2024.
+
+Assets: ES-Futures
+Data Source: polygon
+Timeframe: 1Min
+
+================================================================================
+
+# =============================================================================
+# CT MARKET STATISTICS REPORT: AUCTION & OPENING LOCATION (Page 1)
+# ES E-mini S&P 500 Futures
+# =============================================================================
+
+# === DATA SOURCE ===
+src = market_data_source()()
+
+# === CONTINUOUS CONTRACT ===
+cont = futures_continuation(s_rollover_method=RolloverType.LiquidityBased, s_adjustment_method=AdjustmentType.NoAdjustment, i_offset=0)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+close = cont.c
+high = cont.h
+low = cont.l
+open_price = cont.o
+
+# === HOLIDAY FILTER ===
+is_holiday = holiday(days_before=0, days_after=0, holiday_calendar=HolidayCalendar.CMEGlobexEquitiesHolidayCalendar)
+
+# === SESSION WINDOWS ===
+rth_sw = session_window(session=SessionType.EquityRTHSession)(open_price, high, low, close)
+ib_sw = session_window(session=Session(start='09:30', end='10:30', tz='America/New_York'))(open_price, high, low, close)
+
+# === BLACK FRIDAY FILTER ===
+is_friday = day_of_week(weekday=Weekday.Friday)
+is_november = month_of_year(month=Month.November)
+is_4th_week = week_of_month(week=WeekOfMonth.Fourth)
+bf_at_open = where(rth_sw.opened, (1.0 if (is_friday and is_november and is_4th_week) else 0.0))
+is_black_friday_session = ffill(bf_at_open) > 0.5
+
+rth_valid = (rth_sw.closed and not is_holiday and not is_black_friday_session)
+ib_valid = (ib_sw.closed and not is_holiday)
+
+# === RTH PRICE PROFILE (for pVAH/pVAL in Opening Location) ===
+rth_profile = price_profile(session=Session(start='09:30', end='16:00', tz='America/New_York'), window_size=390, tick_size=0.25, value_area_pct=0.70, mode=ProfileType.market)(high, low, close, cont.v)
+rth_vah = ffill(rth_profile.vah)
+rth_val = ffill(rth_profile.val)
+
+# === CURRENT SESSION LEVELS ===
+ib_high_level = ffill(where(ib_valid, ib_sw.high))
+ib_low_level = ffill(where(ib_valid, ib_sw.low))
+
+# === PREVIOUS DAY LEVELS ===
+rth_close_at_eod = where(rth_valid, rth_sw.close)
+prev_close = ffill(rth_close_at_eod >> 1)
+
+rth_high_at_eod = where(rth_valid, rth_sw.high)
+prev_hod = ffill(rth_high_at_eod >> 1)
+
+rth_low_at_eod = where(rth_valid, rth_sw.low)
+prev_lod = ffill(rth_low_at_eod >> 1)
+
+ib_high_at_eod = where(rth_valid, ib_high_level)
+prev_ibh = ffill(ib_high_at_eod >> 1)
+ib_low_at_eod = where(rth_valid, ib_low_level)
+prev_ibl = ffill(ib_low_at_eod >> 1)
+
+vah_at_eod = where(rth_valid, rth_vah)
+prev_vah = ffill(vah_at_eod >> 1)
+val_at_eod = where(rth_valid, rth_val)
+prev_val = ffill(val_at_eod >> 1)
+
+# =============================================================================
+# SECTION: 20 SESSION HARMONIC ROTATIONS
+# =============================================================================
+
+# Detect swing highs/lows on RTH 1-minute bars
+swings = swing_highs_lows(session=SessionType.EquityRTHSession, swing_length=2)(high, low)
+swing_type = swings.high_low
+swing_level = swings.level
+
+# Previous swing level (shift by 1 non-NaN value)
+prev_swing = swing_level >> 1
+
+# Rotation size in points between consecutive swings
+rotation_size = abs(swing_level - prev_swing)
+
+# Up rotation = at swing highs (price moved up from prev swing low)
+up_rotation = where(swing_type > 0.5, rotation_size)
+
+# Down rotation = at swing lows (price moved down from prev swing high)
+down_rotation = where(swing_type < -0.5, rotation_size)
+
+# =============================================================================
+# SECTION: AUCTION
+# =============================================================================
+
+# Neutral Day = both IB extremes broken during RTH
+ibh_broken = (rth_sw.high > ib_high_level)
+ibl_broken = (rth_sw.low < ib_low_level)
+is_neutral_day = (ibh_broken and ibl_broken)
+
+# Row 1: Neutral Day rate (base: all 752 valid days)
+neutral_day_rate = where(rth_valid, (1.0 if is_neutral_day else 0.0))
+
+# Previous day neutral flag for consecutive neutral day analysis
+neutral_flag_at_eod = where(rth_valid, (1.0 if is_neutral_day else 0.0))
+prev_is_neutral = ffill(neutral_flag_at_eod >> 1)
+
+# Row 2: Neutral Day Follows Neutral Day (base: neutral days only)
+neutral_valid = (rth_valid and is_neutral_day)
+neutral_follows_neutral = where(neutral_valid, (1.0 if prev_is_neutral > 0.5 else 0.0))
+
+# Row 3: Neutral Extreme Day (base: neutral days only)
+# Close is outside IB range AND in the direction of the larger range extension.
+# Upside extension = rth_high - ib_high, Downside extension = ib_low - rth_low.
+# Extreme if close follows the dominant extension direction.
+up_ext = rth_sw.high - ib_high_level
+down_ext = ib_low_level - rth_sw.low
+neutral_extreme = where(neutral_valid, (1.0 if ((up_ext > down_ext and rth_sw.close > ib_high_level) or (down_ext > up_ext and rth_sw.close < ib_low_level)) else 0.0))
+
+# =============================================================================
+# SECTION: OPENING LOCATION
+# =============================================================================
+
+day_count = where(rth_valid, 1.0)
+
+# Opens Above pClose (Gap up from previous close)
+opens_above_pclose = where(rth_valid, (1.0 if rth_sw.open > prev_close else 0.0))
+
+# Opens Above pHOD (Session Gap — opens above previous high)
+opens_above_phod = where(rth_valid, (1.0 if rth_sw.open > prev_hod else 0.0))
+
+# Opens Below pClose (Gap down from previous close)
+opens_below_pclose = where(rth_valid, (1.0 if rth_sw.open < prev_close else 0.0))
+
+# Opens Below pLOD (Session Gap — opens below previous low)
+opens_below_plod = where(rth_valid, (1.0 if rth_sw.open < prev_lod else 0.0))
+
+# Opens Within pIB Range
+opens_within_pib = where(rth_valid, (1.0 if (rth_sw.open >= prev_ibl and rth_sw.open <= prev_ibh) else 0.0))
+
+# Opens Within pValue (previous Value Area)
+opens_within_pvalue = where(rth_valid, (1.0 if (rth_sw.open >= prev_val and rth_sw.open <= prev_vah) else 0.0))
+
+# =============================================================================
+# REPORTERS — Summary Tables
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Auction',
+        row_size=3,
+        col_size=1,
+        row_headers=['Neutral Day', 'Neutral Day Follows Neutral Day', 'Neutral Extreme Day'],
+        col_headers=['Rate'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='CT Market Statistics'
+)(neutral_day_rate, neutral_follows_neutral, neutral_extreme)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Opening Location',
+        row_size=6,
+        col_size=1,
+        row_headers=['Opens Above pClose (Gap)', 'Opens Above pHOD (Session Gap)', 'Opens Below pClose (Gap)', 'Opens Below pLOD (Session Gap)', 'Opens Within pIB Range', 'Opens Within pValue'],
+        col_headers=['Rate'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='CT Market Statistics'
+)(opens_above_pclose, opens_above_phod, opens_below_pclose, opens_below_plod, opens_within_pib, opens_within_pvalue)
+
+# =============================================================================
+# REPORTERS — Harmonic Rotation Histograms
+# =============================================================================
+
+histogram(title='Up Rotations', bins=80, x_axis_label='Points', y_axis_label='Frequency', category='CT Market Statistics')(up_rotation)
+
+histogram(title='Down Rotations', bins=80, x_axis_label='Points', y_axis_label='Frequency', category='CT Market Statistics')(down_rotation)

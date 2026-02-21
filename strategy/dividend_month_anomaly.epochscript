@@ -1,0 +1,128 @@
+Name: Dividend Month Anomaly Strategy
+
+Description: Quantpedia #0019: Long stocks predicted to pay dividends this month. Monthly rebalance, equal weighted, top 500 liquid stocks with price > $5.
+
+Assets: SP500
+Data Source: polygon
+Timeframe: 1D
+
+================================================================================
+
+# Dividend Month Anomaly Strategy
+# Quantpedia #0019: Dividend Month Premium
+#
+# STRATEGY:
+# - Universe: Top 500 most liquid S&P 500 stocks, price > $5
+# - Signal: Predict dividend based on historical pay_date months
+# - Selection: Long stocks expected to pay dividend this month
+# - Weighting: Equal weighted
+# - Rebalancing: Monthly
+
+# Data source
+src = market_data_source(timeframe=1D)()
+close = src.c
+volume = src.v
+
+# Dollar volume for liquidity ranking
+dollar_volume = close * volume
+
+# Dividend data - CD = Cash Dividends
+div = dividends(dividend_type=DividendType.CD)()
+
+# =============================================================================
+# 1. EXTRACT DIVIDEND TIMING FROM PAY_DATE
+# =============================================================================
+
+# Fill forward the pay_date and frequency from last dividend
+last_div_pay_date = ffill(div.pay_date)
+last_div_month = datetime_extract(component='month')(last_div_pay_date)
+freq = ffill(div.frequency)
+
+# Current month from index
+current_month = datetime_extract(component='month')(index())
+
+# =============================================================================
+# 2. PREDICT DIVIDEND MONTH BASED ON HISTORICAL PAY_DATE
+# =============================================================================
+
+# Calculate month difference between current and last dividend month
+month_diff = current_month - last_div_month
+
+# Quarterly stocks (freq=4): expect dividend every 3 months
+# Match if month_diff is 0, +/-3, +/-6, or +/-9
+is_quarterly = freq == 4
+quarterly_match = (month_diff == 0) or (month_diff == 3) or (month_diff == -3) or (month_diff == 6) or (month_diff == -6) or (month_diff == 9) or (month_diff == -9)
+
+# Semi-annual stocks (freq=2): expect dividend every 6 months
+# Match if month_diff is 0 or +/-6
+is_semiannual = freq == 2
+semiannual_match = (month_diff == 0) or (month_diff == 6) or (month_diff == -6)
+
+# Annual stocks (freq=1): expect dividend in same month
+is_annual = freq == 1
+annual_match = month_diff == 0
+
+# Combined prediction: current month matches expected dividend month
+predict_dividend = (is_quarterly and quarterly_match) or (is_semiannual and semiannual_match) or (is_annual and annual_match)
+
+# Must have dividend history
+has_div_history = is_valid(last_div_month)
+
+# =============================================================================
+# 3. UNIVERSE FILTERS
+# =============================================================================
+
+# Price filter: > $5
+valid_price = close > 5
+
+# Liquidity ranking (top 500 by dollar volume)
+liq_rank = cs_rank(ascending=False)(dollar_volume)
+top_500 = liq_rank <= 500
+
+# Combined universe
+universe = valid_price and top_500 and has_div_history
+
+# =============================================================================
+# 4. MONTHLY REBALANCING
+# =============================================================================
+
+# Detect first trading day of month using is_period_boundary transform
+is_new_month = is_period_boundary(period=PeriodType.month, boundary=BoundaryType.start)(index())
+
+# Signal: in universe AND predicted dividend
+raw_signal = universe and predict_dividend
+
+# Monthly rebalance signals
+enter_long = is_new_month and raw_signal
+exit_long = is_new_month and not raw_signal
+
+# Hold between rebalances
+held_long = hold_until()(enter=enter_long, exit=exit_long)
+
+# =============================================================================
+# 5. POSITION MANAGEMENT
+# =============================================================================
+
+# Long zone
+long_and_short_zone()(long_entry=held_long, short_entry=False)
+
+# Equal weight across all held positions
+weights = equal_weight()(held_long)
+
+# Position size (execute only on month start)
+position_size(type=SizeType.percent)(size=weights * 100, rebalance_on=is_new_month)
+
+# =============================================================================
+# REPORTING
+# =============================================================================
+
+# Count of positions using if/else
+position_count = 1.0 if held_long else 0.0
+
+timeseries_lines(
+    title="Position Count Over Time",
+    category="Strategy Monitoring",
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name="Positions Held", color=Color.Blue)
+    ])
+)(position_count)

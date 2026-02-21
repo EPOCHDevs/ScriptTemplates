@@ -1,0 +1,405 @@
+Name: TradingView-Style Technical Analysis - SLV
+
+Description: Technical analysis dashboard for Silver ETF (SLV) with oscillators, moving averages, and pivot points. Inspired by TradingView's Technicals view.
+
+Assets: TSLA-Stocks
+Data Source: polygon
+Timeframe: 1D
+
+================================================================================
+
+# =============================================================================
+# TRADINGVIEW-STYLE TECHNICAL ANALYSIS DASHBOARD
+# Asset: SLV (Silver ETF)
+# =============================================================================
+
+# =============================================================================
+# DATA SOURCE
+# =============================================================================
+
+data = market_data_source(timeframe=1D)()
+close = data.c
+high = data.h
+low = data.l
+volume = data.v
+
+# =============================================================================
+# OSCILLATORS (using requiredDataSources - no inputs needed)
+# =============================================================================
+
+# RSI (14) - takes input
+rsi_14 = rsi(period=14)(close)
+
+# Stochastic %K (14, 3, 3) - uses PriceBars internally
+stoch_result = stoch(k_period=14, k_slowing_period=3, d_period=3)()
+stoch_k = stoch_result.stoch_k
+stoch_d = stoch_result.stoch_d
+
+# CCI (20) - uses PriceBars internally
+cci_20 = cci(period=20)()
+
+# ADX (14) and DI - use PriceBars internally
+adx_14 = adx(period=14)()
+di_result = di(period=14)()
+plus_di = di_result.plus_di
+minus_di = di_result.minus_di
+
+# Awesome Oscillator - uses PriceBars internally
+ao_result = ao()()
+
+# Momentum (10) - takes input
+mom_10 = mom(period=10)(close)
+
+# MACD (12, 26, 9) - takes input
+macd_result = macd(short_period=12, long_period=26, signal_period=9)(close)
+macd_line = macd_result.macd
+macd_sig = macd_result.macd_signal
+macd_hist = macd_result.macd_histogram
+
+# Williams %R (14) - uses PriceBars internally
+willr_14 = willr(period=14)()
+
+# Ultimate Oscillator (7, 14, 28) - uses PriceBars internally
+uo_result = ultosc(short_period=7, medium_period=14, long_period=28)()
+
+# =============================================================================
+# OSCILLATOR SIGNALS (-1 = Sell, 0 = Neutral, 1 = Buy)
+# =============================================================================
+
+# RSI: <30 = Buy, >70 = Sell, else Neutral
+rsi_signal = 1 if rsi_14 < 30 else -1 if rsi_14 > 70 else 0
+
+# Stochastic: <20 = Buy, >80 = Sell, else Neutral
+stoch_signal = 1 if stoch_k < 20 else -1 if stoch_k > 80 else 0
+
+# CCI: <-100 = Buy, >100 = Sell, else Neutral
+cci_signal = 1 if cci_20 < -100 else -1 if cci_20 > 100 else 0
+
+# ADX: +DI > -DI = Buy, +DI < -DI = Sell (only if ADX > 20)
+adx_signal = 0 if adx_14 < 20 else 1 if plus_di > minus_di else -1
+
+# AO: >0 = Buy, <0 = Sell
+ao_signal = 1 if ao_result > 0 else -1 if ao_result < 0 else 0
+
+# Momentum: >0 = Buy, <0 = Sell
+mom_signal = 1 if mom_10 > 0 else -1 if mom_10 < 0 else 0
+
+# MACD: histogram >0 = Buy, <0 = Sell
+macd_signal_ind = 1 if macd_hist > 0 else -1 if macd_hist < 0 else 0
+
+# Williams %R: >-20 = Sell, <-80 = Buy
+willr_signal = 1 if willr_14 < -80 else -1 if willr_14 > -20 else 0
+
+# Ultimate Oscillator: <30 = Buy, >70 = Sell
+uo_signal = 1 if uo_result < 30 else -1 if uo_result > 70 else 0
+
+# =============================================================================
+# MOVING AVERAGES (ma transform takes input)
+# =============================================================================
+
+# Simple Moving Averages
+sma_10 = ma(period=10, type=MAType.sma)(close)
+sma_20 = ma(period=20, type=MAType.sma)(close)
+sma_30 = ma(period=30, type=MAType.sma)(close)
+sma_50 = ma(period=50, type=MAType.sma)(close)
+sma_100 = ma(period=100, type=MAType.sma)(close)
+sma_200 = ma(period=200, type=MAType.sma)(close)
+
+# Exponential Moving Averages
+ema_10 = ma(period=10, type=MAType.ema)(close)
+ema_20 = ma(period=20, type=MAType.ema)(close)
+ema_30 = ma(period=30, type=MAType.ema)(close)
+ema_50 = ma(period=50, type=MAType.ema)(close)
+ema_100 = ma(period=100, type=MAType.ema)(close)
+ema_200 = ma(period=200, type=MAType.ema)(close)
+
+# Hull Moving Average (9)
+hma_9 = ma(period=9, type=MAType.hma)(close)
+
+# VWMA (20) - uses PriceBars internally
+vwma_20 = vwma(period=20)()
+
+# Ichimoku Base Line (Kijun-sen) - uses PriceBars internally
+ichimoku_result = ichimoku(p_tenkan=9, p_kijun=26, p_senkou_b=52)()
+ichimoku_base = ichimoku_result.kijun
+
+# =============================================================================
+# MOVING AVERAGE SIGNALS (-1 = Sell, 0 = Neutral, 1 = Buy)
+# Price above MA = Buy, Price below MA = Sell
+# =============================================================================
+
+sma_10_signal = 1 if close > sma_10 else -1 if close < sma_10 else 0
+sma_20_signal = 1 if close > sma_20 else -1 if close < sma_20 else 0
+sma_30_signal = 1 if close > sma_30 else -1 if close < sma_30 else 0
+sma_50_signal = 1 if close > sma_50 else -1 if close < sma_50 else 0
+sma_100_signal = 1 if close > sma_100 else -1 if close < sma_100 else 0
+sma_200_signal = 1 if close > sma_200 else -1 if close < sma_200 else 0
+
+ema_10_signal = 1 if close > ema_10 else -1 if close < ema_10 else 0
+ema_20_signal = 1 if close > ema_20 else -1 if close < ema_20 else 0
+ema_30_signal = 1 if close > ema_30 else -1 if close < ema_30 else 0
+ema_50_signal = 1 if close > ema_50 else -1 if close < ema_50 else 0
+ema_100_signal = 1 if close > ema_100 else -1 if close < ema_100 else 0
+ema_200_signal = 1 if close > ema_200 else -1 if close < ema_200 else 0
+
+hma_signal = 1 if close > hma_9 else -1 if close < hma_9 else 0
+vwma_signal = 1 if close > vwma_20 else -1 if close < vwma_20 else 0
+ichimoku_signal = 1 if close > ichimoku_base else -1 if close < ichimoku_base else 0
+
+# =============================================================================
+# AGGREGATE SCORES
+# =============================================================================
+
+# Oscillator counts (9 oscillators)
+osc_buy_count = (rsi_signal == 1) + (stoch_signal == 1) + (cci_signal == 1) + (adx_signal == 1) + (ao_signal == 1) + (mom_signal == 1) + (macd_signal_ind == 1) + (willr_signal == 1) + (uo_signal == 1)
+osc_sell_count = (rsi_signal == -1) + (stoch_signal == -1) + (cci_signal == -1) + (adx_signal == -1) + (ao_signal == -1) + (mom_signal == -1) + (macd_signal_ind == -1) + (willr_signal == -1) + (uo_signal == -1)
+osc_neutral_count = 9 - osc_buy_count - osc_sell_count
+
+# Moving Average counts (15 MAs total)
+ma_buy_count = (sma_10_signal == 1) + (sma_20_signal == 1) + (sma_30_signal == 1) + (sma_50_signal == 1) + (sma_100_signal == 1) + (sma_200_signal == 1) + (ema_10_signal == 1) + (ema_20_signal == 1) + (ema_30_signal == 1) + (ema_50_signal == 1) + (ema_100_signal == 1) + (ema_200_signal == 1) + (hma_signal == 1) + (vwma_signal == 1) + (ichimoku_signal == 1)
+ma_sell_count = (sma_10_signal == -1) + (sma_20_signal == -1) + (sma_30_signal == -1) + (sma_50_signal == -1) + (sma_100_signal == -1) + (sma_200_signal == -1) + (ema_10_signal == -1) + (ema_20_signal == -1) + (ema_30_signal == -1) + (ema_50_signal == -1) + (ema_100_signal == -1) + (ema_200_signal == -1) + (hma_signal == -1) + (vwma_signal == -1) + (ichimoku_signal == -1)
+ma_neutral_count = 15 - ma_buy_count - ma_sell_count
+
+# Total counts (24 indicators)
+total_buy = osc_buy_count + ma_buy_count
+total_sell = osc_sell_count + ma_sell_count
+total_neutral = osc_neutral_count + ma_neutral_count
+
+# Score: -1 (Strong Sell) to +1 (Strong Buy)
+osc_score = (osc_buy_count - osc_sell_count) / 9
+ma_score = (ma_buy_count - ma_sell_count) / 15
+total_score = (total_buy - total_sell) / 24
+
+# Convert to 0-100 scale for gauge (0=Strong Sell, 50=Neutral, 100=Strong Buy)
+osc_gauge_value = (osc_score + 1) / 2 * 100
+ma_gauge_value = (ma_score + 1) / 2 * 100
+summary_gauge_value = (total_score + 1) / 2 * 100
+
+# =============================================================================
+# PIVOT POINTS - Using pivot_point_sr() transform
+# =============================================================================
+
+# Classic Pivot Points from transform
+pivot_out = pivot_point_sr()()
+pivot_p = pivot_out.pivot
+pivot_r1 = pivot_out.resist_1
+pivot_r2 = pivot_out.resist_2
+pivot_r3 = pivot_out.resist_3
+pivot_s1 = pivot_out.support_1
+pivot_s2 = pivot_out.support_2
+pivot_s3 = pivot_out.support_3
+
+# For Fibonacci/Camarilla/Woodie we need previous high/low
+prev_hl = previous_high_low(interval=1, type=SessionTimeframe.day)()
+prev_high = prev_hl.previous_high
+prev_low = prev_hl.previous_low
+prev_range = prev_high - prev_low
+
+# Fibonacci Pivot Points (based on Classic pivot)
+fib_pivot = pivot_p
+fib_r1 = pivot_p + 0.382 * prev_range
+fib_s1 = pivot_p - 0.382 * prev_range
+fib_r2 = pivot_p + 0.618 * prev_range
+fib_s2 = pivot_p - 0.618 * prev_range
+fib_r3 = pivot_p + prev_range
+fib_s3 = pivot_p - prev_range
+
+# Camarilla Pivot Points (uses close as base)
+cam_pivot = pivot_p
+cam_r1 = close + 1.1 * prev_range / 12
+cam_s1 = close - 1.1 * prev_range / 12
+cam_r2 = close + 1.1 * prev_range / 6
+cam_s2 = close - 1.1 * prev_range / 6
+cam_r3 = close + 1.1 * prev_range / 4
+cam_s3 = close - 1.1 * prev_range / 4
+
+# Woodie Pivot Points
+woodie_pivot = (prev_high + prev_low + 2 * close) / 4
+woodie_r1 = 2 * woodie_pivot - prev_low
+woodie_s1 = 2 * woodie_pivot - prev_high
+woodie_r2 = woodie_pivot + prev_range
+woodie_s2 = woodie_pivot - prev_range
+
+# =============================================================================
+# VISUALIZATIONS - SUMMARY GAUGES
+# =============================================================================
+
+# Main Summary Gauge
+gauge(
+    title="Summary",
+    category="1. Summary",
+    min=0,
+    max=100,
+    categories=['Strong Sell', 'Sell', 'Neutral', 'Buy', 'Strong Buy'],
+    use_traffic_light_colors=True,
+    decimal_places=0
+)(summary_gauge_value)
+
+# Oscillators Gauge
+gauge(
+    title="Oscillators",
+    category="1. Summary",
+    min=0,
+    max=100,
+    categories=['Strong Sell', 'Sell', 'Neutral', 'Buy', 'Strong Buy'],
+    use_traffic_light_colors=True,
+    decimal_places=0
+)(osc_gauge_value)
+
+# Moving Averages Gauge
+gauge(
+    title="Moving Averages",
+    category="1. Summary",
+    min=0,
+    max=100,
+    categories=['Strong Sell', 'Sell', 'Neutral', 'Buy', 'Strong Buy'],
+    use_traffic_light_colors=True,
+    decimal_places=0
+)(ma_gauge_value)
+
+# =============================================================================
+# SIGNAL COUNTS TABLE (under each gauge)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title="Signal Counts",
+        row_size=1,
+        col_size=3,
+        col_headers=["Sell", "Neutral", "Buy"],
+        cells=[
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=0, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=0, grid_col=1, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=0, grid_col=2, grid_agg=AggregationType.Last)
+        ]
+    ),
+    category="1. Summary"
+)(total_sell, total_neutral, total_buy)
+
+# =============================================================================
+# OSCILLATORS TABLE - TradingView Style (Name | Value | Action)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title="Oscillators",
+        row_size=9,
+        col_size=2,
+        row_headers=["RSI (14)", "Stochastic %K (14,3,3)", "CCI (20)", "ADX (14)", "Awesome Oscillator", "Momentum (10)", "MACD Level (12,26)", "Williams %R (14)", "Ultimate Oscillator (7,14,28)"],
+        col_headers=["Value", "Action"],
+        cells=[
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=0, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=0, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=1, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=1, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=2, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=2, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=3, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=3, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=4, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=4, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=5, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=5, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=6, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=6, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=7, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=7, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=8, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=8, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]})
+        ]
+    ),
+    category="2. Oscillators"
+)(rsi_14, rsi_signal, stoch_k, stoch_signal, cci_20, cci_signal, adx_14, adx_signal, ao_result, ao_signal, mom_10, mom_signal, macd_line, macd_signal_ind, willr_14, willr_signal, uo_result, uo_signal)
+
+# =============================================================================
+# MOVING AVERAGES TABLE - TradingView Style (Name | Value | Action)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title="Moving Averages",
+        row_size=15,
+        col_size=2,
+        row_headers=["EMA (10)", "SMA (10)", "EMA (20)", "SMA (20)", "EMA (30)", "SMA (30)", "EMA (50)", "SMA (50)", "EMA (100)", "SMA (100)", "EMA (200)", "SMA (200)", "Hull MA (9)", "VWMA (20)", "Ichimoku Base (26)"],
+        col_headers=["Value", "Action"],
+        cells=[
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=0, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=0, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=1, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=1, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=2, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=2, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=3, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=3, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=4, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=4, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=5, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=5, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=6, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=6, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=7, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=7, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=8, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=8, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=9, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=9, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=10, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=10, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=11, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=11, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=12, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=12, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=13, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=13, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]}),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=14, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.IntegerFormat, grid_row=14, grid_col=1, grid_agg=AggregationType.Last, grid_color_map={Color.Green: ["POSITIVE"], Color.Red: ["NEGATIVE"]})
+        ]
+    ),
+    category="3. Moving Averages"
+)(ema_10, ema_10_signal, sma_10, sma_10_signal, ema_20, ema_20_signal, sma_20, sma_20_signal, ema_30, ema_30_signal, sma_30, sma_30_signal, ema_50, ema_50_signal, sma_50, sma_50_signal, ema_100, ema_100_signal, sma_100, sma_100_signal, ema_200, ema_200_signal, sma_200, sma_200_signal, hma_9, hma_signal, vwma_20, vwma_signal, ichimoku_base, ichimoku_signal)
+
+# =============================================================================
+# PIVOT POINTS TABLE - TradingView Style (Pivot | Classic | Fibonacci | Camarilla | Woodie)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title="Pivot Points",
+        row_size=7,
+        col_size=4,
+        row_headers=["R3", "R2", "R1", "P", "S1", "S2", "S3"],
+        col_headers=["Classic", "Fibonacci", "Camarilla", "Woodie"],
+        cells=[
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=0, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=0, grid_col=1, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=0, grid_col=2, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=0, grid_col=3, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=1, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=1, grid_col=1, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=1, grid_col=2, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=1, grid_col=3, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=2, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=2, grid_col=1, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=2, grid_col=2, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=2, grid_col=3, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=3, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=3, grid_col=1, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=3, grid_col=2, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=3, grid_col=3, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=4, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=4, grid_col=1, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=4, grid_col=2, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=4, grid_col=3, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=5, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=5, grid_col=1, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=5, grid_col=2, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=5, grid_col=3, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=6, grid_col=0, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=6, grid_col=1, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=6, grid_col=2, grid_agg=AggregationType.Last),
+            ColumnSpec(type=CardRenderType.DecimalFormat, dp=2, grid_row=6, grid_col=3, grid_agg=AggregationType.Last)
+        ]
+    ),
+    category="4. Pivot Points"
+)(pivot_r3, fib_r3, cam_r3, woodie_r2, pivot_r2, fib_r2, cam_r2, woodie_r1, pivot_r1, fib_r1, cam_r1, woodie_pivot, pivot_p, fib_pivot, cam_pivot, woodie_pivot, pivot_s1, fib_s1, cam_s1, woodie_s1, pivot_s2, fib_s2, cam_s2, woodie_s2, pivot_s3, fib_s3, cam_s3, woodie_s2)
+

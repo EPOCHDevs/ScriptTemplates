@@ -1,0 +1,51 @@
+Name: Low Volatility Factor Strategy
+
+Description: Quantpedia #0007: Low Volatility Factor Effect in Stocks. Go long S&P 500 stocks in the bottom decile (lowest 10%) by 3-year historical volatility. Monthly rebalance. Based on Blitz & Vliet research.
+
+Assets: SP500
+Data Source: polygon
+Timeframe: 1D
+
+================================================================================
+
+# Low Volatility Factor Strategy
+# Quantpedia #0007: Low Volatility Factor Effect in Stocks
+# Source: Blitz, Vliet - "The Volatility Effect: Lower Risk Without Lower Return"
+#
+# RULES:
+# - Universe: S&P 500 constituents
+# - Signal: 3-year historical volatility (756 trading days)
+# - Selection: Long bottom decile (lowest 10% volatility) = ~50 stocks
+# - Weighting: Equal weight within portfolio
+# - Rebalancing: Monthly (first trading day)
+
+# Data source - DAILY
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# 3-year historical volatility (756 trading days)
+# volatility transform calculates annualized historical volatility
+vol_3y = volatility(period=756)(close)
+
+# Cross-sectional selection: bottom 10% by volatility (lowest volatility stocks)
+# Using percent mode to select bottom decile
+is_low_vol = cs_select(direction=CSSelectDirection.bottom, mode=CSSelectMode.percent, k=10)(vol_3y)
+
+# Detect first trading day of month
+is_new_month = is_period_boundary(period=PeriodType.month)(index())
+
+# Monthly rebalance signals
+enter_long = is_new_month and is_low_vol
+exit_long = is_new_month and not is_low_vol
+
+# Hold position until next month rebalance
+held_signal = hold_until()(enter=enter_long, exit=exit_long)
+
+# Entry/Exit zones (long-only strategy)
+long_and_short_zone()(long_entry=held_signal)
+
+# Equal weight across selected stocks
+weights = equal_weight()(held_signal)
+
+# Position sizing - ONLY rebalance on first trading day of month
+position_size(type=SizeType.percent)(size=weights * 100, rebalance_on=is_new_month)

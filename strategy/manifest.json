@@ -1,0 +1,92 @@
+[
+  {
+    "id": "asset_class_trend_following",
+    "name": "Asset Class Trend Following Strategy",
+    "description": "Load daily bars for 5 asset class ETFs: SPY, EFA, BND, VNQ, GSG\nCalculate 10-month SMA (~210 trading days) for each ETF\nHold asset when price > 10-month SMA, otherwise move to cash\nEqual weight 20% per asset when held\nRebalance monthly on first trading day"
+  },
+  {
+    "id": "currency_momentum",
+    "name": "Currency Momentum Factor",
+    "description": "Load daily bars for 8 major currency pairs vs USD (AUD, EUR, GBP, CAD, JPY, MXN, NZD, CHF)\nCalculate 12-month momentum (252-day rate of change) for each pair\nRank currencies cross-sectionally by momentum\nGo long top 3 currencies, short bottom 3 currencies\nEqual weight within long/short legs, rebalance monthly"
+  },
+  {
+    "id": "dividend_month_anomaly",
+    "name": "Dividend Month Anomaly Strategy",
+    "description": "Load daily bars for S&P 500 stocks, filter to top 500 by dollar volume with price > $5\nPredict which stocks will pay dividends this month using historical pay_date and frequency\nMatch quarterly (every 3 months), semi-annual (every 6), and annual (same month) patterns\nGo long predicted dividend payers, equal weight, rebalance monthly\nDashboard: position count timeseries chart"
+  },
+  {
+    "id": "donchian_chandelier",
+    "name": "Donchian-Chandelier Breakout Strategy",
+    "description": "Load daily bars for GLD, QQQ, and BTCUSD\nCalculate 20-day Donchian Channel (highest high / lowest low) and 5-day ATR\nEnter long when close breaks above prior bar's Donchian upper band\nExit via trailing chandelier stop (3x ATR from highest high) or Donchian lower band breakdown\nPosition size using risk_unit: 2% equity risk per trade with stop distance = 3x ATR(5)\nDashboard: event markers for breakout entries and breakdown exits"
+  },
+  {
+    "id": "fed_model",
+    "name": "FED Model Strategy",
+    "description": "Load daily bars for SPY and SHY, plus 10-Year Treasury yield from FRED\nCalculate 3-month change in Treasury yield and 1-year rolling average yield\nWhen rates falling (> 25bps decrease) or yield below average: go long SPY (equities attractive)\nWhen rates rising (> 25bps increase) and yield above average: go long SHY (bonds attractive)\n100% allocation to selected asset, rebalance monthly"
+  },
+  {
+    "id": "fx_carry_trade",
+    "name": "FX Carry Trade Strategy",
+    "description": "Load daily bars for 8 G8 currency futures (A6, B6, D6, E6, J6, M6, N6, S6)\nLoad 3-month OECD interbank rates from FRED for each country\nMap interest rates to corresponding currency futures as carry signal\nRank cross-sectionally: long top 3 (highest yield), short bottom 3 (lowest yield)\nEqual weight within each leg, monthly rebalance with BackwardPanamaCanal continuation"
+  },
+  {
+    "id": "low_volatility_factor",
+    "name": "Low Volatility Factor Strategy",
+    "description": "Load daily bars for S&P 500 constituents\nCalculate 3-year annualized historical volatility (756 trading days) for each stock\nSelect bottom decile (lowest 10% volatility) cross-sectionally (~50 stocks)\nGo long selected low-volatility stocks, equal weight\nRebalance monthly on first trading day"
+  },
+  {
+    "id": "post_earnings_drift",
+    "name": "Post-Earnings Announcement Drift Strategy",
+    "description": "Load daily bars for S&P 500 stocks with price > $1 and earnings announcement data\nCalculate EPS surprise percent; track bars since last earnings announcement\nWithin 60-day holding window: rank eligible stocks by surprise cross-sectionally\nLong top decile (most positive surprises), short bottom decile (most negative)\nEqual weight 50%/50% long-short, rebalance daily as new earnings arrive"
+  },
+  {
+    "id": "sector_momentum",
+    "name": "Sector Momentum Rotational System",
+    "description": "Load daily bars for 10 US sector ETFs (VNQ, XLK, XLE, XLV, XLF, XLI, XLB, XLY, XLP, XLU)\nCalculate 12-month momentum (252-day rate of change) for each sector\nSelect top 3 sectors by momentum cross-sectionally\nGo long selected sectors, equal weight (1/3 each)\nRebalance monthly on first trading day"
+  },
+  {
+    "id": "sector_rotation_monetary_policy",
+    "name": "Sector Rotation Monetary Policy Strategy",
+    "description": "Load daily bars for 8 SPDR sector ETFs and Fed Funds Rate from FRED\nCalculate 3-month change in Fed rate to classify regime: easing, tightening, or neutral\nEasing (rate drop > 25bps): go long cyclical sectors (XLY, XLI, XLF, XLK, XLB)\nTightening (rate rise > 25bps): go long defensive sectors (XLP, XLV, XLU)\nNeutral: equal weight all 8 sectors, rebalance monthly"
+  },
+  {
+    "id": "sector_seasonality_momentum",
+    "name": "Sector Seasonality Momentum Strategy",
+    "description": "Load daily bars for 9 US sector ETFs (XLB, XLI, XLY, XLP, XLV, XLK, XLU, XLE, XLF)\nScore each sector 0-12: 12-month momentum tercile (0/2/4) + 1-month momentum tercile (0/2/4) + seasonality (0/2/4)\nSeasonality: cyclical sectors favor Nov-Apr, defensive favor May-Oct, neutral score 2 always\nLong if score > 9, short if score < 3, exit when score crosses 6\nEqual weight within long/short legs, rebalance monthly"
+  },
+  {
+    "id": "short_interest_effect",
+    "name": "Short Interest Effect Long-Short Strategy",
+    "description": "Load daily bars for NYSE, AMEX, NASDAQ stocks plus short interest and income statement data\nCalculate short interest ratio = short interest / shares outstanding\nRank cross-sectionally by short interest ratio\nLong bottom decile (lowest 10% short interest), short top decile (highest 10%)\nEqual weight across all active positions, rebalance monthly"
+  },
+  {
+    "id": "sma_crossover_futures",
+    "name": "SMA Crossover Strategy Multi-Asset",
+    "description": "Load daily bars for 11 assets: futures (ES, NQ, CL, GC, SI, NG), stocks (SPY), crypto (BTC, ETH), FX (EURUSD, GBPUSD)\nBuild continuation series with BackwardPanamaCanal adjustment and FirstOfMonth rollover\nCalculate 50-day and 200-day SMA on adjusted close\nGo long when fast SMA > slow SMA, flat otherwise\nEqual weight (1/N) across active assets"
+  },
+  {
+    "id": "spy_morning_dip",
+    "name": "SPY Morning Dip Strategy",
+    "description": "Load 5-minute intraday bars for SPY\nCapture day's opening price from regular trading hours session\nAt 9:45 AM ET, if price is below the 9:30 open, enter long (mean reversion)\nExit at 10:30 AM ET (time-based exit), 100% position size\nDashboard: event markers for entry signals (with gap from open) and exit signals"
+  },
+  {
+    "id": "stock_reversal_within_sectors",
+    "name": "Stock Return Reversal Within Sectors Strategy",
+    "description": "Load daily bars for S&P 500 stocks with price >= $3\nCalculate 1-month return (21 trading days) for each stock\nRank within each GICS industry cross-sectionally\nLong bottom 20% performers within each industry (losers, expect reversal up)\nShort top 20% performers within each industry (winners, expect reversal down)\n50% long + 50% short, equal weight, rebalance monthly"
+  },
+  {
+    "id": "term_structure_commodities",
+    "name": "Term Structure Effect in Commodities",
+    "description": "Load daily bars for 20 commodity futures (energies, metals, grains, softs, meats)\nBuild continuation series and extract carry signal (front/back contract ratio - 1)\nRank cross-sectionally: long top 4 (highest carry = backwardation), short bottom 4 (lowest carry = contango)\nEqual weight 1/N per leg, 100% long + 100% short gross exposure\nRebalance monthly with BackwardPanamaCanal adjustment and FirstOfMonth rollover"
+  },
+  {
+    "id": "tradingview_technicals_slv",
+    "name": "TradingView-Style Technical Analysis Dashboard",
+    "description": "Load daily OHLCV data for analysis (SLV / Silver ETF)\nCalculate 9 oscillators: RSI, Stochastic, CCI, ADX, AO, Momentum, MACD, Williams %R, Ultimate Oscillator\nCalculate 15 moving averages: SMA/EMA at 10/20/30/50/100/200, Hull MA, VWMA, Ichimoku baseline\nGenerate buy/sell/neutral signals for each indicator, aggregate into scores\nCompute Classic, Fibonacci, Camarilla, and Woodie pivot points\nDashboard: summary gauges, signal count tables, oscillator/MA detail tables, pivot point tables"
+  },
+  {
+    "id": "value_book_to_market",
+    "name": "Value Book-to-Market Factor Strategy",
+    "description": "Load daily bars for NYSE, AMEX, NASDAQ stocks plus quarterly income statement and balance sheet\nCalculate book-to-market ratio = total equity / (close * shares outstanding)\nFilter for positive B/M values, forward fill between reporting dates\nLong top decile (highest B/M = value stocks), short bottom decile (lowest B/M = growth stocks)\nEqual weight across all active positions, rebalance monthly"
+  }
+]

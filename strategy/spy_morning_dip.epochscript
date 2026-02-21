@@ -1,0 +1,69 @@
+Name: SPY Morning Dip Strategy
+
+Description: Backtest: Buy SPY at 9:45 when price is down from the 9:30 open, sell at 10:30.
+
+Assets: SPY-Stocks
+Data Source: polygon
+Timeframe: 5Min
+
+================================================================================
+
+# SPY Morning Dip Mean Reversion Strategy
+# Entry: Buy at 9:45 when price is below 9:30 open
+# Exit: Sell at 10:30 (time-based)
+
+# Intraday 5-minute bars
+src = market_data_source(timeframe=5Min)()
+close = src.c
+
+# Day's open price (first bar of regular trading hours)
+rth_sw = session_window(session=SessionType.EquityRTHSession)(src.o, src.h, src.l, src.c)
+day_open = rth_sw.open
+
+# 9:45-10:30 trading window
+trade_session = session_window(session=Session(start='09:45', end='10:30', tz='America/New_York'))()
+
+# Entry signal: session opens AND price is down from open
+entry_signal = trade_session.opened and (trade_session.open < day_open)
+
+# Exit signal: session closes
+exit_signal = trade_session.closed
+
+# Hold position from entry to exit
+long_position = hold_until()(enter=entry_signal, exit=exit_signal)
+
+# === EXECUTORS ===
+
+# Long-only zone
+long_and_short_zone()(long_entry=long_position)
+
+# Position sizing: 100% of equity
+position_size(type=SizeType.percent)(size=100)
+
+# === EVENT MARKERS ===
+
+# Entry markers
+event_marker(
+    schema=EventMarkerSchema(
+        title="Entry Signals",
+        icon=Icon.PlayIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title="Entry Price", type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title="Day Open", type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title="Gap from Open", type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(entry_signal, trade_session.open, day_open, (trade_session.open - day_open) / day_open)
+
+# Exit markers
+event_marker(
+    schema=EventMarkerSchema(
+        title="Exit Signals",
+        icon=Icon.SquareIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title="Exit Price", type=CardRenderType.MonetaryFormat, dp=2)
+        ]
+    )
+)(exit_signal, trade_session.close)

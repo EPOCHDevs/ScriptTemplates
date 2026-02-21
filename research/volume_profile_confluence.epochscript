@@ -1,0 +1,675 @@
+Name: Multi-Timeframe Volume Profile Confluence
+
+Description: Multi-timeframe composite volume profile analysis with confluence detection, zone strength grading, and historical level testing. Computes profiles across 3 tiers (1-day/78 bars, 5-day/390 bars, extended/500 bars max), identifies where levels from different timeframes cluster within 0.3%, grades zone strength on an 8-point scale, and tracks how well historical levels hold as support/resistance.
+
+Assets: SPY-Stocks
+Data Source: polygon
+Timeframe: 1Min
+
+================================================================================
+
+# =============================================================================
+# MULTI-TIMEFRAME VOLUME PROFILE CONFLUENCE STUDY
+# =============================================================================
+# Analyzes volume profiles across multiple timeframes to identify confluence
+# zones where levels from different timeframes cluster together.
+#
+# Profile Tiers:
+#   Tier 1: 1-Day Session (78 bars = 1 RTH session at 5-min)
+#   Tier 2: 5-Day Composite (390 bars = 5 sessions)
+#   Tier 3: Extended Composite (500 bars = ~6.4 sessions, max window)
+#
+# Analysis:
+#   - Multi-timeframe level extraction (POC, VAH, VAL per tier)
+#   - Confluence detection (clustering of levels from different TFs)
+#   - Zone strength grading (8-point scoring system)
+#   - Historical level testing (support/resistance outcomes)
+# =============================================================================
+
+# === DATA SOURCE ===
+src = market_data_source(timeframe=5Min)()
+close = src.c
+high = src.h
+low = src.l
+open_price = src.o
+volume = src.v
+
+# === MULTI-TIMEFRAME VOLUME PROFILES ===
+# Tier 1: 1-Day Session Profile (78 bars = full RTH session at EOD)
+prof_1d = price_profile(mode=ProfileType.volume, window_size=78, tick_size=0.10, value_area_pct=0.7, ib_periods=6)()
+poc_1d = prof_1d.poc
+vah_1d = prof_1d.vah
+val_1d = prof_1d.val
+va_width_1d = prof_1d.va_width
+
+# Tier 2: 5-Day Composite Profile (390 bars = 5 RTH sessions)
+prof_5d = price_profile(mode=ProfileType.volume, window_size=390, tick_size=0.10, value_area_pct=0.7)()
+poc_5d = prof_5d.poc
+vah_5d = prof_5d.vah
+val_5d = prof_5d.val
+va_width_5d = prof_5d.va_width
+
+# Tier 3: Extended Composite (~6.4 sessions, max 500-bar window)
+prof_ext = price_profile(mode=ProfileType.volume, window_size=500, tick_size=0.10, value_area_pct=0.7)()
+poc_ext = prof_ext.poc
+vah_ext = prof_ext.vah
+val_ext = prof_ext.val
+va_width_ext = prof_ext.va_width
+
+# === SESSION OHLCV ===
+rth_sw = session_window(session=SessionType.EquityRTHSession, agg=[AggregationType.Sum])(open_price, high, low, close, volume)
+s_vol = rth_sw.result
+s_range = rth_sw.high - rth_sw.low
+
+# === VWAP ===
+session_vwap = vwap()()
+
+# === PRIOR DAY HIGH/LOW ===
+prev_hl = previous_high_low(type=SessionTimeframe.day)()
+prior_high = prev_hl.previous_high
+prior_low = prev_hl.previous_low
+
+# === EOD DETECTION ===
+bar_idx = index()
+bar_tod = datetime_extract(component=DatetimeExtractionType.time_of_day, timezone='America/New_York')(bar_idx)
+is_eod = bar_tod == 960
+eod_flag = (1.0 if is_eod else 0.0)
+eod_filter = eod_flag / eod_flag
+
+# === SESSION METRICS (EOD only) ===
+day_count = 1.0 * eod_filter
+close_eod = rth_sw.close * eod_filter
+high_eod = rth_sw.high * eod_filter
+low_eod = rth_sw.low * eod_filter
+vol_eod = s_vol * eod_filter
+range_eod = s_range * eod_filter
+
+# Volume conviction (cumulative average comparison)
+cum_vol = cumulative(agg=AggregationType.Sum)(vol_eod if is_valid(vol_eod) else 0.0)
+cum_days_vol = cumulative(agg=AggregationType.Sum)(day_count if is_valid(day_count) else 0.0)
+avg_daily_vol = cum_vol / cum_days_vol
+vol_ratio = (vol_eod / avg_daily_vol) * eod_filter
+
+# === EOD PROFILE SNAPSHOTS ===
+# Tier 1
+poc_1d_eod = poc_1d * eod_filter
+vah_1d_eod = vah_1d * eod_filter
+val_1d_eod = val_1d * eod_filter
+va_width_1d_eod = va_width_1d * eod_filter
+
+# Tier 2
+poc_5d_eod = poc_5d * eod_filter
+vah_5d_eod = vah_5d * eod_filter
+val_5d_eod = val_5d * eod_filter
+va_width_5d_eod = va_width_5d * eod_filter
+
+# Tier 3
+poc_ext_eod = poc_ext * eod_filter
+vah_ext_eod = vah_ext * eod_filter
+val_ext_eod = val_ext * eod_filter
+va_width_ext_eod = va_width_ext * eod_filter
+
+# Reference at EOD
+vwap_eod = session_vwap * eod_filter
+
+# VA width as pct of close
+va_width_1d_pct = (va_width_1d / rth_sw.close * 100) * eod_filter
+va_width_5d_pct = (va_width_5d / rth_sw.close * 100) * eod_filter
+va_width_ext_pct = (va_width_ext / rth_sw.close * 100) * eod_filter
+
+# === PRIOR SESSION LEVELS (shift EOD values by 1 bar, then ffill_day) ===
+# Prior close
+prior_close_shifted = close_eod >> 1
+prior_close = ffill_day(prior_close_shifted)
+
+# Prior 1d VPOC
+prior_vpoc_shifted = poc_1d_eod >> 1
+prior_vpoc = ffill_day(prior_vpoc_shifted)
+
+# Prior 1d VAH/VAL
+prior_vah_shifted = vah_1d_eod >> 1
+prior_vah_1d = ffill_day(prior_vah_shifted)
+prior_val_shifted = val_1d_eod >> 1
+prior_val_1d = ffill_day(prior_val_shifted)
+
+# Prior 5d POC
+prior_poc5d_shifted = poc_5d_eod >> 1
+prior_poc5d = ffill_day(prior_poc5d_shifted)
+
+# Prior EOD snapshots for dashboard
+prior_close_eod = prior_close * eod_filter
+prior_vpoc_eod = prior_vpoc * eod_filter
+prior_high_eod = prior_high * eod_filter
+prior_low_eod = prior_low * eod_filter
+
+# =============================================================================
+# CONFLUENCE DETECTION
+# =============================================================================
+# For 4 key anchor levels, count how many other levels from different
+# timeframes/sources cluster within 0.3% of the anchor.
+
+threshold = close * 0.003
+
+# --- Anchor 1: POC 1d ---
+n1_a = (1.0 if abs(vah_1d - poc_1d) < threshold else 0.0)
+n1_b = (1.0 if abs(val_1d - poc_1d) < threshold else 0.0)
+n1_c = (1.0 if abs(poc_5d - poc_1d) < threshold else 0.0)
+n1_d = (1.0 if abs(vah_5d - poc_1d) < threshold else 0.0)
+n1_e = (1.0 if abs(val_5d - poc_1d) < threshold else 0.0)
+n1_f = (1.0 if abs(poc_ext - poc_1d) < threshold else 0.0)
+n1_g = (1.0 if abs(session_vwap - poc_1d) < threshold else 0.0)
+n1_h = (1.0 if abs(prior_close - poc_1d) < threshold else 0.0)
+conf_poc1d = (n1_a + n1_b + n1_c + n1_d + n1_e + n1_f + n1_g + n1_h) * eod_filter
+
+# --- Anchor 2: POC 5d ---
+n2_a = (1.0 if abs(poc_1d - poc_5d) < threshold else 0.0)
+n2_b = (1.0 if abs(vah_1d - poc_5d) < threshold else 0.0)
+n2_c = (1.0 if abs(val_1d - poc_5d) < threshold else 0.0)
+n2_d = (1.0 if abs(vah_5d - poc_5d) < threshold else 0.0)
+n2_e = (1.0 if abs(val_5d - poc_5d) < threshold else 0.0)
+n2_f = (1.0 if abs(poc_ext - poc_5d) < threshold else 0.0)
+n2_g = (1.0 if abs(session_vwap - poc_5d) < threshold else 0.0)
+n2_h = (1.0 if abs(prior_close - poc_5d) < threshold else 0.0)
+conf_poc5d = (n2_a + n2_b + n2_c + n2_d + n2_e + n2_f + n2_g + n2_h) * eod_filter
+
+# --- Anchor 3: VWAP ---
+n3_a = (1.0 if abs(poc_1d - session_vwap) < threshold else 0.0)
+n3_b = (1.0 if abs(vah_1d - session_vwap) < threshold else 0.0)
+n3_c = (1.0 if abs(val_1d - session_vwap) < threshold else 0.0)
+n3_d = (1.0 if abs(poc_5d - session_vwap) < threshold else 0.0)
+n3_e = (1.0 if abs(vah_5d - session_vwap) < threshold else 0.0)
+n3_f = (1.0 if abs(poc_ext - session_vwap) < threshold else 0.0)
+n3_g = (1.0 if abs(prior_close - session_vwap) < threshold else 0.0)
+n3_h = (1.0 if abs(prior_high - session_vwap) < threshold else 0.0)
+conf_vwap = (n3_a + n3_b + n3_c + n3_d + n3_e + n3_f + n3_g + n3_h) * eod_filter
+
+# --- Anchor 4: Prior Close ---
+n4_a = (1.0 if abs(poc_1d - prior_close) < threshold else 0.0)
+n4_b = (1.0 if abs(vah_1d - prior_close) < threshold else 0.0)
+n4_c = (1.0 if abs(val_1d - prior_close) < threshold else 0.0)
+n4_d = (1.0 if abs(poc_5d - prior_close) < threshold else 0.0)
+n4_e = (1.0 if abs(vah_5d - prior_close) < threshold else 0.0)
+n4_f = (1.0 if abs(poc_ext - prior_close) < threshold else 0.0)
+n4_g = (1.0 if abs(session_vwap - prior_close) < threshold else 0.0)
+n4_h = (1.0 if abs(prior_high - prior_close) < threshold else 0.0)
+conf_prclose = (n4_a + n4_b + n4_c + n4_d + n4_e + n4_f + n4_g + n4_h) * eod_filter
+
+# Max confluence across all anchors (nested ternary)
+max_12 = (conf_poc1d if conf_poc1d >= conf_poc5d else conf_poc5d)
+max_34 = (conf_vwap if conf_vwap >= conf_prclose else conf_prclose)
+max_confluence = (max_12 if max_12 >= max_34 else max_34) * eod_filter
+
+# Confluence flag: 2+ other levels near any anchor = 3+ total levels in zone
+has_confluence = (1.0 if max_confluence >= 2 else 0.0) * eod_filter
+
+# =============================================================================
+# ZONE STRENGTH GRADING (8-point scoring)
+# =============================================================================
+# Scored for POC 1d and POC 5d zones independently.
+
+# --- POC 1d Zone Score ---
+# 1. Prior session 1d level present
+z1_s1 = (1.0 if (abs(prior_vah_1d - poc_1d) < threshold or abs(prior_val_1d - poc_1d) < threshold) else 0.0)
+# 2. 5-day composite level present
+z1_s2 = (1.0 if (abs(poc_5d - poc_1d) < threshold or abs(vah_5d - poc_1d) < threshold or abs(val_5d - poc_1d) < threshold) else 0.0)
+# 3. Extended composite level present
+z1_s3 = (1.0 if (abs(poc_ext - poc_1d) < threshold or abs(vah_ext - poc_1d) < threshold or abs(val_ext - poc_1d) < threshold) else 0.0)
+# 4. VPOC from any TF present
+z1_s4 = (1.0 if (abs(poc_5d - poc_1d) < threshold or abs(poc_ext - poc_1d) < threshold or abs(prior_vpoc - poc_1d) < threshold) else 0.0)
+# 5. VAH or VAL boundary present
+z1_s5 = (1.0 if (abs(vah_1d - poc_1d) < threshold or abs(val_1d - poc_1d) < threshold or abs(vah_5d - poc_1d) < threshold or abs(val_5d - poc_1d) < threshold) else 0.0)
+# 6. Reference level present (VWAP or prior close)
+z1_s6 = (1.0 if (abs(session_vwap - poc_1d) < threshold or abs(prior_close - poc_1d) < threshold) else 0.0)
+# 7. Volume confirmation (high volume day)
+z1_s7 = (1.0 if (vol_ratio > 1.2) else 0.0) * eod_filter
+# 8. Prior VPOC tested and held as support
+z1_s8 = (1.0 if (rth_sw.low <= prior_vpoc and prior_vpoc <= rth_sw.high and rth_sw.close > prior_vpoc) else 0.0) * eod_filter
+
+score_poc1d = (z1_s1 + z1_s2 + z1_s3 + z1_s4 + z1_s5 + z1_s6 + z1_s7 + z1_s8) * eod_filter
+
+# --- POC 5d Zone Score ---
+z2_s1 = (1.0 if (abs(poc_1d - poc_5d) < threshold or abs(vah_1d - poc_5d) < threshold or abs(val_1d - poc_5d) < threshold) else 0.0)
+z2_s2 = (1.0 if (abs(vah_5d - poc_5d) < threshold or abs(val_5d - poc_5d) < threshold) else 0.0)
+z2_s3 = (1.0 if (abs(poc_ext - poc_5d) < threshold or abs(vah_ext - poc_5d) < threshold or abs(val_ext - poc_5d) < threshold) else 0.0)
+z2_s4 = (1.0 if (abs(poc_1d - poc_5d) < threshold or abs(poc_ext - poc_5d) < threshold or abs(prior_vpoc - poc_5d) < threshold) else 0.0)
+z2_s5 = (1.0 if (abs(vah_1d - poc_5d) < threshold or abs(val_1d - poc_5d) < threshold or abs(vah_ext - poc_5d) < threshold or abs(val_ext - poc_5d) < threshold) else 0.0)
+z2_s6 = (1.0 if (abs(session_vwap - poc_5d) < threshold or abs(prior_close - poc_5d) < threshold) else 0.0)
+z2_s7 = (1.0 if (vol_ratio > 1.2) else 0.0) * eod_filter
+z2_s8 = (1.0 if (rth_sw.low <= prior_poc5d and prior_poc5d <= rth_sw.high and rth_sw.close > prior_poc5d) else 0.0) * eod_filter
+
+score_poc5d = (z2_s1 + z2_s2 + z2_s3 + z2_s4 + z2_s5 + z2_s6 + z2_s7 + z2_s8) * eod_filter
+
+# Best zone score
+best_zone_score = (score_poc1d if score_poc1d >= score_poc5d else score_poc5d) * eod_filter
+
+# =============================================================================
+# HISTORICAL LEVEL TESTING
+# =============================================================================
+# Track whether today's session tested key prior-day levels and the outcome.
+
+# Tested flags (session range encompassed the level)
+tested_prior_vpoc = (1.0 if (rth_sw.low <= prior_vpoc and prior_vpoc <= rth_sw.high) else 0.0) * eod_filter
+tested_prior_vah = (1.0 if (rth_sw.low <= prior_vah_1d and prior_vah_1d <= rth_sw.high) else 0.0) * eod_filter
+tested_prior_val = (1.0 if (rth_sw.low <= prior_val_1d and prior_val_1d <= rth_sw.high) else 0.0) * eod_filter
+tested_prior_poc5d = (1.0 if (rth_sw.low <= prior_poc5d and prior_poc5d <= rth_sw.high) else 0.0) * eod_filter
+tested_vwap = (1.0 if (rth_sw.low <= session_vwap and session_vwap <= rth_sw.high) else 0.0) * eod_filter
+tested_prior_high_flag = (1.0 if (rth_sw.high >= prior_high) else 0.0) * eod_filter
+tested_prior_low_flag = (1.0 if (rth_sw.low <= prior_low) else 0.0) * eod_filter
+
+# VPOC outcome classification
+poc_acted_support = (1.0 if (rth_sw.low <= prior_vpoc and prior_vpoc <= rth_sw.high and rth_sw.close > prior_vpoc) else 0.0) * eod_filter
+poc_acted_resistance = (1.0 if (rth_sw.low <= prior_vpoc and prior_vpoc <= rth_sw.high and rth_sw.close < prior_vpoc) else 0.0) * eod_filter
+poc_broke_up = (1.0 if (rth_sw.low <= prior_vpoc and prior_vpoc <= rth_sw.high and rth_sw.close > prior_vpoc * 1.005) else 0.0) * eod_filter
+poc_broke_down = (1.0 if (rth_sw.low <= prior_vpoc and prior_vpoc <= rth_sw.high and rth_sw.close < prior_vpoc * 0.995) else 0.0) * eod_filter
+
+# VAH outcome
+vah_acted_support = (1.0 if (rth_sw.low <= prior_vah_1d and prior_vah_1d <= rth_sw.high and rth_sw.close > prior_vah_1d) else 0.0) * eod_filter
+vah_acted_resistance = (1.0 if (rth_sw.low <= prior_vah_1d and prior_vah_1d <= rth_sw.high and rth_sw.close < prior_vah_1d) else 0.0) * eod_filter
+
+# VAL outcome
+val_acted_support = (1.0 if (rth_sw.low <= prior_val_1d and prior_val_1d <= rth_sw.high and rth_sw.close > prior_val_1d) else 0.0) * eod_filter
+val_acted_resistance = (1.0 if (rth_sw.low <= prior_val_1d and prior_val_1d <= rth_sw.high and rth_sw.close < prior_val_1d) else 0.0) * eod_filter
+
+# Cumulative statistics
+cum_days = cumulative(agg=AggregationType.Sum)(day_count if is_valid(day_count) else 0.0)
+cum_tested_vpoc = cumulative(agg=AggregationType.Sum)(tested_prior_vpoc if is_valid(tested_prior_vpoc) else 0.0)
+cum_tested_vah = cumulative(agg=AggregationType.Sum)(tested_prior_vah if is_valid(tested_prior_vah) else 0.0)
+cum_tested_val = cumulative(agg=AggregationType.Sum)(tested_prior_val if is_valid(tested_prior_val) else 0.0)
+cum_poc_support = cumulative(agg=AggregationType.Sum)(poc_acted_support if is_valid(poc_acted_support) else 0.0)
+cum_poc_resistance = cumulative(agg=AggregationType.Sum)(poc_acted_resistance if is_valid(poc_acted_resistance) else 0.0)
+
+# Cumulative rates
+vpoc_test_rate = (cum_tested_vpoc / cum_days) * eod_filter
+vah_test_rate = (cum_tested_vah / cum_days) * eod_filter
+val_test_rate = (cum_tested_val / cum_days) * eod_filter
+poc_support_rate = (cum_poc_support / (cum_tested_vpoc + 0.0001)) * eod_filter
+poc_resistance_rate = (cum_poc_resistance / (cum_tested_vpoc + 0.0001)) * eod_filter
+
+# =============================================================================
+# DASHBOARD - 0. MULTI-TF OVERVIEW (Hero Cards)
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Multi-TF Profile Overview',
+        cells=[
+            ColumnSpec(title='Close', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2, card_slot=CardSlot.Hero, card_color_map={Color.Success: ['POSITIVE'], Color.Error: ['NEGATIVE']}),
+            ColumnSpec(title='1D POC', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2, card_color=Color.Blue),
+            ColumnSpec(title='5D POC', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2, card_color=Color.Indigo),
+            ColumnSpec(title='Ext POC', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2, card_color=Color.Purple),
+            ColumnSpec(title='VWAP', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2, card_color=Color.Teal)
+        ]
+    ),
+    category='0. Multi-TF Overview'
+)(close_eod, poc_1d_eod, poc_5d_eod, poc_ext_eod, vwap_eod)
+
+# =============================================================================
+# DASHBOARD - 1. MULTI-TF LEVELS (Summary Table)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Multi-Timeframe Profile Levels',
+        row_size=4,
+        col_size=3,
+        row_headers=['POC', 'VAH', 'VAL', 'VA Width (pts)'],
+        col_headers=['1-Day', '5-Day', 'Extended'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    ),
+    category='1. Multi-TF Levels'
+)(poc_1d_eod, poc_5d_eod, poc_ext_eod, vah_1d_eod, vah_5d_eod, vah_ext_eod, val_1d_eod, val_5d_eod, val_ext_eod, va_width_1d_eod, va_width_5d_eod, va_width_ext_eod)
+
+# =============================================================================
+# DASHBOARD - 2. REFERENCE LEVELS (Summary Table)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Reference Levels',
+        row_size=5,
+        col_size=2,
+        row_headers=['VWAP', 'Prior Close', 'Prior High', 'Prior Low', 'Prior VPOC'],
+        col_headers=['Last Session', 'Avg (Historical)'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2)
+        ]
+    ),
+    category='2. Reference Levels'
+)(vwap_eod, vwap_eod, prior_close_eod, prior_close_eod, prior_high_eod, prior_high_eod, prior_low_eod, prior_low_eod, prior_vpoc_eod, prior_vpoc_eod)
+
+# =============================================================================
+# DASHBOARD - 3. CONFLUENCE ANALYSIS (Cards + Summary Table)
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Confluence Summary',
+        cells=[
+            ColumnSpec(title='Max Confluence', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0, card_slot=CardSlot.Hero, card_color=Color.Purple, info='Levels clustering near best anchor'),
+            ColumnSpec(title='Best Zone Score', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0, card_color=Color.Gold, info='8-point zone strength'),
+            ColumnSpec(title='Has Confluence', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0, info='1 = yes (3+ levels in zone)')
+        ]
+    ),
+    category='3. Confluence Analysis'
+)(max_confluence, best_zone_score, has_confluence)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Per-Anchor Confluence Count',
+        row_size=4,
+        col_size=2,
+        row_headers=['POC 1D', 'POC 5D', 'VWAP', 'Prior Close'],
+        col_headers=['Last Session', 'Avg (Historical)'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1)
+        ]
+    ),
+    category='3. Confluence Analysis'
+)(conf_poc1d, conf_poc1d, conf_poc5d, conf_poc5d, conf_vwap, conf_vwap, conf_prclose, conf_prclose)
+
+# =============================================================================
+# DASHBOARD - 4. ZONE GRADING (Summary Table)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Zone Strength Scoring (8-point)',
+        row_size=9,
+        col_size=2,
+        row_headers=['1. Prior 1D Level', '2. 5D Composite Level', '3. Extended Level', '4. VPOC Any TF', '5. VAH/VAL Boundary', '6. Reference (VWAP/Close)', '7. Volume Confirmation', '8. Level Tested & Held', 'TOTAL SCORE'],
+        col_headers=['POC 1D Zone', 'POC 5D Zone'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=5, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=6, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=6, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=7, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=7, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=8, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0, grid_color=Color.Gold),
+            ColumnSpec(grid_row=8, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0, grid_color=Color.Gold)
+        ]
+    ),
+    category='4. Zone Grading'
+)(z1_s1 * eod_filter, z2_s1 * eod_filter, z1_s2 * eod_filter, z2_s2 * eod_filter, z1_s3 * eod_filter, z2_s3 * eod_filter, z1_s4 * eod_filter, z2_s4 * eod_filter, z1_s5 * eod_filter, z2_s5 * eod_filter, z1_s6 * eod_filter, z2_s6 * eod_filter, z1_s7, z2_s7, z1_s8, z2_s8, score_poc1d, score_poc5d)
+
+# =============================================================================
+# DASHBOARD - 5. HISTORICAL TESTING (Summary Table + Bar Chart)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Level Test Rates & Outcomes',
+        row_size=7,
+        col_size=2,
+        row_headers=['VPOC Test Rate', 'VAH Test Rate', 'VAL Test Rate', 'VPOC Support Rate', 'VPOC Resistance Rate', 'Tested Prior High', 'Tested Prior Low'],
+        col_headers=['Last Session', 'Cumulative Rate'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=5, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=6, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=6, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1)
+        ]
+    ),
+    category='5. Historical Testing'
+)(tested_prior_vpoc, vpoc_test_rate, tested_prior_vah, vah_test_rate, tested_prior_val, val_test_rate, poc_acted_support, poc_support_rate, poc_acted_resistance, poc_resistance_rate, tested_prior_high_flag, tested_prior_high_flag, tested_prior_low_flag, tested_prior_low_flag)
+
+xy_bars(
+    title='VPOC Test Outcomes',
+    category='5. Historical Testing',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Acted as Support', color=Color.Success),
+        BarSeriesSpec(name='Acted as Resistance', color=Color.Error),
+        BarSeriesSpec(name='Broke Up (>0.5%)', color=Color.Emerald),
+        BarSeriesSpec(name='Broke Down (>0.5%)', color=Color.Rose)
+    ])
+)(poc_acted_support, poc_acted_resistance, poc_broke_up, poc_broke_down)
+
+xy_bars(
+    title='Level Test Frequency',
+    category='5. Historical Testing',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Days Tested',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Prior VPOC', color=Color.Blue),
+        BarSeriesSpec(name='Prior VAH', color=Color.Indigo),
+        BarSeriesSpec(name='Prior VAL', color=Color.Purple),
+        BarSeriesSpec(name='Prior 5D POC', color=Color.Teal),
+        BarSeriesSpec(name='Prior High', color=Color.Success),
+        BarSeriesSpec(name='Prior Low', color=Color.Error)
+    ])
+)(tested_prior_vpoc, tested_prior_vah, tested_prior_val, tested_prior_poc5d, tested_prior_high_flag, tested_prior_low_flag)
+
+# =============================================================================
+# DASHBOARD - 6. TIMESERIES
+# =============================================================================
+
+xy_lines(
+    title='Multi-TF POC Levels',
+    category='6. Timeseries',
+    y_axis_label='Price',
+    y_axis_format=AxisValueFormat.MonetaryFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='1D POC', color=Color.Blue),
+        LineSeriesSpec(name='5D POC', color=Color.Indigo),
+        LineSeriesSpec(name='Ext POC', color=Color.Purple),
+        LineSeriesSpec(name='Close', color=Color.Gray, dash_style=DashStyle.Dot)
+    ])
+)(bar_idx, poc_1d, poc_5d, poc_ext, close)
+
+xy_lines(
+    title='Multi-TF Value Area Bands',
+    category='6. Timeseries',
+    y_axis_label='Price',
+    y_axis_format=AxisValueFormat.MonetaryFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='1D VAH', color=Color.Blue),
+        LineSeriesSpec(name='1D VAL', color=Color.Blue, dash_style=DashStyle.Dash),
+        LineSeriesSpec(name='5D VAH', color=Color.Indigo),
+        LineSeriesSpec(name='5D VAL', color=Color.Indigo, dash_style=DashStyle.Dash),
+        LineSeriesSpec(name='Close', color=Color.Gray, dash_style=DashStyle.Dot)
+    ])
+)(bar_idx, vah_1d, val_1d, vah_5d, val_5d, close)
+
+xy_lines(
+    title='Reference Levels Overlay',
+    category='6. Timeseries',
+    y_axis_label='Price',
+    y_axis_format=AxisValueFormat.MonetaryFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='VWAP', color=Color.Teal),
+        LineSeriesSpec(name='Prior Close', color=Color.Orange, dash_style=DashStyle.Dash),
+        LineSeriesSpec(name='Prior VPOC', color=Color.Gold, dash_style=DashStyle.LongDash),
+        LineSeriesSpec(name='Close', color=Color.Gray, dash_style=DashStyle.Dot)
+    ])
+)(bar_idx, session_vwap, prior_close, prior_vpoc, close)
+
+xy_lines(
+    title='Confluence & Zone Score Over Time',
+    category='6. Timeseries',
+    y_axis_label='Score',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Max Confluence', color=Color.Purple),
+        LineSeriesSpec(name='Best Zone Score', color=Color.Gold)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=2, title='Confluence Threshold', color=Color.Purple, dash_style=DashStyle.Dash),
+        ReferenceLine(value=6, title='High Conviction', color=Color.Gold, dash_style=DashStyle.Dash)
+    ])
+)(bar_idx, max_confluence, best_zone_score)
+
+xy_lines(
+    title='Cumulative Test Rates',
+    category='6. Timeseries',
+    y_axis_label='Rate',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='VPOC Test Rate', color=Color.Blue),
+        LineSeriesSpec(name='VAH Test Rate', color=Color.Indigo),
+        LineSeriesSpec(name='VAL Test Rate', color=Color.Purple)
+    ])
+)(bar_idx, vpoc_test_rate, vah_test_rate, val_test_rate)
+
+# =============================================================================
+# DASHBOARD - 7. DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='Max Confluence Count Distribution',
+    category='7. Distributions',
+    bins=10,
+    fill_color=Color.Purple,
+    x_axis_label='Confluence Count',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(max_confluence)
+
+histogram(
+    title='Best Zone Score Distribution',
+    category='7. Distributions',
+    bins=9,
+    fill_color=Color.Gold,
+    x_axis_label='Zone Score (0-8)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(best_zone_score)
+
+histogram(
+    title='VA Width Distribution by Tier',
+    category='7. Distributions',
+    bins=25,
+    fill_color=Color.Blue,
+    x_axis_label='VA Width (% of Close)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(va_width_1d_pct)
+
+boxplot(
+    title='VA Width Comparison Across Tiers',
+    category='7. Distributions',
+    y_axis_label='VA Width (pts)',
+    show_outliers=True,
+    whisker_iqr=1.5,
+    colors=['Blue', 'Indigo', 'Purple'],
+    median_color=Color.Warning,
+    series_names=['1-Day', '5-Day', 'Extended']
+)(day_count, va_width_1d_eod, va_width_5d_eod, va_width_ext_eod)
+
+boxplot(
+    title='Confluence Count by Anchor',
+    category='7. Distributions',
+    y_axis_label='Nearby Levels',
+    show_outliers=True,
+    whisker_iqr=1.5,
+    colors=['Blue', 'Indigo', 'Teal', 'Orange'],
+    median_color=Color.Warning,
+    series_names=['POC 1D', 'POC 5D', 'VWAP', 'Prior Close']
+)(day_count, conf_poc1d, conf_poc5d, conf_vwap, conf_prclose)
+
+# =============================================================================
+# EVENT MARKERS
+# =============================================================================
+
+# High-Conviction Confluence: score >= 6 and confluence count >= 3
+event_marker(
+    schema=EventMarkerSchema(
+        title='High-Conviction Confluence',
+        icon=Icon.TargetIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Zone Score', type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='Max Confluence', type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(card_slot=CardSlot.Details, title='1D POC', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='5D POC', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='VWAP', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Vol Ratio', type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    )
+)((best_zone_score >= 6 and max_confluence >= 3) if is_eod else False, best_zone_score, max_confluence, poc_1d_eod, poc_5d_eod, vwap_eod, vol_ratio)
+
+# Level Held as Support
+event_marker(
+    schema=EventMarkerSchema(
+        title='Prior VPOC Held as Support',
+        icon=Icon.ShieldIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Prior VPOC', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='Close', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Session Low', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Zone Score', type=CardRenderType.DecimalFormat, dp=0)
+        ]
+    )
+)((poc_acted_support > 0.5) if is_eod else False, prior_vpoc_eod, close_eod, low_eod, best_zone_score)
+
+# Level Held as Resistance
+event_marker(
+    schema=EventMarkerSchema(
+        title='Prior VPOC Held as Resistance',
+        icon=Icon.AlertTriangleIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Prior VPOC', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='Close', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Session High', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Zone Score', type=CardRenderType.DecimalFormat, dp=0)
+        ]
+    )
+)((poc_acted_resistance > 0.5) if is_eod else False, prior_vpoc_eod, close_eod, high_eod, best_zone_score)

@@ -1,0 +1,143 @@
+Name: Currency-Commodity Correlations Analysis
+
+Description: ENG-600 Research: Validate AUDUSD/Gold correlation (~0.80 reported) and compare correlations across multiple currency-commodity pairs including CAD/Oil, AUD/Iron Ore, CHF/Gold.
+
+Assets: ^AUDUSD-FX, ^USDCAD-FX, ^USDCHF-FX, ^USDJPY-FX
+Data Source: polygon
+Timeframe: 1D
+
+================================================================================
+
+# Currency-Commodity Correlations Analysis
+# ENG-600: Validate reported correlations from DayTrading.com
+
+# ============================================================================
+# DATA SOURCES
+# ============================================================================
+
+src_fx = market_data_source()()
+close_fx = src_fx.c
+
+gold = reference_stocks(ticker='GLD')()
+close_gold = gold.c
+
+oil = economic_indicators(series_id='DCOILWTICO', use_alfred=False)()
+close_oil = ffill(oil.result)
+
+iron_ore = economic_indicators(series_id='PIORECRUSDM', use_alfred=False)()
+close_iron = ffill(iron_ore.result)
+
+silver = reference_stocks(ticker='SLV')()
+close_silver = silver.c
+
+# ============================================================================
+# CORRELATIONS - 20-DAY ROLLING
+# ============================================================================
+
+corr_gold_20d = rolling_corr(window=20, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=close_gold, y=close_fx)
+corr_oil_20d = rolling_corr(window=20, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=close_oil, y=close_fx)
+corr_iron_20d = rolling_corr(window=20, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=close_iron, y=close_fx)
+corr_silver_20d = rolling_corr(window=20, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=close_silver, y=close_fx)
+
+# ============================================================================
+# TIME SERIES CHARTS - Rolling Correlation Only
+# ============================================================================
+
+timeseries_lines(
+    title="FX vs Gold Correlation (20-day Rolling)",
+    category="1. Gold",
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name="20-day Rolling", color=Color.Gold)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title="Zero"),
+        ReferenceLine(value=0.80, color=Color.Green, dash_style=DashStyle.Dot, title="+0.80 (Reported)"),
+        ReferenceLine(value=-0.80, color=Color.Red, dash_style=DashStyle.Dot, title="-0.80")
+    ])
+)(corr_gold_20d)
+
+timeseries_lines(
+    title="FX vs Oil Correlation (20-day Rolling)",
+    category="2. Oil",
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name="20-day Rolling", color=Color.Emerald)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title="Zero"),
+        ReferenceLine(value=-0.87, color=Color.Red, dash_style=DashStyle.Dot, title="-0.87 (Reported)")
+    ])
+)(corr_oil_20d)
+
+timeseries_lines(
+    title="FX vs Iron Ore Correlation (20-day Rolling)",
+    category="3. Iron Ore",
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name="20-day Rolling", color=Color.Orange)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title="Zero")
+    ])
+)(corr_iron_20d)
+
+timeseries_lines(
+    title="FX vs Silver Correlation (20-day Rolling)",
+    category="4. Silver",
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name="20-day Rolling", color=Color.Slate)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title="Zero")
+    ])
+)(corr_silver_20d)
+
+# ============================================================================
+# SUMMARY CARDS
+# ============================================================================
+
+cards(
+    layout=CardLayout(
+        title="Gold Correlation",
+        cells=[
+            ColumnSpec(title="Mean (20d)", card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3, card_slot=CardSlot.Hero),
+            ColumnSpec(title="Min", card_agg=AggregationType.Min, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(title="Max", card_agg=AggregationType.Max, type=CardRenderType.DecimalFormat, dp=3)
+        ]
+    ),
+    category="1. Gold"
+)(corr_gold_20d, corr_gold_20d, corr_gold_20d)
+
+cards(
+    layout=CardLayout(
+        title="Oil Correlation",
+        cells=[
+            ColumnSpec(title="Mean (20d)", card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3, card_slot=CardSlot.Hero),
+            ColumnSpec(title="Min", card_agg=AggregationType.Min, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(title="Max", card_agg=AggregationType.Max, type=CardRenderType.DecimalFormat, dp=3)
+        ]
+    ),
+    category="2. Oil"
+)(corr_oil_20d, corr_oil_20d, corr_oil_20d)
+
+cards(
+    layout=CardLayout(
+        title="Iron Ore Correlation",
+        cells=[
+            ColumnSpec(title="Mean (20d)", card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3, card_slot=CardSlot.Hero),
+            ColumnSpec(title="Min", card_agg=AggregationType.Min, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(title="Max", card_agg=AggregationType.Max, type=CardRenderType.DecimalFormat, dp=3)
+        ]
+    ),
+    category="3. Iron Ore"
+)(corr_iron_20d, corr_iron_20d, corr_iron_20d)
+
+cards(
+    layout=CardLayout(
+        title="Silver Correlation",
+        cells=[
+            ColumnSpec(title="Mean (20d)", card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3, card_slot=CardSlot.Hero),
+            ColumnSpec(title="Min", card_agg=AggregationType.Min, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(title="Max", card_agg=AggregationType.Max, type=CardRenderType.DecimalFormat, dp=3)
+        ]
+    ),
+    category="4. Silver"
+)(corr_silver_20d, corr_silver_20d, corr_silver_20d)

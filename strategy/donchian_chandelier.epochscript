@@ -1,0 +1,111 @@
+Name: Donchian-Chandelier Breakout
+
+Description: Trend-following breakout strategy combining **20-day Donchian Channel** entries with **Chandelier trailing stop** and **ATR-based volatility targeting** across Gold (GLD), Nasdaq (QQQ), and Bitcoin (BTC).
+
+**Core Concept:** Enter long when price breaks above the 20-day high, size positions to risk 2% of equity with a 3×ATR(5) stop distance, and exit via a two-stage mechanism — a trailing chandelier stop protects against immediate failures while a Donchian low breakdown confirms trend reversal.
+
+**The Insight:** Higher volatility (ATR) → wider stop → smaller position → equalized risk across all three markets regardless of their individual volatility profiles.
+
+Assets: GLD-Stocks, QQQ-Stocks, ^BTCUSD-Crypto
+Data Source: polygon
+Timeframe: 1D
+
+================================================================================
+
+# Donchian-Chandelier Breakout
+# =============================================================================
+# Trend-following breakout strategy using 20-day Donchian Channels for
+# entry/exit signals with ATR-based volatility targeting across
+# Gold (GLD), Nasdaq (QQQ), and Bitcoin (BTCUSD).
+#
+# RULES:
+# - Entry: Close > Prior bar's 20-day Donchian Upper Band
+# - Exit A (Shield): Trailing stop at 3 × ATR(5) from highest high
+# - Exit B (Signal): Close < Prior bar's 20-day Donchian Lower Band
+# - Sizing: 2% equity risk per trade, stop = 3 × ATR(5)
+# - Long-only strategy
+# =============================================================================
+
+# =============================================================================
+# DATA SOURCE
+# =============================================================================
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# INDICATORS
+# =============================================================================
+
+# 20-Day Donchian Channel (highest high / lowest low over 20 days)
+donchian = donchian_channel(window=20)()
+upper_band = donchian.bbands_upper
+lower_band = donchian.bbands_lower
+
+# Lag bands by 1 bar to avoid look-ahead bias
+# Today's high/low contributes to today's channel — compare against PRIOR bar
+upper_band_prior = upper_band >> 1
+lower_band_prior = lower_band >> 1
+
+# 5-Day ATR for volatility measurement
+atr5 = atr(period=5)()
+
+# Stop distance = 3 × ATR(5)
+stop_dist = 3 * atr5
+
+# =============================================================================
+# ENTRY / EXIT SIGNALS
+# =============================================================================
+
+# ENTRY: Close breaks above prior bar's 20-day high (new breakout)
+entry_signal = close > upper_band_prior
+
+# EXIT B (Technical Signal): Close breaks below prior bar's 20-day low
+# Confirms the trend is actually over
+exit_signal = close < lower_band_prior
+
+# Hold position from entry until technical exit fires
+held = hold_until()(enter=entry_signal, exit=exit_signal)
+
+# =============================================================================
+# EXECUTION
+# =============================================================================
+
+# Long-only zone
+long_and_short_zone()(long_entry=held)
+
+# Volatility-adjusted position sizing via risk_unit
+# Size = (Equity × 2%) / (3 × ATR(5) × contract_multiplier)
+# Higher ATR → wider stop → smaller position → equalized risk across all markets
+risk_unit()(risk_pct=2, stop_distance=stop_dist)
+
+# EXIT A (Protective Shield): Trailing stop at 3 × ATR(5) from highest high
+# Activates immediately — saves us if a breakout fails instantly
+trailing_stop()(distance=stop_dist)
+
+# =============================================================================
+# EVENT MARKERS
+# =============================================================================
+
+# Mark breakout entries
+event_marker(schema=EventMarkerSchema(
+    title="Donchian Breakout Entry",
+    icon=Icon.TrendingUpIcon,
+    schemas=[
+        ColumnSpec(title="Close", type=CardRenderType.DecimalFormat, dp=2),
+        ColumnSpec(title="Breakout Level", type=CardRenderType.DecimalFormat, dp=2),
+        ColumnSpec(title="ATR(5)", type=CardRenderType.DecimalFormat, dp=2),
+        ColumnSpec(title="Stop Distance", type=CardRenderType.DecimalFormat, dp=2),
+        ColumnSpec(title="Signal", type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False)
+    ]
+))(close, upper_band_prior, atr5, stop_dist, entry_signal)
+
+# Mark technical exits (Donchian breakdown)
+event_marker(schema=EventMarkerSchema(
+    title="Donchian Breakdown Exit",
+    icon=Icon.TrendingDownIcon,
+    schemas=[
+        ColumnSpec(title="Close", type=CardRenderType.DecimalFormat, dp=2),
+        ColumnSpec(title="Breakdown Level", type=CardRenderType.DecimalFormat, dp=2),
+        ColumnSpec(title="Signal", type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False)
+    ]
+))(close, lower_band_prior, exit_signal)

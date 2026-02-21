@@ -1,0 +1,135 @@
+Name: CT Market Stats: Volume & Range — ES Futures
+
+Description: Replicates Convergent Trading Market Statistics Report Page 4 for ES E-mini S&P 500 Futures. Volume: RTH + ETH session volume histograms. Range: RTH + ETH session range + IB range histograms. Asset: ES-Futures, RTH: 09:30-16:00 ET, IB: 09:30-10:30 ET (60 min), ETH: 18:00-09:30 ET (full Globex overnight).
+
+Assets: ES-Futures
+Data Source: polygon
+Timeframe: 1Min
+
+================================================================================
+
+# =============================================================================
+# CT MARKET STATISTICS REPORT PAGE 4: VOLUME & RANGE
+# ES E-mini S&P 500 Futures
+# =============================================================================
+# Sessions (all times Eastern):
+#   RTH:  09:30 - 16:00 ET
+#   IB:   09:30 - 10:30 ET (60 minutes)
+#   ETH:  18:00 - 09:30 ET (full Globex overnight)
+# =============================================================================
+
+# === DATA SOURCE ===
+src = market_data_source()()
+
+# === CONTINUOUS CONTRACT ===
+cont = futures_continuation(s_rollover_method=RolloverType.LiquidityBased, s_adjustment_method=AdjustmentType.NoAdjustment, i_offset=0)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+close = cont.c
+high = cont.h
+low = cont.l
+open_price = cont.o
+volume = cont.v
+
+# === HOLIDAY FILTER ===
+is_holiday = holiday(days_before=0, days_after=0, holiday_calendar=HolidayCalendar.CMEGlobexEquitiesHolidayCalendar)
+
+# === RTH SESSION (09:30-16:00 ET) + volume ===
+rth_sw = session_window(session=SessionType.EquityRTHSession, agg=[AggregationType.Sum])(open_price, high, low, close, volume)
+rth_valid = (rth_sw.closed and not is_holiday)
+rth_range = where(rth_valid, rth_sw.high - rth_sw.low)
+rth_volume = where(rth_valid, rth_sw.result[0])
+
+# === ETH SESSION (18:00-09:30 ET) + volume ===
+eth_sw = session_window(session=Session(start='18:00', end='09:30', tz='America/New_York'), agg=[AggregationType.Sum])(open_price, high, low, close, volume)
+eth_valid = (eth_sw.closed and not is_holiday)
+eth_range = where(eth_valid, eth_sw.high - eth_sw.low)
+eth_volume = where(eth_valid, eth_sw.result[0])
+
+# === INITIAL BALANCE (09:30-10:30 ET) ===
+ib_sw = session_window(session=Session(start='09:30', end='10:30', tz='America/New_York'))(open_price, high, low, close)
+ib_valid = (ib_sw.closed and not is_holiday)
+ib_range = where(ib_valid, ib_sw.high - ib_sw.low)
+
+# === SAMPLE COUNT ===
+day_count = where(eth_valid, 1.0)
+
+# =============================================================================
+# REPORTERS — CT Report Page 4 Layout
+# =============================================================================
+
+# --- Sample Count & Range Summary ---
+cards(
+    layout=CardLayout(
+        title='Sample & Range Statistics',
+        cells=[
+            ColumnSpec(title='Number of Sample Days', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Primary),
+            ColumnSpec(title='RTH Mean Range (pts)', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='RTH Median Range', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='RTH StdDev', card_agg=AggregationType.Std, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='ETH Mean Range (pts)', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='ETH Median Range', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='ETH StdDev', card_agg=AggregationType.Std, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='IB Mean Range (pts)', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='IB Median Range', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='IB StdDev', card_agg=AggregationType.Std, type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    ),
+    category='Volume & Range Distributions'
+)(day_count, rth_range, rth_range, rth_range, eth_range, eth_range, eth_range, ib_range, ib_range, ib_range)
+
+histogram(
+    title='Daily Session Volume (RTH)',
+    category='Volume & Range Distributions',
+    bin_width=50000.0,
+    fill_color=Color.Blue,
+    x_axis_label='Volume (contracts)',
+    x_axis_format=AxisValueFormat.IntegerFormat,
+    y_axis_label='Frequency',
+    show_analytics=True
+)(rth_volume)
+
+histogram(
+    title='Overnight Session Volume (ETH)',
+    category='Volume & Range Distributions',
+    bin_width=20000.0,
+    fill_color=Color.Teal,
+    x_axis_label='Volume (contracts)',
+    x_axis_format=AxisValueFormat.IntegerFormat,
+    y_axis_label='Frequency',
+    show_analytics=True
+)(eth_volume)
+
+histogram(
+    title='Daily Session Range (RTH)',
+    category='Volume & Range Distributions',
+    bin_width=1.0,
+    fill_color=Color.Blue,
+    x_axis_label='Range (points)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    x_axis_dp=2,
+    y_axis_label='Frequency',
+    show_analytics=True
+)(rth_range)
+
+histogram(
+    title='Overnight Session Range (ETH)',
+    category='Volume & Range Distributions',
+    bin_width=1.0,
+    fill_color=Color.Teal,
+    x_axis_label='Range (points)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    x_axis_dp=2,
+    y_axis_label='Frequency',
+    show_analytics=True
+)(eth_range)
+
+histogram(
+    title='Initial Balance Range (09:30-10:30 ET)',
+    category='Volume & Range Distributions',
+    bin_width=0.5,
+    fill_color=Color.Indigo,
+    x_axis_label='IB Range (points)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    x_axis_dp=2,
+    y_axis_label='Frequency',
+    show_analytics=True
+)(ib_range)

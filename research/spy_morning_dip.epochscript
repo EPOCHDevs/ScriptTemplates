@@ -1,0 +1,129 @@
+Name: SPY Morning Dip Mean Reversion
+
+Description: Research study: Buy SPY at 9:45 when price is down from the 9:30 open, sell at 10:30. Track cumulative daily returns over the past year.
+
+Assets: SPY-Stocks
+Data Source: polygon
+Timeframe: 5Min
+
+================================================================================
+
+# SPY Morning Dip Mean Reversion Study
+# Hypothesis: When SPY is down from open at 9:45, it tends to revert by 10:30
+
+# Intraday 5-minute bars
+src = market_data_source(timeframe=5Min)()
+
+# Day's open price (first bar of regular trading hours)
+rth_sw = session_window(session=SessionType.EquityRTHSession)(src.o, src.h, src.l, src.c)
+day_open = rth_sw.open
+
+# 9:45-10:30 trading window
+trade_session = session_window(session=Session(start='09:45', end='10:30', tz='America/New_York'))(src.o, src.h, src.l, src.c)
+
+# Condition: price at 9:45 is below the 9:30 open
+down_from_open = trade_session.open < day_open
+
+# Session return (9:45 to 10:30)
+raw_return = (trade_session.close - trade_session.open) / trade_session.open
+
+# Triggered flag (session closed AND was down from open)
+triggered = trade_session.closed and down_from_open
+
+# Only count return when triggered
+session_return = raw_return if triggered else 0
+
+# Win/loss flags
+is_win = triggered and raw_return > 0
+is_loss = triggered and raw_return < 0
+
+# Counts for summary
+win_count = 1 if is_win else 0
+loss_count = 1 if is_loss else 0
+triggered_count = 1 if triggered else 0
+session_closed_count = 1 if trade_session.closed else 0
+
+# Cumulative compounded return
+cum_return = cumulative(agg=AggregationType.Product)(1 + session_return) - 1
+
+# Index for time series
+bar_index = index()
+
+# === SUMMARY ===
+
+cards(
+    layout=CardLayout(
+        title="Strategy Summary",
+        cells=[
+            ColumnSpec(title="Final Return", card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2, card_slot=CardSlot.Hero, card_color_map={Color.Success: ["POSITIVE"], Color.Error: ["NEGATIVE"]}),
+            ColumnSpec(title="Trading Days", card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(title="Triggered", card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(title="Wins", card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Success),
+            ColumnSpec(title="Losses", card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Error),
+            ColumnSpec(title="Avg Return", card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(title="Best Day", card_agg=AggregationType.Max, type=CardRenderType.PercentFormat, dp=2, card_color=Color.Success),
+            ColumnSpec(title="Worst Day", card_agg=AggregationType.Min, type=CardRenderType.PercentFormat, dp=2, card_color=Color.Error)
+        ]
+    ),
+    category="0. Summary"
+)(cum_return, session_closed_count, triggered_count, win_count, loss_count, session_return, session_return, session_return)
+
+# === EVENT MARKERS ===
+
+# Winning trades - green up arrow
+event_marker(
+    schema=EventMarkerSchema(
+        title="Winning Trades",
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title="Return", type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title="Day Open", type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title="Entry (9:45)", type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title="Exit (10:30)", type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title="Gap from Open", type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_win, raw_return, day_open, trade_session.open, trade_session.close, (trade_session.open - day_open) / day_open)
+
+# Losing trades - red down arrow
+event_marker(
+    schema=EventMarkerSchema(
+        title="Losing Trades",
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title="Return", type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title="Day Open", type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title="Entry (9:45)", type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title="Exit (10:30)", type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title="Gap from Open", type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_loss, raw_return, day_open, trade_session.open, trade_session.close, (trade_session.open - day_open) / day_open)
+
+# === CHARTS ===
+
+# Equity curve
+xy_lines(
+    title="Cumulative Return",
+    category="1. Performance",
+    y_axis_label="Cumulative Return",
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name="Cum Return", color=Color.Blue)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title="Breakeven")
+    ])
+)(x_values=bar_index, y_values=cum_return)
+
+# Return distribution
+histogram(
+    title="Return Distribution",
+    category="1. Performance",
+    x_axis_label="Return",
+    y_axis_label="Frequency",
+    bins=30,
+    x_axis_format=AxisValueFormat.PercentFormat
+)(value=session_return)

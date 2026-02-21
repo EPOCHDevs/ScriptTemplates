@@ -1,0 +1,632 @@
+Name: IB 20-Session Analysis
+
+Description: Focused Initial Balance analysis across rolling 20-session windows for equity RTH. Answers: (1) Per-session IB data with breakout flags, extensions, and ATR-normalized width, (2) Narrow vs Wide IB comparison — do narrow IB days produce larger extensions and trending behavior?, (3) Today's IB context — z-score, expected range, extension targets, position relative to prior Value Area. Uses 5-minute bars with price_profile in volume mode.
+
+Assets: SPY-Stocks
+Data Source: polygon
+Timeframe: 1Min
+
+================================================================================
+
+# =============================================================================
+# IB 20-SESSION ANALYSIS — Equity RTH
+# =============================================================================
+# Focused Initial Balance analysis across rolling 20-session windows.
+# Answers:
+# 1. Per-session IB data with breakout flags, extensions, ATR-normalized width
+# 2. Narrow vs Wide IB comparison — do narrow IB days produce larger extensions?
+# 3. Today's IB context — z-score, expected range, extension targets, VA position
+#
+# Session: Equity RTH (09:30-16:00 ET)
+# Initial Balance: First 30 minutes (09:30-10:00 ET)
+# Resolution: 5-minute bars (78 bars per RTH session)
+# Rolling Window: 20 sessions = 1560 bars
+# =============================================================================
+
+# === DATA SOURCE ===
+src = market_data_source(timeframe=5Min)()
+close = src.c
+high = src.h
+low = src.l
+open_price = src.o
+volume = src.v
+
+# === VOLUME PROFILE (rolling 78-bar window = full session at EOD) ===
+profile = price_profile(mode=ProfileType.volume, window_size=78, tick_size=0.10, value_area_pct=0.7, ib_periods=6)()
+vpoc = profile.poc
+vah = profile.vah
+val = profile.val
+
+# === SESSION OHLCV ===
+rth_sw = session_window(session=SessionType.EquityRTHSession, agg=[AggregationType.Sum])(open_price, high, low, close, volume)
+s_open = rth_sw.open
+s_high = rth_sw.high
+s_low = rth_sw.low
+s_close = rth_sw.close
+s_vol = rth_sw.result
+s_range = s_high - s_low
+
+# === INITIAL BALANCE (09:30-10:00 ET = first 30 minutes) ===
+ib_sw = session_window(session=Session(start='09:30', end='10:00', tz='America/New_York'))(open_price, high, low, close)
+ib_h = ffill(where(ib_sw.closed, ib_sw.high))
+ib_l = ffill(where(ib_sw.closed, ib_sw.low))
+ib_mid = (ib_h + ib_l) / 2
+ib_width = ib_h - ib_l
+
+# === PRIOR DAY LEVELS ===
+prev_hl = previous_high_low(type=SessionTimeframe.day)()
+prior_high = prev_hl.previous_high
+prior_low = prev_hl.previous_low
+
+# === EOD DETECTION (datetime_extract — exactly 1 bar per day) ===
+bar_idx = index()
+bar_tod = datetime_extract(component=DatetimeExtractionType.time_of_day, timezone='America/New_York')(bar_idx)
+is_eod = bar_tod == 960
+eod_flag = (1.0 if is_eod else 0.0)
+eod_filter = eod_flag / eod_flag
+
+# === IB VALIDITY GUARD (NaN out metrics when IB width ~ 0) ===
+ib_valid_flag = (1.0 if (ib_width > 0.05) else 0.0) * eod_filter
+ib_valid_filter = ib_valid_flag / ib_valid_flag
+
+# =============================================================================
+# SESSION METRICS (EOD only via eod_filter — NaN on non-EOD bars)
+# =============================================================================
+
+day_count = 1.0 * eod_filter
+open_eod = s_open * eod_filter
+high_eod = s_high * eod_filter
+low_eod = s_low * eod_filter
+close_eod = s_close * eod_filter
+vol_eod = s_vol * eod_filter
+range_eod = s_range * eod_filter
+range_pct = (s_range / s_close * 100) * eod_filter
+
+# Volume Profile levels at EOD
+vpoc_eod = vpoc * eod_filter
+vah_eod = vah * eod_filter
+val_eod = val * eod_filter
+
+# IB levels at EOD
+ib_h_eod = ib_h * eod_filter
+ib_l_eod = ib_l * eod_filter
+ib_width_eod = ib_width * eod_filter
+ib_width_pct = (ib_width / s_close * 100) * eod_filter
+ib_pct_of_range = (ib_width / s_range * 100) * eod_filter
+
+# VPOC position (used by day type classification)
+vpoc_position = ((vpoc - s_low) / s_range) * eod_filter
+
+# Close percentile within session range (0% = low, 100% = high)
+close_pctile = ((s_close - s_low) / s_range * 100) * eod_filter
+
+# =============================================================================
+# PRIOR SESSION RANGE AS ATR PROXY
+# =============================================================================
+
+prior_range_shifted = range_eod >> 1
+prior_range = ffill(prior_range_shifted)
+ib_width_pct_prior = (ib_width_eod / prior_range * 100) * eod_filter
+
+# =============================================================================
+# IB BREAKOUT FLAGS
+# =============================================================================
+
+ib_high_broken = (1.0 if (s_high > ib_h) else 0.0) * eod_filter
+ib_low_broken = (1.0 if (s_low < ib_l) else 0.0) * eod_filter
+both_broken = (1.0 if (s_high > ib_h and s_low < ib_l) else 0.0) * eod_filter
+neither_broken = (1.0 if (s_high <= ib_h and s_low >= ib_l) else 0.0) * eod_filter
+high_only_cnt = (1.0 if (s_high > ib_h and s_low >= ib_l) else 0.0) * eod_filter
+low_only_cnt = (1.0 if (s_low < ib_l and s_high <= ib_h) else 0.0) * eod_filter
+
+# =============================================================================
+# IB EXTENSIONS & CLOSE POSITION
+# =============================================================================
+
+upside_ext = (s_high - ib_h) * eod_filter
+downside_ext = (ib_l - s_low) * eod_filter
+up_ext_ratio = (upside_ext / ib_width_eod) * ib_valid_filter
+down_ext_ratio = (downside_ext / ib_width_eod) * ib_valid_filter
+
+# Close position relative to IB
+close_above_ib = (1.0 if (s_close > ib_h) else 0.0) * eod_filter
+close_below_ib = (1.0 if (s_close < ib_l) else 0.0) * eod_filter
+close_inside_ib = (1.0 if (s_close >= ib_l and s_close <= ib_h) else 0.0) * eod_filter
+
+# =============================================================================
+# DAY TYPE CLASSIFICATION (Dalton 6-type)
+# =============================================================================
+
+has_dual_ext = (up_ext_ratio > 1.5 and down_ext_ratio > 1.5) if is_eod else False
+has_both_ext = (up_ext_ratio > 1.0 and down_ext_ratio > 1.0) if is_eod else False
+
+is_normal_day = (s_range < ib_width * 1.5) if is_eod else False
+is_trend_up = (not is_normal_day and up_ext_ratio > 4.0 and close_pctile > 75) if is_eod else False
+is_trend_down = (not is_normal_day and down_ext_ratio > 4.0 and close_pctile < 25) if is_eod else False
+is_trend_day = (is_trend_up or is_trend_down) if is_eod else False
+is_double_dist_day = (not is_normal_day and not is_trend_day and has_dual_ext and (vpoc_position < 0.35 or vpoc_position > 0.65)) if is_eod else False
+is_neutral_extreme = (not is_normal_day and not is_trend_day and not is_double_dist_day and has_both_ext and (close_pctile > 70 or close_pctile < 30)) if is_eod else False
+is_neutral_day = (not is_normal_day and not is_trend_day and not is_double_dist_day and not is_neutral_extreme and has_both_ext) if is_eod else False
+is_normal_var = (not is_normal_day and not is_trend_day and not is_double_dist_day and not is_neutral_extreme and not is_neutral_day) if is_eod else False
+
+normal_day_cnt = (1.0 if is_normal_day else 0.0) * eod_filter
+trend_up_cnt = (1.0 if is_trend_up else 0.0) * eod_filter
+trend_down_cnt = (1.0 if is_trend_down else 0.0) * eod_filter
+double_dist_day_cnt = (1.0 if is_double_dist_day else 0.0) * eod_filter
+neutral_extreme_cnt = (1.0 if is_neutral_extreme else 0.0) * eod_filter
+neutral_day_cnt = (1.0 if is_neutral_day else 0.0) * eod_filter
+normal_var_cnt = (1.0 if is_normal_var else 0.0) * eod_filter
+
+# =============================================================================
+# ROLLING 20-SESSION STATISTICS (key addition)
+# =============================================================================
+# Forward-fill EOD values with ffill() to persist across days,
+# then apply rolling transforms with window=1560 (78 bars/session x 20 sessions).
+
+ib_width_filled = ffill(ib_width_eod)
+ib_width_20_avg = ma(period=1560, type=MAType.sma)(ib_width_filled)
+ib_width_20_std = stddev(period=1560)(ib_width_filled)
+ib_width_zscore_cont = zscore(window=1560)(ib_width_filled)
+ib_width_zscore = ib_width_zscore_cont * eod_filter
+ib_width_pctrank = percentrank(period=1560)(ib_width_filled) * eod_filter
+
+range_filled = ffill(range_eod)
+range_20_avg = ma(period=1560, type=MAType.sma)(range_filled)
+
+up_ext_filled = ffill(up_ext_ratio)
+up_ext_20_avg = ma(period=1560, type=MAType.sma)(up_ext_filled) * eod_filter
+
+down_ext_filled = ffill(down_ext_ratio)
+down_ext_20_avg = ma(period=1560, type=MAType.sma)(down_ext_filled) * eod_filter
+
+# EOD snapshots of rolling stats
+ib_width_20_avg_eod = ib_width_20_avg * eod_filter
+ib_width_20_std_eod = ib_width_20_std * eod_filter
+range_20_avg_eod = range_20_avg * eod_filter
+
+# 20-session rolling breakout rates (SMA of 1/0 flags = rate)
+ib_hb_filled = ffill(ib_high_broken)
+ib_hb_20_rate = ma(period=1560, type=MAType.sma)(ib_hb_filled) * eod_filter
+
+ib_lb_filled = ffill(ib_low_broken)
+ib_lb_20_rate = ma(period=1560, type=MAType.sma)(ib_lb_filled) * eod_filter
+
+both_b_filled = ffill(both_broken)
+both_b_20_rate = ma(period=1560, type=MAType.sma)(both_b_filled) * eod_filter
+
+neither_b_filled = ffill(neither_broken)
+neither_b_20_rate = ma(period=1560, type=MAType.sma)(neither_b_filled) * eod_filter
+
+# =============================================================================
+# NARROW vs WIDE IB CLASSIFICATION
+# =============================================================================
+
+narrow_flag = (1.0 if (ib_width_pctrank <= 30) else 0.0) * eod_filter
+wide_flag = (1.0 if (ib_width_pctrank >= 70) else 0.0) * eod_filter
+
+# NaN filter trick for conditional group stats
+narrow_filter = narrow_flag / narrow_flag
+wide_filter = wide_flag / wide_flag
+
+# Narrow IB group metrics
+narrow_range = range_eod * narrow_filter
+narrow_ib_width = ib_width_eod * narrow_filter
+narrow_ib_broken_high = ib_high_broken * narrow_filter
+narrow_up_ext = up_ext_ratio * narrow_filter
+narrow_down_ext = down_ext_ratio * narrow_filter
+narrow_close_pctile = close_pctile * narrow_filter
+
+# Wide IB group metrics
+wide_range = range_eod * wide_filter
+wide_ib_width = ib_width_eod * wide_filter
+wide_ib_broken_high = ib_high_broken * wide_filter
+wide_up_ext = up_ext_ratio * wide_filter
+wide_down_ext = down_ext_ratio * wide_filter
+wide_close_pctile = close_pctile * wide_filter
+
+# Narrow day type counts
+narrow_trend_up = trend_up_cnt * narrow_filter
+narrow_trend_down = trend_down_cnt * narrow_filter
+narrow_normal_var = normal_var_cnt * narrow_filter
+narrow_neutral = neutral_day_cnt * narrow_filter
+narrow_normal_day = normal_day_cnt * narrow_filter
+
+# Wide day type counts
+wide_trend_up = trend_up_cnt * wide_filter
+wide_trend_down = trend_down_cnt * wide_filter
+wide_normal_var = normal_var_cnt * wide_filter
+wide_neutral = neutral_day_cnt * wide_filter
+wide_normal_day = normal_day_cnt * wide_filter
+
+# =============================================================================
+# PRIOR VA CONTEXT
+# =============================================================================
+
+prior_vah_shifted = vah_eod >> 1
+prior_vah = ffill(prior_vah_shifted)
+prior_val_shifted = val_eod >> 1
+prior_val = ffill(prior_val_shifted)
+
+ib_above_prior_va = (1.0 if (ib_l > prior_vah) else 0.0) * eod_filter
+ib_below_prior_va = (1.0 if (ib_h < prior_val) else 0.0) * eod_filter
+ib_inside_prior_va = (1.0 if (ib_l >= prior_val and ib_h <= prior_vah) else 0.0) * eod_filter
+
+# =============================================================================
+# CUMULATIVE IB BREAKOUT RATES
+# =============================================================================
+
+cum_days = cumulative(agg=AggregationType.Sum)(day_count if is_valid(day_count) else 0.0)
+cum_high_broken = cumulative(agg=AggregationType.Sum)(ib_high_broken if is_valid(ib_high_broken) else 0.0)
+cum_low_broken = cumulative(agg=AggregationType.Sum)(ib_low_broken if is_valid(ib_low_broken) else 0.0)
+cum_both_broken = cumulative(agg=AggregationType.Sum)(both_broken if is_valid(both_broken) else 0.0)
+cum_neither_broken = cumulative(agg=AggregationType.Sum)(neither_broken if is_valid(neither_broken) else 0.0)
+
+cum_high_broken_rate = cum_high_broken / cum_days * 100
+cum_low_broken_rate = cum_low_broken / cum_days * 100
+cum_both_broken_rate = cum_both_broken / cum_days * 100
+cum_neither_broken_rate = cum_neither_broken / cum_days * 100
+
+# =============================================================================
+# EXPECTED EXTENSION TARGETS (for Today's IB Context)
+# =============================================================================
+
+exp_up_target = (ib_h_eod + up_ext_20_avg * ib_width_eod) * ib_valid_filter
+exp_down_target = (ib_l_eod - down_ext_20_avg * ib_width_eod) * ib_valid_filter
+
+# =============================================================================
+# DASHBOARD — 0. SESSION OVERVIEW (Hero Cards)
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Session Overview',
+        cells=[
+            ColumnSpec(title='IB Width', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='IB Z-Score', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2, card_slot=CardSlot.Hero, card_color_map={Color.Warning: ['POSITIVE'], Color.Info: ['NEGATIVE']}),
+            ColumnSpec(title='IB %ile Rank', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(title='20-Sess Avg IB', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='Session Range', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    ),
+    category='0. Session Overview'
+)(ib_width_eod, ib_width_zscore, ib_width_pctrank, ib_width_20_avg_eod, range_eod)
+
+# =============================================================================
+# DASHBOARD — 1. 20-SESSION IB DETAIL (Summary Table: Last vs 20-Sess Avg)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Last Session IB Detail',
+        row_size=10,
+        col_size=2,
+        row_headers=['IB High', 'IB Low', 'IB Width (pts)', '% of Prior Range', 'IB High Broken', 'IB Low Broken', 'Up Extension (x IB)', 'Down Extension (x IB)', 'Close Percentile', 'Session Range (pts)'],
+        col_headers=['Last Session', '20-Session Avg'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(grid_row=5, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=6, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=6, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=7, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=7, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=8, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=8, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=9, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=9, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    ),
+    category='1. 20-Session IB Detail'
+)(ib_h_eod, ib_h_eod, ib_l_eod, ib_l_eod, ib_width_eod, ib_width_20_avg_eod, ib_width_pct_prior, ib_width_pct_prior, ib_high_broken, ib_hb_20_rate, ib_low_broken, ib_lb_20_rate, up_ext_ratio, up_ext_20_avg, down_ext_ratio, down_ext_20_avg, close_pctile, close_pctile, range_eod, range_20_avg_eod)
+
+# =============================================================================
+# DASHBOARD — 2. IB SUMMARY STATISTICS (Summary Table)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='IB Summary Statistics',
+        row_size=9,
+        col_size=2,
+        row_headers=['Avg IB Width (pts)', 'IB Width Std (pts)', 'Avg Session Range (pts)', 'IB High Broken %', 'IB Low Broken %', 'Both Broken %', 'Neither Broken %', 'Avg Up Ext (x IB)', 'Avg Down Ext (x IB)'],
+        col_headers=['All Sessions', 'Last 20 Sessions'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Std, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=5, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=6, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=6, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=7, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=7, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=8, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=8, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    ),
+    category='2. IB Summary Statistics'
+)(ib_width_eod, ib_width_20_avg_eod, ib_width_eod, ib_width_20_std_eod, range_eod, range_20_avg_eod, ib_high_broken, ib_hb_20_rate, ib_low_broken, ib_lb_20_rate, both_broken, both_b_20_rate, neither_broken, neither_b_20_rate, up_ext_ratio, up_ext_20_avg, down_ext_ratio, down_ext_20_avg)
+
+# =============================================================================
+# DASHBOARD — 3. NARROW vs WIDE IB (Summary Table + Bar Charts)
+# =============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Narrow vs Wide IB Comparison',
+        row_size=6,
+        col_size=2,
+        row_headers=['Avg Range (pts)', 'Avg IB Width (pts)', 'IB High Broken %', 'Avg Up Ext (x IB)', 'Avg Down Ext (x IB)', 'Avg Close %ile'],
+        col_headers=['Narrow IB (<=30th pctile)', 'Wide IB (>=70th pctile)'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=4, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=5, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=5, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1)
+        ]
+    ),
+    category='3. Narrow vs Wide IB'
+)(narrow_range, wide_range, narrow_ib_width, wide_ib_width, narrow_ib_broken_high, wide_ib_broken_high, narrow_up_ext, wide_up_ext, narrow_down_ext, wide_down_ext, narrow_close_pctile, wide_close_pctile)
+
+xy_bars(
+    title='Narrow IB Day Type Distribution',
+    category='3. Narrow vs Wide IB',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Trend Up', color=Color.Success),
+        BarSeriesSpec(name='Trend Down', color=Color.Error),
+        BarSeriesSpec(name='Normal Var', color=Color.Blue),
+        BarSeriesSpec(name='Neutral', color=Color.Teal),
+        BarSeriesSpec(name='Normal Day', color=Color.Gray)
+    ])
+)(narrow_trend_up, narrow_trend_down, narrow_normal_var, narrow_neutral, narrow_normal_day)
+
+xy_bars(
+    title='Wide IB Day Type Distribution',
+    category='3. Narrow vs Wide IB',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Trend Up', color=Color.Success),
+        BarSeriesSpec(name='Trend Down', color=Color.Error),
+        BarSeriesSpec(name='Normal Var', color=Color.Blue),
+        BarSeriesSpec(name='Neutral', color=Color.Teal),
+        BarSeriesSpec(name='Normal Day', color=Color.Gray)
+    ])
+)(wide_trend_up, wide_trend_down, wide_normal_var, wide_neutral, wide_normal_day)
+
+# =============================================================================
+# DASHBOARD — 4. TODAY'S IB CONTEXT (Cards)
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Todays IB Context',
+        cells=[
+            ColumnSpec(title='IB Width Z-Score', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2, card_color_map={Color.Warning: ['POSITIVE'], Color.Info: ['NEGATIVE']}),
+            ColumnSpec(title='Avg Up Ext Target', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2, card_color=Color.Success),
+            ColumnSpec(title='Avg Down Ext Target', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2, card_color=Color.Error),
+            ColumnSpec(title='IB Above Prior VA', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(title='IB Below Prior VA', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(title='IB Inside Prior VA', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=0)
+        ]
+    ),
+    category='4. Todays IB Context'
+)(ib_width_zscore, exp_up_target, exp_down_target, ib_above_prior_va, ib_below_prior_va, ib_inside_prior_va)
+
+# =============================================================================
+# DASHBOARD — 5. DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='IB Width Distribution',
+    category='5. Distributions',
+    bins=25,
+    fill_color=Color.Teal,
+    x_axis_label='IB Width (points)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(ib_width_eod)
+
+histogram(
+    title='Up Extension Ratio Distribution',
+    category='5. Distributions',
+    bins=25,
+    fill_color=Color.Success,
+    x_axis_label='Upside Extension (x IB Width)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(up_ext_ratio)
+
+histogram(
+    title='Down Extension Ratio Distribution',
+    category='5. Distributions',
+    bins=25,
+    fill_color=Color.Error,
+    x_axis_label='Downside Extension (x IB Width)',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Frequency'
+)(down_ext_ratio)
+
+boxplot(
+    title='Narrow vs Wide IB: Session Range',
+    category='5. Distributions',
+    y_axis_label='Points',
+    show_outliers=True,
+    whisker_iqr=1.5,
+    colors=['Teal', 'Indigo'],
+    median_color=Color.Warning
+)(narrow_range, wide_range)
+
+boxplot(
+    title='IB Extension Ratios',
+    category='5. Distributions',
+    y_axis_label='x IB Width',
+    show_outliers=True,
+    whisker_iqr=1.5,
+    colors=['Green', 'Red'],
+    median_color=Color.Warning
+)(up_ext_ratio, down_ext_ratio)
+
+# =============================================================================
+# DASHBOARD — 6. TRENDS
+# =============================================================================
+
+xy_lines(
+    title='IB Width Over Time + 20-Session Average',
+    category='6. Trends',
+    y_axis_label='IB Width (pts)',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='IB Width (EOD)', color=Color.Teal),
+        LineSeriesSpec(name='20-Session Avg', color=Color.Blue, dash_style=DashStyle.Dash)
+    ])
+)(bar_idx, ib_width_filled, ib_width_20_avg)
+
+xy_lines(
+    title='Cumulative IB Breakout Rates (%)',
+    category='6. Trends',
+    y_axis_label='Rate (%)',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='High Broken %', color=Color.Success),
+        LineSeriesSpec(name='Low Broken %', color=Color.Error),
+        LineSeriesSpec(name='Both Broken %', color=Color.Warning),
+        LineSeriesSpec(name='Neither Broken %', color=Color.Gray)
+    ])
+)(bar_idx, cum_high_broken_rate, cum_low_broken_rate, cum_both_broken_rate, cum_neither_broken_rate)
+
+xy_lines(
+    title='IB Width Z-Score Over Time',
+    category='6. Trends',
+    y_axis_label='Z-Score',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Z-Score', color=Color.Indigo)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, title='Mean', color=Color.Gray, dash_style=DashStyle.Dash),
+        ReferenceLine(value=2, title='+2 Std', color=Color.Warning, dash_style=DashStyle.Dot),
+        ReferenceLine(value=-2, title='-2 Std', color=Color.Warning, dash_style=DashStyle.Dot)
+    ])
+)(x_values=bar_idx, y_values=ib_width_zscore_cont)
+
+# =============================================================================
+# DASHBOARD — 7. IB BREAKOUTS (Bar Chart)
+# =============================================================================
+
+xy_bars(
+    title='IB Breakout Distribution',
+    category='7. IB Breakouts',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='High Only', color=Color.Success),
+        BarSeriesSpec(name='Low Only', color=Color.Error),
+        BarSeriesSpec(name='Both', color=Color.Warning),
+        BarSeriesSpec(name='Neither', color=Color.Gray)
+    ])
+)(high_only_cnt, low_only_cnt, both_broken, neither_broken)
+
+xy_bars(
+    title='Day Type Distribution',
+    category='7. IB Breakouts',
+    agg=AggregationType.Sum,
+    vertical=True,
+    data_labels=True,
+    y_axis_label='Count',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Normal Day', color=Color.Gray),
+        BarSeriesSpec(name='Normal Variation', color=Color.Blue),
+        BarSeriesSpec(name='Trend Up', color=Color.Success),
+        BarSeriesSpec(name='Trend Down', color=Color.Error),
+        BarSeriesSpec(name='Double Dist', color=Color.Indigo),
+        BarSeriesSpec(name='Neutral', color=Color.Teal),
+        BarSeriesSpec(name='Neutral Extreme', color=Color.Warning)
+    ])
+)(normal_day_cnt, normal_var_cnt, trend_up_cnt, trend_down_cnt, double_dist_day_cnt, neutral_day_cnt, neutral_extreme_cnt)
+
+# =============================================================================
+# DASHBOARD — 8. EVENT MARKERS
+# =============================================================================
+
+# Narrow IB Day marker
+event_marker(
+    schema=EventMarkerSchema(
+        title='Narrow IB Day',
+        icon=Icon.MinusIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='IB Width', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='%ile Rank', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Z-Score', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Session Range', type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    )
+)((narrow_flag > 0.5) if is_eod else False, ib_width_eod, ib_width_pctrank, ib_width_zscore, range_eod)
+
+# Wide IB Day marker
+event_marker(
+    schema=EventMarkerSchema(
+        title='Wide IB Day',
+        icon=Icon.ArrowUpDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='IB Width', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='%ile Rank', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Z-Score', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Session Range', type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    )
+)((wide_flag > 0.5) if is_eod else False, ib_width_eod, ib_width_pctrank, ib_width_zscore, range_eod)
+
+# Both IB Levels Broken marker
+event_marker(
+    schema=EventMarkerSchema(
+        title='Both IB Levels Broken',
+        icon=Icon.ZapIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True, table_visible=False),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Session Range', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='IB Width', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Up Ext (x IB)', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Down Ext (x IB)', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Close %ile', type=CardRenderType.DecimalFormat, dp=1)
+        ]
+    )
+)((both_broken > 0.5) if is_eod else False, range_eod, ib_width_eod, up_ext_ratio, down_ext_ratio, close_pctile)
