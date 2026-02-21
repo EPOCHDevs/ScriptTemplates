@@ -1,13 +1,3 @@
-Name: CT Market Stats: Overnight, IB & Close — ES Futures
-
-Description: Replicates Convergent Trading Market Statistics Report: Overnight Session Levels, Initial Balance, Close Location After Single IB Break, and Close sections. ES E-mini S&P 500 Futures, May 2021 - May 2024.
-
-Assets: ES-Futures
-Data Source: polygon
-Timeframe: 1Min
-
-================================================================================
-
 # =============================================================================
 # CT MARKET STATISTICS REPORT: OVERNIGHT, IB & CLOSE
 # ES E-mini S&P 500 Futures

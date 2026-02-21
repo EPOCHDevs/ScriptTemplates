@@ -1,13 +1,3 @@
-Name: Stock Return Reversal Within Sectors Strategy
-
-Description: Quantpedia #0011: Intra-Industry Short-Term Reversal. Long bottom 20% performers within each industry (losers), short top 20% (winners). SP500 stocks, price >= $3. Equal weight, monthly rebalance.
-
-Assets: SP500
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # Stock Return Reversal Within Sectors Strategy
 # Quantpedia #0011: Stock Return Reversal within Industries
 # Source: Hameed, Huang, Mian - "Industries and Stock Return Reversals"

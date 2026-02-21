@@ -1,13 +1,3 @@
-Name: TradingView-Style Technical Analysis - SLV
-
-Description: Technical analysis dashboard for Silver ETF (SLV) with oscillators, moving averages, and pivot points. Inspired by TradingView's Technicals view.
-
-Assets: TSLA-Stocks
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # =============================================================================
 # TRADINGVIEW-STYLE TECHNICAL ANALYSIS DASHBOARD
 # Asset: SLV (Silver ETF)

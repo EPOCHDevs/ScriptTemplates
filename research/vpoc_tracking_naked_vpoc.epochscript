@@ -1,13 +1,3 @@
-Name: VPOC Tracking & Naked VPOC Analysis
-
-Description: Multi-session VPOC tracking research study for equity RTH sessions. Analyzes VPOC migration patterns across 10 sessions, detects naked (untested) VPOCs from 9 prior sessions, and classifies prior-session VPOC test behavior as bounce vs break. Uses valuewhen(occurrence=N) for clean multi-session lookback. Dashboard categories: 6. VPOC Migration, 7. Naked VPOCs, 8. VPOC Test Behavior. Event markers for naked VPOC proximity, VPOC bounces/breaks, and migration streaks.
-
-Assets: SPY-Stocks
-Data Source: polygon
-Timeframe: 1Min
-
-================================================================================
-
 # =============================================================================
 # VPOC TRACKING & NAKED VPOC ANALYSIS — Equity RTH
 # =============================================================================

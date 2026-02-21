@@ -1,13 +1,3 @@
-Name: SPY Morning Dip Strategy
-
-Description: Backtest: Buy SPY at 9:45 when price is down from the 9:30 open, sell at 10:30.
-
-Assets: SPY-Stocks
-Data Source: polygon
-Timeframe: 5Min
-
-================================================================================
-
 # SPY Morning Dip Mean Reversion Strategy
 # Entry: Buy at 9:45 when price is below 9:30 open
 # Exit: Sell at 10:30 (time-based)

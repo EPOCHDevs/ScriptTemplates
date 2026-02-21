@@ -1,17 +1,3 @@
-Name: Donchian-Chandelier Breakout
-
-Description: Trend-following breakout strategy combining **20-day Donchian Channel** entries with **Chandelier trailing stop** and **ATR-based volatility targeting** across Gold (GLD), Nasdaq (QQQ), and Bitcoin (BTC).
-
-**Core Concept:** Enter long when price breaks above the 20-day high, size positions to risk 2% of equity with a 3×ATR(5) stop distance, and exit via a two-stage mechanism — a trailing chandelier stop protects against immediate failures while a Donchian low breakdown confirms trend reversal.
-
-**The Insight:** Higher volatility (ATR) → wider stop → smaller position → equalized risk across all three markets regardless of their individual volatility profiles.
-
-Assets: GLD-Stocks, QQQ-Stocks, ^BTCUSD-Crypto
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # Donchian-Chandelier Breakout
 # =============================================================================
 # Trend-following breakout strategy using 20-day Donchian Channels for

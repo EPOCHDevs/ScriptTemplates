@@ -1,13 +1,3 @@
-Name: RS-010: EUR/USD Monthly Seasonality Analysis
-
-Description: RS-010: EUR/USD monthly seasonality research with heatmap, summary tables (RowSpec GROUP BY), day-of-week analysis, yearly returns, and cumulative return chart.
-
-Assets: ^EURUSD-FX
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # RS-010: EUR/USD Monthly Seasonality Analysis
 # Comprehensive seasonality with monthly, yearly, and day-of-week breakdowns
 

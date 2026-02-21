@@ -1,13 +1,3 @@
-Name: Term Structure Effect in Commodities (Quantpedia #0022)
-
-Description: Sort 20 commodity futures by carry (front/back - 1). Go long top quintile (4 assets, backwardation), short bottom quintile (4 assets, contango). Equal weight 1/N per leg (100% long + 100% short). Monthly rebalance. Matches Quantpedia #0022 universe exactly.
-
-Assets: CL-Futures, HO-Futures, NG-Futures, RB-Futures, GC-Futures, SI-Futures, PL-Futures, PA-Futures, HG-Futures, ZC-Futures, ZW-Futures, ZS-Futures, ZM-Futures, ZO-Futures, SB-Futures, CC-Futures, LB-Futures, LE-Futures, HE-Futures, GF-Futures
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # Term Structure Effect in Commodities (Quantpedia #0022)
 # Source: Gorton, Hayashi, Rouwenhorst - "The Fundamentals of Commodity Futures Returns"
 #

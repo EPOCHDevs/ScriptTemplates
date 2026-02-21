@@ -1,13 +1,3 @@
-Name: Sector Seasonality Momentum Strategy
-
-Description: Quantpedia #0032: Combining Seasonality and Momentum in US Equity Sectors. Scoring system: 12-month momentum (0-4), 1-month momentum (0-4), seasonality (0-4). Long if score > 9, short if score < 3, exit when score crosses 6. Cyclical sectors (XLB, XLI, XLY) favor Nov-Apr. Defensive sectors (XLP, XLV, XLK, XLU) favor May-Oct. Monthly rebalancing. Based on Doeswijk & Vliet. NOTE: OOS backtest shows negative performance - possible data mining in original paper.
-
-Assets: XLB-Stocks, XLI-Stocks, XLY-Stocks, XLP-Stocks, XLV-Stocks, XLK-Stocks, XLU-Stocks, XLE-Stocks, XLF-Stocks
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # Sector Seasonality Momentum Strategy
 # Quantpedia #0032: Combining Seasonality and Momentum in US Equity Sectors
 # Source: Doeswijk, Vliet (1970-2008)

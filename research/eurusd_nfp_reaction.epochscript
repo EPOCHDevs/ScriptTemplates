@@ -1,13 +1,3 @@
-Name: EUR/USD Post-NFP Reaction Analysis
-
-Description: ENG-612 Research: Analyze EUR/USD price action in windows following US Non-Farm Payrolls releases (8:30 AM ET on first Friday of month).
-
-Assets: ^EURUSD-FX
-Data Source: polygon
-Timeframe: 5Min
-
-================================================================================
-
 # =============================================================================
 # EUR/USD POST-NFP REACTION ANALYSIS
 # =============================================================================

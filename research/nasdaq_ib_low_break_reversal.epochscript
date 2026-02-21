@@ -1,17 +1,3 @@
-Name: NASDAQ IB Low Break + Prior Day Low Reversal Probability
-
-Description: Intraday research on QQQ (NASDAQ proxy) analyzing the probability of closing above the **Initial Balance (IB) midpoint** on days where:
-1. Price **broke below the IB Low** (first hour: 9:30-10:30 ET)
-2. Price **took out the prior day's low**
-
-Classic market profile / auction theory study — testing whether failed downside probes tend to reverse back above the IB midpoint by session close.
-
-Assets: QQQ-Stocks
-Data Source: polygon
-Timeframe: 1Min
-
-================================================================================
-
 # =============================================================================
 # NASDAQ IB LOW BREAK + PRIOR DAY LOW → CLOSE ABOVE IB MID PROBABILITY
 # =============================================================================

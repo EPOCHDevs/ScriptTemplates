@@ -1,13 +1,3 @@
-Name: FC Multi-Timeframe Cloning Test
-
-Description: Test: futures_continuation at 1D should be auto-cloned to 5Min timeframe. Verifies cloneFuturesContinuations() compiler pass.
-
-Assets: ES-Futures
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # FC Multi-Timeframe Cloning Test
 # The futures_continuation node gets global timeframe (1D).
 # The market_data_source at 5Min introduces a second timeframe.

@@ -1,13 +1,3 @@
-Name: FED Model Strategy
-
-Description: Quantpedia #0050: FED Model market timing strategy. Uses the yield gap between earnings yield and 10-year Treasury yield to time the equity market. When bond yields are falling (or low relative to history), go long equities; when rising significantly, move to cash. Monthly rebalancing based on Treasury rate changes.
-
-Assets: SPY-Stocks, SHY-Stocks
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # FED Model Strategy
 # Quantpedia #0050: Market Timing Using Yield Gap
 # Source: Asness - The FED Model and Expected Asset Returns

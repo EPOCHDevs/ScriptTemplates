@@ -1,13 +1,3 @@
-Name: Commodity Correlations (12M Weekly Returns)
-
-Description: ENG-600 Research: Recreate The Daily Shot scatter chart showing each commodity's correlation to US Dollar (X-axis) and S&P 500 (Y-axis). Uses 12-month rolling correlations on weekly returns.
-
-Assets: 
-Data Source: polygon
-Timeframe: 1W
-
-================================================================================
-
 # Commodity Correlations (12M Weekly Returns)
 # ENG-600: Recreate The Daily Shot scatter chart
 # X-axis: Correlation to US Dollar Index (FRED DTWEXBGS)

@@ -1,13 +1,3 @@
-Name: RS-007: FX Monthly Seasonality Analysis
-
-Description: Validate Investopedia claims on FX seasonality (Kathy Lien, 2024): USD/CAD Oct/Nov 63% win rate, Apr worst; USD/JPY Oct 68% win rate, Aug strongest JPY month.
-
-Assets: ^USDCAD-FX, ^USDJPY-FX
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # RS-007: FX Monthly Seasonality Research
 # Source: Investopedia - Seasonal Trends in the Forex Market
 # Author: Kathy Lien (Updated May 2024)

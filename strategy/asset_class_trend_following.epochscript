@@ -1,13 +1,3 @@
-Name: Asset Class Trend-Following Strategy
-
-Description: Quantpedia #0001: Timing-based asset allocation. Hold each ETF when above its 10-month SMA, otherwise cash. Equal weight (20% each), monthly rebalance. Based on Mebane Faber's GTAA research.
-
-Assets: SPY-Stocks, EFA-Stocks, BND-Stocks, VNQ-Stocks, GSG-Stocks
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # Asset Class Trend-Following Strategy
 # Quantpedia #0001: Timing-Based Asset Allocation
 # Source: Faber "A Quantitative Approach to Tactical Asset Allocation" (SSRN 962461)

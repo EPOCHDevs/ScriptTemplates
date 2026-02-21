@@ -1,13 +1,3 @@
-Name: Short Interest Effect - Long-Short Strategy
-
-Description: Quantpedia #0045: Short Interest Effect - Long-Short Version. Long stocks with lowest short interest (bottom decile), short stocks with highest short interest (top decile). Monthly rebalancing, equal weighted.
-
-Assets: NYSE, AMEX, NASDAQ
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # Short Interest Effect - Long-Short Strategy
 # Quantpedia #0045: Short Interest Effect - Long-Short Version
 # Source: Akbas, Boehmer, Erturk, Sorescu - "Why Do Short Interest Levels Predict Stock Returns?"

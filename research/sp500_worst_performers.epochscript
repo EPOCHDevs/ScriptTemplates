@@ -1,13 +1,3 @@
-Name: S&P 500 Worst Performers Analysis
-
-Description: Identify the 20 worst-performing S&P 500 stocks over the past week with technical analysis: 50-day SMA position, days since 52-week high, and days since all-time high.
-
-Assets: SP500
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # S&P 500 Worst Performers Analysis
 # Identify the 20 worst-performing stocks over the past week
 # with technical analysis of key support levels

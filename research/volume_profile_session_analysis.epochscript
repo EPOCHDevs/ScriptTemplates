@@ -1,13 +1,3 @@
-Name: Volume Profile Session Analysis
-
-Description: Comprehensive volume profile analysis for equity RTH sessions. Computes VPOC, Value Area (VAH/VAL), Initial Balance (first 30 min), close position analysis, IB extension ratios, day type classification (Dalton), and profile shape classification (P/b/D/Elongated). Uses 5-minute bars with price_profile transform in volume mode.
-
-Assets: SPY-Stocks
-Data Source: polygon
-Timeframe: 1Min
-
-================================================================================
-
 # =============================================================================
 # VOLUME PROFILE SESSION ANALYSIS — Equity RTH
 # =============================================================================

@@ -1,13 +1,3 @@
-Name: Low Volatility Factor Strategy
-
-Description: Quantpedia #0007: Low Volatility Factor Effect in Stocks. Go long S&P 500 stocks in the bottom decile (lowest 10%) by 3-year historical volatility. Monthly rebalance. Based on Blitz & Vliet research.
-
-Assets: SP500
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # Low Volatility Factor Strategy
 # Quantpedia #0007: Low Volatility Factor Effect in Stocks
 # Source: Blitz, Vliet - "The Volatility Effect: Lower Risk Without Lower Return"

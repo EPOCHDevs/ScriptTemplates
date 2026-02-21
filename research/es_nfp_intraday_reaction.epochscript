@@ -1,13 +1,3 @@
-Name: ES Futures NFP Intraday Reaction
-
-Description: Analyze E-mini S&P 500 price action around Non-Farm Payrolls release (8:30 AM ET). Uses PAYEMS announcement dates from ALFRED to identify actual NFP days. Compares NFP Friday windows vs all-day windows. Unadjusted continuous contracts, LastTradingDay roll.
-
-Assets: ES-Futures
-Data Source: polygon
-Timeframe: 5Min
-
-================================================================================
-
 # =============================================================================
 # ES FUTURES NFP INTRADAY REACTION ANALYSIS
 # =============================================================================

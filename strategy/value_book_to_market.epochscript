@@ -1,13 +1,3 @@
-Name: Value (Book-to-Market) Factor - Long-Short Strategy
-
-Description: Quantpedia #0026: Value (Book-to-Market) Factor. Long stocks with highest B/M ratio (top decile - value), short stocks with lowest B/M ratio (bottom decile - growth). Monthly rebalancing, equal weighted.
-
-Assets: NYSE, AMEX, NASDAQ
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # Value (Book-to-Market) Factor - Long-Short Strategy
 # Quantpedia #0026: Value (Book-to-Market) Factor
 # Source: Fama-French (1992), Asness, Frazzini, Israel, Moskowitz (2015)

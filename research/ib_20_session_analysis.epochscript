@@ -1,13 +1,3 @@
-Name: IB 20-Session Analysis
-
-Description: Focused Initial Balance analysis across rolling 20-session windows for equity RTH. Answers: (1) Per-session IB data with breakout flags, extensions, and ATR-normalized width, (2) Narrow vs Wide IB comparison — do narrow IB days produce larger extensions and trending behavior?, (3) Today's IB context — z-score, expected range, extension targets, position relative to prior Value Area. Uses 5-minute bars with price_profile in volume mode.
-
-Assets: SPY-Stocks
-Data Source: polygon
-Timeframe: 1Min
-
-================================================================================
-
 # =============================================================================
 # IB 20-SESSION ANALYSIS — Equity RTH
 # =============================================================================

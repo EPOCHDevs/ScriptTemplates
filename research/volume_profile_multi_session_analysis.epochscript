@@ -1,13 +1,3 @@
-Name: Multi-Session Volume Profile Analysis
-
-Description: Multi-session volume profile dashboard tracking value migration across 5 sessions, balance/trend regime detection, price-vs-value divergence (Axia Futures framework), 5-day composite profiles, and naked VPOC tracking. Uses 5-minute bars with session and composite price_profile transforms.
-
-Assets: SPY-Stocks
-Data Source: polygon
-Timeframe: 1Min
-
-================================================================================
-
 # =============================================================================
 # MULTI-SESSION VOLUME PROFILE ANALYSIS DASHBOARD
 # =============================================================================

@@ -1,13 +1,3 @@
-Name: FX Carry Trade Strategy
-
-Description: Quantpedia #0005: FX Carry Trade. Go long 3 currencies with highest central bank rates, short 3 with lowest rates. Monthly rebalance. Uses 8 G8 currency futures with 3-month interbank rates from FRED.
-
-Assets: A6-Futures, B6-Futures, D6-Futures, E6-Futures, J6-Futures, M6-Futures, N6-Futures, S6-Futures
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # FX Carry Trade Strategy
 # Quantpedia #0005: Currency Carry Trade
 # Source: Deutsche Bank Currency Returns (2009)

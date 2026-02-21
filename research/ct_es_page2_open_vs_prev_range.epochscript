@@ -1,13 +1,3 @@
-Name: CT Market Stats: Open vs Previous Range — ES Futures
-
-Description: Replicates CT Market Statistics Report Page 2: Open Compared to Previous Session's Range. Analyzes touch probabilities for previous session levels conditioned on opening above, within, or below the previous RTH range.
-
-Assets: ES-Futures
-Data Source: polygon
-Timeframe: 1Min
-
-================================================================================
-
 # =============================================================================
 # CT MARKET STATISTICS REPORT: OPEN VS PREVIOUS SESSION'S RANGE (Page 2)
 # ES E-mini S&P 500 Futures

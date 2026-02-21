@@ -1,13 +1,3 @@
-Name: Post-Earnings Announcement Drift Strategy
-
-Description: Quantpedia #0034: Long stocks with positive earnings surprises (top decile), short stocks with negative surprises (bottom decile). Hold 60 days post-announcement. SP500 universe, price > $1.
-
-Assets: SP500
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # Post-Earnings Announcement Drift Strategy
 # Quantpedia #0034: Post-Loss/Profit Announcement Drift in Stocks
 # Source: Balakrishnan, Bartov, Faurel - "Post Loss/Profit Announcement Drift"

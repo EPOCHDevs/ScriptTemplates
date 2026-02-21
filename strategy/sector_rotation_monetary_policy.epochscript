@@ -1,13 +1,3 @@
-Name: Sector Rotation Monetary Policy Strategy
-
-Description: Quantpedia #0010: Sector Rotation based on Monetary Policy. Go long cyclical sectors during Fed easing, long defensive sectors during Fed tightening. Monthly rebalance based on 3-month Fed rate change.
-
-Assets: XLY-Stocks, XLI-Stocks, XLF-Stocks, XLK-Stocks, XLB-Stocks, XLP-Stocks, XLV-Stocks, XLU-Stocks
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # Sector Rotation Monetary Policy Strategy
 # Quantpedia #0010: Sector Rotation based on Monetary Conditions
 # Source: Conover, Jensen, Johnson, Mercer

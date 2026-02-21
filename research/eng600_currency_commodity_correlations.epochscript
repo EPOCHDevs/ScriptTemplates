@@ -1,13 +1,3 @@
-Name: Currency-Commodity Correlations Analysis
-
-Description: ENG-600 Research: Validate AUDUSD/Gold correlation (~0.80 reported) and compare correlations across multiple currency-commodity pairs including CAD/Oil, AUD/Iron Ore, CHF/Gold.
-
-Assets: ^AUDUSD-FX, ^USDCAD-FX, ^USDCHF-FX, ^USDJPY-FX
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # Currency-Commodity Correlations Analysis
 # ENG-600: Validate reported correlations from DayTrading.com
 

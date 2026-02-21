@@ -1,13 +1,3 @@
-Name: Quarterly OPEX Momentum Reversal
-
-Description: Research study: Test momentum reversal around quarterly options expiration (3rd Friday of Mar/Jun/Sep/Dec). Enter Monday of OPEX week based on 10-day momentum direction, exit 10 trading days after OPEX.
-
-Assets: SPY-Stocks
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # Quarterly OPEX Momentum Reversal Study
 # Hypothesis: 10-day momentum reverses around quarterly OPEX dates
 # Enter Monday of OPEX week, exit 10 trading days later

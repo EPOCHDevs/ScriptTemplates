@@ -1,13 +1,3 @@
-Name: EUR/USD NFP Volatility Decay Analysis
-
-Description: ENG-612: Replicate Rezania (2010) Table 7 - measure volatility decay rate after NFP release. Model: σ(t) = σ_0 * exp(-α * t). Expected α = 0.049 for EUR/NFP.
-
-Assets: ^EURUSD-FX
-Data Source: polygon
-Timeframe: 5Min
-
-================================================================================
-
 # =============================================================================
 # EUR/USD NFP VOLATILITY DECAY ANALYSIS - TABLE 7 REPLICATION
 # =============================================================================

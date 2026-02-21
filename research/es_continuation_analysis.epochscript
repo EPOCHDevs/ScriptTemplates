@@ -1,13 +1,3 @@
-Name: ES Futures Continuation Analysis
-
-Description: Comprehensive analysis of ES futures continuation: compares all 4 adjustment methods x 3 rollover strategies. Evaluates return distributions, cumulative performance, and volatility metrics across 10 years of data.
-
-Assets: ES-Futures
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # ES Futures Continuation Analysis
 # Compare adjustment methods and rollover strategies across 10 years
 

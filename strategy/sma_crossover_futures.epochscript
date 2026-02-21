@@ -1,13 +1,3 @@
-Name: SMA Crossover Strategy - Multi-Asset
-
-Description: 50/200 SMA crossover across futures, stocks, crypto, and FX. Long when fast SMA > slow SMA, flat otherwise. Equal weight across active assets, monthly rebalance. BackwardPanamaCanal adjustment, FirstOfMonth rollover for futures.
-
-Assets: ES-Futures, NQ-Futures, CL-Futures, GC-Futures, SI-Futures, NG-Futures, SPY-Stocks, ^BTCUSD-Crypto, ^ETHUSD-Crypto, ^EURUSD-FX, ^GBPUSD-FX
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # SMA Crossover Strategy - Multi-Asset (Futures + Stocks + Crypto + FX)
 # 50/200 SMA crossover on continuation-adjusted prices
 # Long when fast SMA > slow SMA, flat otherwise

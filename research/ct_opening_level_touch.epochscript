@@ -1,13 +1,3 @@
-Name: CT Opening & Level Touch
-
-Description: Replicates Convergent Trading Market Statistics Report sections: Opening Location, Open vs Previous Range conditional probability tables (Above/Within/Below), and Overnight Session Level touch rates. Uses SPY-Stocks as ES futures proxy. Categories map 1:1 to CT report pages 1-3.
-
-Assets: SPY-Stocks
-Data Source: polygon
-Timeframe: 1Min
-
-================================================================================
-
 # =============================================================================
 # CT OPENING & LEVEL TOUCH — SPY (ES Proxy)
 # =============================================================================

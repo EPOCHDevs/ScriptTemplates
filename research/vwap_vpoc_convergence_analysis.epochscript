@@ -1,13 +1,3 @@
-Name: VWAP-VPOC Convergence Analysis
-
-Description: Analyzes the relationship between VWAP (institutional cost basis) and VPOC (volume-accepted price) across sessions. Detects convergence/divergence patterns, classifies close positions relative to both anchors, tracks 5-session rolling history, and identifies trajectory patterns (converging/diverging/parallel). Uses 5-minute bars with session VWAP and price_profile in volume mode.
-
-Assets: SPY-Stocks
-Data Source: polygon
-Timeframe: 1Min
-
-================================================================================
-
 # =============================================================================
 # VWAP-VPOC CONVERGENCE ANALYSIS — Equity RTH
 # =============================================================================

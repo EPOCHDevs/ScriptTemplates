@@ -1,13 +1,3 @@
-Name: CT Session Structure
-
-Description: Replicates Convergent Trading Market Statistics Report sections: Harmonic Rotations (zigzag swing detection), Auction Day Type, Volume distributions, and Range distributions. Uses SPY-Stocks as ES futures proxy with pre/post RTH data. Categories map 1:1 to CT report pages for easy debugging.
-
-Assets: SPY-Stocks
-Data Source: polygon
-Timeframe: 5Min
-
-================================================================================
-
 # =============================================================================
 # CT SESSION STRUCTURE — SPY (ES Proxy)
 # =============================================================================

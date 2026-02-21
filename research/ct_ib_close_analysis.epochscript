@@ -1,13 +1,3 @@
-Name: CT IB & Close Analysis
-
-Description: Replicates Convergent Trading Market Statistics Report sections: Initial Balance break probabilities, Close Location After Single IB Break, and Close stats (engulfing, within prior ranges). Uses SPY-Stocks as ES futures proxy. Categories map 1:1 to CT report page 3.
-
-Assets: SPY-Stocks
-Data Source: polygon
-Timeframe: 1Min
-
-================================================================================
-
 # =============================================================================
 # CT IB & CLOSE ANALYSIS — SPY (ES Proxy)
 # =============================================================================

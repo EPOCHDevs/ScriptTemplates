@@ -1,13 +1,3 @@
-Name: Multi-Timeframe Volume Profile Confluence
-
-Description: Multi-timeframe composite volume profile analysis with confluence detection, zone strength grading, and historical level testing. Computes profiles across 3 tiers (1-day/78 bars, 5-day/390 bars, extended/500 bars max), identifies where levels from different timeframes cluster within 0.3%, grades zone strength on an 8-point scale, and tracks how well historical levels hold as support/resistance.
-
-Assets: SPY-Stocks
-Data Source: polygon
-Timeframe: 1Min
-
-================================================================================
-
 # =============================================================================
 # MULTI-TIMEFRAME VOLUME PROFILE CONFLUENCE STUDY
 # =============================================================================

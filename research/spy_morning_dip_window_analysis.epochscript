@@ -1,13 +1,3 @@
-Name: SPY Morning Dip - Window Optimization
-
-Description: Analyze different entry/exit time combinations using BarSeriesSchema for window comparison.
-
-Assets: SPY-Stocks
-Data Source: polygon
-Timeframe: 5Min
-
-================================================================================
-
 # SPY Morning Dip - Session Window Optimization
 # Using BarSeriesSchema for window comparison bar charts
 

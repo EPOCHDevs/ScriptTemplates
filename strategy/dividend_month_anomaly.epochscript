@@ -1,13 +1,3 @@
-Name: Dividend Month Anomaly Strategy
-
-Description: Quantpedia #0019: Long stocks predicted to pay dividends this month. Monthly rebalance, equal weighted, top 500 liquid stocks with price > $5.
-
-Assets: SP500
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # Dividend Month Anomaly Strategy
 # Quantpedia #0019: Dividend Month Premium
 #

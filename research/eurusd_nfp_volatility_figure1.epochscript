@@ -1,13 +1,3 @@
-Name: EUR/USD NFP Volatility Figure 1 Replication
-
-Description: ENG-612: Replicate Rezania (2010) Figure 1 - minute-by-minute range volatility around NFP releases. Window: 5:30 AM - 11:30 AM ET (NFP at minute 180).
-
-Assets: ^EURUSD-FX
-Data Source: polygon
-Timeframe: 1Min
-
-================================================================================
-
 # =============================================================================
 # REZANIA (2010) FIGURE 1 REPLICATION - EUR/USD
 # =============================================================================

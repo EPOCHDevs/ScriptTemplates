@@ -1,13 +1,3 @@
-Name: Currency Momentum Factor
-
-Description: Quantpedia #0008: Currency momentum strategy. Go long top 3 currencies and short bottom 3 currencies by 12-month momentum vs USD. Monthly rebalance. Based on Deutsche Bank Currency Returns research.
-
-Assets: ^AUDUSD-FX, ^EURUSD-FX, ^GBPUSD-FX, ^CADUSD-FX, ^JPYUSD-FX, ^MXNUSD-FX, ^NZDUSD-FX, ^CHFUSD-FX
-Data Source: polygon
-Timeframe: 1D
-
-================================================================================
-
 # Currency Momentum Factor
 # Quantpedia #0008: Currency Momentum Factor
 # Source: Deutsche Bank Currency Returns / Menkhoff et al. "Currency Momentum Strategies"
