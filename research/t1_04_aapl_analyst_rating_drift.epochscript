@@ -1,0 +1,308 @@
+# =============================================================================
+# AAPL ANALYST RATING UPGRADE VS DOWNGRADE DRIFT
+# =============================================================================
+# Research Question: Is there asymmetry in AAPL price drift after analyst
+# upgrades vs downgrades? Do upgrades produce persistent drift?
+#
+# Methodology:
+# - Event: Analyst rating changes (price target adjustments)
+# - Condition: PT raised (upgrade) vs PT lowered (downgrade)
+# - Window: T-10 to T+30 trading days
+# - Returns: Normalized to T-10 close (T-10 = 0%)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# ANALYST RATINGS DATA & CLASSIFICATION
+# =============================================================================
+
+ratings = analyst_ratings()()
+pt = ratings.adjusted_price_target
+prev_pt = ratings.previous_adjusted_price_target
+has_rating = is_valid(pt) and is_valid(prev_pt)
+
+# Price target change percentage
+pt_change_pct = (pt - prev_pt) / abs(prev_pt)
+
+# Regime classification
+is_upgrade = has_rating and (pt > prev_pt)
+is_downgrade = has_rating and (pt < prev_pt)
+
+# Counters for cards
+upgrade_count = 1.0 if is_upgrade else 0.0
+downgrade_count = 1.0 if is_downgrade else 0.0
+
+# =============================================================================
+# NORMALIZED RETURN COMPUTATION (relative to T-10 close)
+# =============================================================================
+
+base = close >> 10
+ret_m5 = ((close >> 5) - base) / base
+ret_m1 = ((close >> 1) - base) / base
+ret_0 = (close - base) / base
+ret_p1 = ((close << 1) - base) / base
+ret_p5 = ((close << 5) - base) / base
+ret_p10 = ((close << 10) - base) / base
+ret_p15 = ((close << 15) - base) / base
+ret_p20 = ((close << 20) - base) / base
+ret_p30 = ((close << 30) - base) / base
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+pre_10d = ((close >> 1) - (close >> 10)) / (close >> 10)
+pre_5d = ((close >> 1) - (close >> 5)) / (close >> 5)
+rating_day = (close - (close >> 1)) / (close >> 1)
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+post_30d = ((close << 30) - close) / close
+
+# =============================================================================
+# CUMULATIVE EVENT RETURNS
+# =============================================================================
+
+bar_ts = index()
+upgrade_daily = rating_day if is_upgrade else 0.0
+downgrade_daily = rating_day if is_downgrade else 0.0
+cum_upgrade = cumulative()(upgrade_daily)
+cum_downgrade = cumulative()(downgrade_daily)
+
+# =============================================================================
+# REGIME-FILTERED SERIES
+# =============================================================================
+
+# Upgrade: composite path
+u_m5 = where(is_upgrade, ret_m5)
+u_m1 = where(is_upgrade, ret_m1)
+u_0 = where(is_upgrade, ret_0)
+u_p1 = where(is_upgrade, ret_p1)
+u_p5 = where(is_upgrade, ret_p5)
+u_p10 = where(is_upgrade, ret_p10)
+u_p15 = where(is_upgrade, ret_p15)
+u_p20 = where(is_upgrade, ret_p20)
+u_p30 = where(is_upgrade, ret_p30)
+
+# Downgrade: composite path
+d_m5 = where(is_downgrade, ret_m5)
+d_m1 = where(is_downgrade, ret_m1)
+d_0 = where(is_downgrade, ret_0)
+d_p1 = where(is_downgrade, ret_p1)
+d_p5 = where(is_downgrade, ret_p5)
+d_p10 = where(is_downgrade, ret_p10)
+d_p15 = where(is_downgrade, ret_p15)
+d_p20 = where(is_downgrade, ret_p20)
+d_p30 = where(is_downgrade, ret_p30)
+
+# Window-specific: upgrade
+u_pre10 = where(is_upgrade, pre_10d)
+u_pre5 = where(is_upgrade, pre_5d)
+u_rating = where(is_upgrade, rating_day)
+u_post5 = where(is_upgrade, post_5d)
+u_post10 = where(is_upgrade, post_10d)
+u_post20 = where(is_upgrade, post_20d)
+u_post30 = where(is_upgrade, post_30d)
+
+# Window-specific: downgrade
+d_pre10 = where(is_downgrade, pre_10d)
+d_pre5 = where(is_downgrade, pre_5d)
+d_rating = where(is_downgrade, rating_day)
+d_post5 = where(is_downgrade, post_5d)
+d_post10 = where(is_downgrade, post_10d)
+d_post20 = where(is_downgrade, post_20d)
+d_post30 = where(is_downgrade, post_30d)
+
+# Event marker helper series
+u_pt_change = where(is_upgrade, pt_change_pct)
+d_pt_change = where(is_downgrade, pt_change_pct)
+
+# =============================================================================
+# REPORTS - CATEGORY 1: OVERVIEW CARDS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Rating Change Overview',
+        cells=[
+            ColumnSpec(title='Upgrade Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Success),
+            ColumnSpec(title='Downgrade Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Error)
+        ]
+    ),
+    category='1. Overview'
+)(upgrade_count, downgrade_count)
+
+# =============================================================================
+# REPORTS - CATEGORY 2: CUMULATIVE RETURNS
+# =============================================================================
+
+xy_lines(
+    title='Cumulative Rating-Day Return by Direction',
+    category='2. Cumulative Returns',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Upgrade (PT Raised)', color=Color.Green),
+        LineSeriesSpec(name='Downgrade (PT Lowered)', color=Color.Red)
+    ])
+)(bar_ts, cum_upgrade, cum_downgrade)
+
+# =============================================================================
+# REPORTS - CATEGORY 3: COMPOSITE RETURN PATH
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Upgrade: Avg Return Path (T-10 to T+30)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Rating Change',
+    y_axis_label='Avg Return (vs T-10)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-5'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+15'),
+        BarSeriesSpec(name='T+20'),
+        BarSeriesSpec(name='T+30')
+    ])
+)(u_m5, u_m1, u_0, u_p1, u_p5, u_p10, u_p15, u_p20, u_p30)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Downgrade: Avg Return Path (T-10 to T+30)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Rating Change',
+    y_axis_label='Avg Return (vs T-10)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-5'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+15'),
+        BarSeriesSpec(name='T+20'),
+        BarSeriesSpec(name='T+30')
+    ])
+)(d_m5, d_m1, d_0, d_p1, d_p5, d_p10, d_p15, d_p20, d_p30)
+
+# =============================================================================
+# REPORTS - CATEGORY 4: DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='Post-30d Return Distribution (Upgrades)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Green,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(u_post30)
+
+histogram(
+    title='Post-30d Return Distribution (Downgrades)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Red,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(d_post30)
+
+histogram(
+    title='Rating Day Return Distribution (Upgrades)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Blue,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(u_rating)
+
+# =============================================================================
+# REPORTS - CATEGORY 5: EVENT MARKERS
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Upgrade Events (PT Raised)',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='PT Change %', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-10d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-30d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_upgrade, u_pt_change, u_pre10, u_post30)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Downgrade Events (PT Lowered)',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='PT Change %', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-10d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-30d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_downgrade, d_pt_change, d_pre10, d_post30)
+
+# =============================================================================
+# REPORTS - CATEGORY 6: WINDOW COMPARISON
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Upgrade: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-10d'),
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Rating Day'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d'),
+        BarSeriesSpec(name='Post-30d')
+    ])
+)(u_pre10, u_pre5, u_rating, u_post5, u_post10, u_post20, u_post30)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Downgrade: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-10d'),
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Rating Day'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d'),
+        BarSeriesSpec(name='Post-30d')
+    ])
+)(d_pre10, d_pre5, d_rating, d_post5, d_post10, d_post20, d_post30)
