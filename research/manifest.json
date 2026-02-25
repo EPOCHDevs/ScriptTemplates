@@ -2,156 +2,393 @@
   {
     "id": "ct_es_overnight_ib_close",
     "name": "CT Market Stats: Overnight, IB & Close -- ES Futures",
-    "description": "LOAD ES-Futures 1Min continuous contract via Polygon\nCOMPUTE session windows for RTH (09:30-16:00), ETH overnight (18:00-09:30), and IB (09:30-10:30)\nCALCULATE overnight high/low/mid and volume profile (VPOC, VAH, VAL) touch rates during RTH\nCALCULATE IB break probabilities: single/both/neither, within prior IB, opens-in-prior-IB breakout rates\nCALCULATE close location after single IB break (above IBH, above MID, below IBL, below MID)\nCALCULATE close stats: bearish/bullish engulfing, closes within IB on neutral day, within prior IB/range\nDASHBOARD shows four summary tables: Overnight Session Levels, Initial Balance, Close After Single IB Break, Close"
+    "description": "LOAD ES-Futures 1Min continuous contract via Polygon\nCOMPUTE session windows for RTH (09:30-16:00), ETH overnight (18:00-09:30), and IB (09:30-10:30)\nCALCULATE overnight high/low/mid and volume profile (VPOC, VAH, VAL) touch rates during RTH\nCALCULATE IB break probabilities: single/both/neither, within prior IB, opens-in-prior-IB breakout rates\nCALCULATE close location after single IB break (above IBH, above MID, below IBL, below MID)\nCALCULATE close stats: bearish/bullish engulfing, closes within IB on neutral day, within prior IB/range\nDASHBOARD shows four summary tables: Overnight Session Levels, Initial Balance, Close After Single IB Break, Close",
+    "tags": {
+      "asset_class": ["futures"],
+      "data_source": ["volume_profile"],
+      "methodology": ["market_microstructure"],
+      "intraday": true
+    }
   },
   {
     "id": "ct_es_page1_auction_opening",
     "name": "CT Market Stats: Auction & Opening Location -- ES Futures",
-    "description": "LOAD ES-Futures 1Min continuous contract via Polygon with RTH and IB session windows\nCOMPUTE 20-session harmonic rotations using zigzag swing detection (swing_length=2)\nCALCULATE neutral day rate (both IB extremes broken), consecutive neutral day probability, and neutral extreme day rate\nCALCULATE opening location rates: opens above/below pClose, above pHOD, below pLOD, within pIB, within pValue\nDASHBOARD shows Auction summary table, Opening Location summary table, and Up/Down rotation histograms"
+    "description": "LOAD ES-Futures 1Min continuous contract via Polygon with RTH and IB session windows\nCOMPUTE 20-session harmonic rotations using zigzag swing detection (swing_length=2)\nCALCULATE neutral day rate (both IB extremes broken), consecutive neutral day probability, and neutral extreme day rate\nCALCULATE opening location rates: opens above/below pClose, above pHOD, below pLOD, within pIB, within pValue\nDASHBOARD shows Auction summary table, Opening Location summary table, and Up/Down rotation histograms",
+    "tags": {
+      "asset_class": ["futures"],
+      "methodology": ["market_microstructure"],
+      "intraday": true
+    }
   },
   {
     "id": "ct_es_page2_open_vs_prev_range",
     "name": "CT Market Stats: Open vs Previous Range -- ES Futures",
-    "description": "LOAD ES-Futures 1Min continuous contract with RTH volume profile (VPOC, VAH, VAL)\nCLASSIFY each session open as above, within, or below previous day RTH range\nCALCULATE touch probabilities for 11 prior-session levels (pClose, pHOD, pLOD, pIBH, pIBL, pMID, pOpen, pVAH, pVAL, pVPOC, half-gap)\nCONDITION touch rates on opening classification (above/within/below previous range)\nDASHBOARD shows three summary tables: Opens Above, Opens Within, and Opens Below Previous Range with per-level touch rates"
+    "description": "LOAD ES-Futures 1Min continuous contract with RTH volume profile (VPOC, VAH, VAL)\nCLASSIFY each session open as above, within, or below previous day RTH range\nCALCULATE touch probabilities for 11 prior-session levels (pClose, pHOD, pLOD, pIBH, pIBL, pMID, pOpen, pVAH, pVAL, pVPOC, half-gap)\nCONDITION touch rates on opening classification (above/within/below previous range)\nDASHBOARD shows three summary tables: Opens Above, Opens Within, and Opens Below Previous Range with per-level touch rates",
+    "tags": {
+      "asset_class": ["futures"],
+      "data_source": ["volume_profile"],
+      "methodology": ["market_microstructure"],
+      "intraday": true
+    }
   },
   {
     "id": "ct_es_volume_range_distributions",
     "name": "CT Market Stats: Volume & Range Distributions -- ES Futures",
-    "description": "LOAD ES-Futures 1Min continuous contract with RTH, ETH, and IB session windows aggregating volume\nCALCULATE session-level volume (RTH and ETH) and range (RTH, ETH, IB) per day\nCOMPUTE mean, median, and standard deviation for each range distribution\nDASHBOARD shows sample/range statistics cards, RTH and ETH volume histograms, RTH and ETH range histograms, and IB range histogram"
+    "description": "LOAD ES-Futures 1Min continuous contract with RTH, ETH, and IB session windows aggregating volume\nCALCULATE session-level volume (RTH and ETH) and range (RTH, ETH, IB) per day\nCOMPUTE mean, median, and standard deviation for each range distribution\nDASHBOARD shows sample/range statistics cards, RTH and ETH volume histograms, RTH and ETH range histograms, and IB range histogram",
+    "tags": {
+      "asset_class": ["futures"],
+      "methodology": ["distribution", "market_microstructure"],
+      "intraday": true
+    }
   },
   {
     "id": "ct_ib_close_analysis",
     "name": "CT IB & Close Analysis",
-    "description": "LOAD SPY-Stocks 5Min bars as ES futures proxy with RTH and 30-min IB session windows\nCALCULATE IB break probabilities: at-least-one, both, neither, only-IBH, only-IBL, IB-within-prior-IB\nCALCULATE conditional close location after single IBH or IBL break (closes above/below IBH/IBL/MID)\nCALCULATE close stats: bearish/bullish engulfing, closes within IB on neutral day, within prior IB/range\nDASHBOARD shows overview cards, IB Break Probabilities table, Close After Single IB Break table, and Close Statistics table"
+    "description": "LOAD SPY-Stocks 5Min bars as ES futures proxy with RTH and 30-min IB session windows\nCALCULATE IB break probabilities: at-least-one, both, neither, only-IBH, only-IBL, IB-within-prior-IB\nCALCULATE conditional close location after single IBH or IBL break (closes above/below IBH/IBL/MID)\nCALCULATE close stats: bearish/bullish engulfing, closes within IB on neutral day, within prior IB/range\nDASHBOARD shows overview cards, IB Break Probabilities table, Close After Single IB Break table, and Close Statistics table",
+    "tags": {
+      "asset_class": ["equities"],
+      "methodology": ["market_microstructure"],
+      "intraday": true
+    }
   },
   {
     "id": "ct_opening_level_touch",
     "name": "CT Opening & Level Touch",
-    "description": "LOAD SPY-Stocks 5Min bars with RTH, 30-min IB, and pre-market (04:00-09:30) session windows plus volume profile\nCALCULATE opening location rates: above/below pClose, above pHOD, below pLOD, within pIB, within pValue\nCLASSIFY opens as above/within/below prior range and compute conditional touch rates for 10+ prior levels\nCALCULATE overnight session level touch rates: ONH, ONL, ONMID, ONVAH, ONVAL, ONVPOC\nDASHBOARD shows Opening Location table, three conditional touch-rate tables (Above/Within/Below), and Overnight Level touch table"
+    "description": "LOAD SPY-Stocks 5Min bars with RTH, 30-min IB, and pre-market (04:00-09:30) session windows plus volume profile\nCALCULATE opening location rates: above/below pClose, above pHOD, below pLOD, within pIB, within pValue\nCLASSIFY opens as above/within/below prior range and compute conditional touch rates for 10+ prior levels\nCALCULATE overnight session level touch rates: ONH, ONL, ONMID, ONVAH, ONVAL, ONVPOC\nDASHBOARD shows Opening Location table, three conditional touch-rate tables (Above/Within/Below), and Overnight Level touch table",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["volume_profile"],
+      "methodology": ["market_microstructure"],
+      "intraday": true
+    }
   },
   {
     "id": "ct_session_structure",
     "name": "CT Session Structure",
-    "description": "LOAD SPY-Stocks 5Min extended-hours bars with RTH, pre-market, and IB session windows\nCOMPUTE harmonic rotations via zigzag swing detection: up/down rotation sizes, counts per session, session efficiency\nCALCULATE auction day type: neutral day rate, neutral-follows-neutral probability, neutral extreme day rate\nCALCULATE RTH and pre-market volume/range distributions plus IB range distributions\nDASHBOARD shows summary cards, rotation histograms (up/down/efficiency/count), auction cards, volume histograms and stats, range histograms with boxplot comparison"
+    "description": "LOAD SPY-Stocks 5Min extended-hours bars with RTH, pre-market, and IB session windows\nCOMPUTE harmonic rotations via zigzag swing detection: up/down rotation sizes, counts per session, session efficiency\nCALCULATE auction day type: neutral day rate, neutral-follows-neutral probability, neutral extreme day rate\nCALCULATE RTH and pre-market volume/range distributions plus IB range distributions\nDASHBOARD shows summary cards, rotation histograms (up/down/efficiency/count), auction cards, volume histograms and stats, range histograms with boxplot comparison",
+    "tags": {
+      "asset_class": ["equities"],
+      "methodology": ["market_microstructure", "distribution"],
+      "intraday": true
+    }
   },
   {
     "id": "eng600_commodity_correlation_scatter",
     "name": "Commodity Correlations (12M Weekly Returns)",
-    "description": "LOAD 20 commodity price series from FRED (metals, energy, grains, softs, meats, lumber) plus USD Index and SPY\nCOMPUTE weekly returns for all assets on a 1W timeframe\nCALCULATE 52-week rolling Pearson correlations of each commodity to USD Index and to S&P 500\nGENERATE 20-week rolling USD-Lumber correlation time series chart\nDASHBOARD shows a labeled scatter plot with all 20 commodities positioned by USD correlation (X) vs S&P 500 correlation (Y)"
+    "description": "LOAD 20 commodity price series from FRED (metals, energy, grains, softs, meats, lumber) plus USD Index and SPY\nCOMPUTE weekly returns for all assets on a 1W timeframe\nCALCULATE 52-week rolling Pearson correlations of each commodity to USD Index and to S&P 500\nGENERATE 20-week rolling USD-Lumber correlation time series chart\nDASHBOARD shows a labeled scatter plot with all 20 commodities positioned by USD correlation (X) vs S&P 500 correlation (Y)",
+    "tags": {
+      "asset_class": ["commodities"],
+      "methodology": ["correlation"],
+      "intraday": false
+    }
   },
   {
     "id": "eng600_currency_commodity_correlations",
     "name": "Currency-Commodity Correlations Analysis",
-    "description": "LOAD FX pair (AUDUSD/USDCAD/USDCHF/USDJPY) daily data plus Gold (GLD), Oil (WTI), Iron Ore, and Silver reference series\nCALCULATE 20-day rolling Pearson correlations between the FX pair and each commodity\nVALIDATE reported correlations (e.g., AUDUSD/Gold ~0.80, CAD/Oil ~-0.87) against computed values\nDASHBOARD shows four time-series charts (Gold, Oil, Iron Ore, Silver rolling correlations) with reference lines at reported values, plus summary cards with mean/min/max correlation stats"
+    "description": "LOAD FX pair (AUDUSD/USDCAD/USDCHF/USDJPY) daily data plus Gold (GLD), Oil (WTI), Iron Ore, and Silver reference series\nCALCULATE 20-day rolling Pearson correlations between the FX pair and each commodity\nVALIDATE reported correlations (e.g., AUDUSD/Gold ~0.80, CAD/Oil ~-0.87) against computed values\nDASHBOARD shows four time-series charts (Gold, Oil, Iron Ore, Silver rolling correlations) with reference lines at reported values, plus summary cards with mean/min/max correlation stats",
+    "tags": {
+      "asset_class": ["fx", "commodities"],
+      "methodology": ["correlation"],
+      "intraday": false
+    }
   },
   {
     "id": "eng609_stock_bond_correlation_regime",
     "name": "Stock-Bond Correlation Regime Shifts",
-    "description": "LOAD SPY weekly returns and TLT (long-term Treasury) weekly returns via Polygon\nCALCULATE 1-year, 2-year, and 3-year rolling Pearson stock-bond correlations\nCOMPUTE CPI and Industrial Production year-over-year changes, 2-year rolling volatility, and growth-inflation correlation\nCLASSIFY macroeconomic regimes (growth up/down, inflation up/down) using expanding median thresholds\nDASHBOARD shows SBC regime shift time series, inflation/growth uncertainty chart, growth-inflation correlation chart, and average stock/bond returns by growth and inflation regime bar charts"
+    "description": "LOAD SPY weekly returns and TLT (long-term Treasury) weekly returns via Polygon\nCALCULATE 1-year, 2-year, and 3-year rolling Pearson stock-bond correlations\nCOMPUTE CPI and Industrial Production year-over-year changes, 2-year rolling volatility, and growth-inflation correlation\nCLASSIFY macroeconomic regimes (growth up/down, inflation up/down) using expanding median thresholds\nDASHBOARD shows SBC regime shift time series, inflation/growth uncertainty chart, growth-inflation correlation chart, and average stock/bond returns by growth and inflation regime bar charts",
+    "tags": {
+      "asset_class": ["equities", "bonds"],
+      "data_source": ["economic_indicators"],
+      "indicator": ["CPI"],
+      "methodology": ["correlation"],
+      "intraday": false
+    }
   },
   {
     "id": "es_continuation_analysis",
     "name": "ES Futures Continuation Analysis",
-    "description": "LOAD ES-Futures daily OHLCV from Polygon\nBUILD continuous contracts for 4 adjustment methods (BackwardPanama, BackwardRatio, ForwardPanama, ForwardRatio) x 3 rollover strategies (FirstOfMonth, LastTradingDay, LiquidityBased)\nCOMPUTE daily returns (roc), cumulative product returns, and 21-day rolling volatility (stddev) for each combination\nPLOT overlaid cumulative return curves for adjustment methods and rollover methods\nSCATTER daily returns of each method vs BackwardPanama baseline to assess correlation\nSHOW return distribution histograms (50 bins) per adjustment method and per rollover method"
+    "description": "LOAD ES-Futures daily OHLCV from Polygon\nBUILD continuous contracts for 4 adjustment methods (BackwardPanama, BackwardRatio, ForwardPanama, ForwardRatio) x 3 rollover strategies (FirstOfMonth, LastTradingDay, LiquidityBased)\nCOMPUTE daily returns (roc), cumulative product returns, and 21-day rolling volatility (stddev) for each combination\nPLOT overlaid cumulative return curves for adjustment methods and rollover methods\nSCATTER daily returns of each method vs BackwardPanama baseline to assess correlation\nSHOW return distribution histograms (50 bins) per adjustment method and per rollover method",
+    "tags": {
+      "asset_class": ["futures"],
+      "methodology": ["distribution"],
+      "intraday": false
+    }
   },
   {
     "id": "es_nfp_intraday_reaction",
     "name": "ES Futures NFP Intraday Reaction",
-    "description": "LOAD ES-Futures 5Min bars with NoAdjustment continuous contract (LastTradingDay roll)\nDETECT NFP release days using PAYEMS economic indicator via ffill_day + Friday filter\nDEFINE session windows around 8:30 AM ET: pre (7:30-8:30), immediate (8:30-8:35), short (8:35-9:00), 1hr post, RTH, and full day\nCOMPUTE window returns and ranges for all days and NFP-Friday-only days using where() filters\nPLOT average return and range bar charts comparing NFP Fridays vs all-day baselines\nSHOW NFP return/range distributions, day-of-week breakdowns, cumulative window equity curves, and summary statistics table"
+    "description": "LOAD ES-Futures 5Min bars with NoAdjustment continuous contract (LastTradingDay roll)\nDETECT NFP release days using PAYEMS economic indicator via ffill_day + Friday filter\nDEFINE session windows around 8:30 AM ET: pre (7:30-8:30), immediate (8:30-8:35), short (8:35-9:00), 1hr post, RTH, and full day\nCOMPUTE window returns and ranges for all days and NFP-Friday-only days using where() filters\nPLOT average return and range bar charts comparing NFP Fridays vs all-day baselines\nSHOW NFP return/range distributions, day-of-week breakdowns, cumulative window equity curves, and summary statistics table",
+    "tags": {
+      "asset_class": ["futures"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["NFP"],
+      "methodology": ["event_study"],
+      "intraday": true
+    }
   },
   {
     "id": "eurusd_nfp_reaction",
     "name": "EUR/USD Post-NFP Reaction Analysis",
-    "description": "LOAD EUR/USD 5Min spot FX data from Polygon\nDEFINE session windows around 8:30 AM ET: pre (8:00-8:30), immediate (8:30-8:35), narrow (8:35-9:00), hourly (9:00-9:30), full 2hr (8:30-10:30)\nCOMPUTE window returns and true range (high-low)/open for each window on all trading days\nPLOT average return and range comparison bar charts across windows\nBREAK DOWN immediate and narrow returns by day of week\nSHOW cumulative return equity curves per window, return and range histograms, and summary statistics table (mean, stddev, range)"
+    "description": "LOAD EUR/USD 5Min spot FX data from Polygon\nDEFINE session windows around 8:30 AM ET: pre (8:00-8:30), immediate (8:30-8:35), narrow (8:35-9:00), hourly (9:00-9:30), full 2hr (8:30-10:30)\nCOMPUTE window returns and true range (high-low)/open for each window on all trading days\nPLOT average return and range comparison bar charts across windows\nBREAK DOWN immediate and narrow returns by day of week\nSHOW cumulative return equity curves per window, return and range histograms, and summary statistics table (mean, stddev, range)",
+    "tags": {
+      "asset_class": ["fx"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["NFP"],
+      "methodology": ["event_study"],
+      "intraday": true
+    }
   },
   {
     "id": "eurusd_nfp_volatility_decay",
     "name": "EUR/USD NFP Volatility Decay Analysis",
-    "description": "LOAD EUR/USD 5Min bars and detect NFP Fridays via PAYEMS economic indicator + Friday filter\nDEFINE twelve consecutive 5-minute session windows from 8:30 to 9:30 AM ET (60 minutes total)\nCOMPUTE range volatility in basis points ((high-low)/open * 10000) for each 5-minute bucket\nFILTER to NFP Friday observations only using where() conditional\nSHOW summary table replicating Rezania (2010) Table 7 with mean range per 5-minute interval\nMODEL expected exponential decay: sigma(t) = sigma_0 * exp(-alpha * t), target alpha = 0.049"
+    "description": "LOAD EUR/USD 5Min bars and detect NFP Fridays via PAYEMS economic indicator + Friday filter\nDEFINE twelve consecutive 5-minute session windows from 8:30 to 9:30 AM ET (60 minutes total)\nCOMPUTE range volatility in basis points ((high-low)/open * 10000) for each 5-minute bucket\nFILTER to NFP Friday observations only using where() conditional\nSHOW summary table replicating Rezania (2010) Table 7 with mean range per 5-minute interval\nMODEL expected exponential decay: sigma(t) = sigma_0 * exp(-alpha * t), target alpha = 0.049",
+    "tags": {
+      "asset_class": ["fx"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["NFP"],
+      "methodology": ["event_study", "distribution"],
+      "intraday": true
+    }
   },
   {
     "id": "eurusd_nfp_volatility_figure1",
     "name": "EUR/USD NFP Volatility Figure 1 Replication",
-    "description": "LOAD EUR/USD 1-minute bars and detect NFP Fridays via PAYEMS + day_of_week filter\nDEFINE 6-hour analysis window (5:30-11:30 AM ET, 360 minutes, NFP release at minute 180)\nCOMPUTE per-minute range volatility in basis points for each bar\nPLOT multi-line chart with one line per NFP release day (split_by_label on date) showing minute-by-minute range\nSHOW aggregated mean range bar chart per minute bucket for NFP Fridays vs other Fridays (control)\nDISPLAY summary cards comparing NFP vs non-NFP Friday mean/max range and sample counts"
+    "description": "LOAD EUR/USD 1-minute bars and detect NFP Fridays via PAYEMS + day_of_week filter\nDEFINE 6-hour analysis window (5:30-11:30 AM ET, 360 minutes, NFP release at minute 180)\nCOMPUTE per-minute range volatility in basis points for each bar\nPLOT multi-line chart with one line per NFP release day (split_by_label on date) showing minute-by-minute range\nSHOW aggregated mean range bar chart per minute bucket for NFP Fridays vs other Fridays (control)\nDISPLAY summary cards comparing NFP vs non-NFP Friday mean/max range and sample counts",
+    "tags": {
+      "asset_class": ["fx"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["NFP"],
+      "methodology": ["event_study", "distribution"],
+      "intraday": true
+    }
   },
   {
     "id": "fc_multi_timeframe_test",
     "name": "FC Multi-Timeframe Cloning Test",
-    "description": "LOAD ES-Futures with futures_continuation at global 1D timeframe (FirstOfMonth, BackwardPanamaCanal)\nADD a second market_data_source at 5Min timeframe to introduce multi-timeframe scenario\nCOMPUTE 20-period SMA on both daily and 5Min close prices\nVERIFY compiler auto-clones the futures_continuation node to the 5Min timeframe\nSHOW daily SMA and 5Min SMA as hero cards in separate dashboard categories"
+    "description": "LOAD ES-Futures with futures_continuation at global 1D timeframe (FirstOfMonth, BackwardPanamaCanal)\nADD a second market_data_source at 5Min timeframe to introduce multi-timeframe scenario\nCOMPUTE 20-period SMA on both daily and 5Min close prices\nVERIFY compiler auto-clones the futures_continuation node to the 5Min timeframe\nSHOW daily SMA and 5Min SMA as hero cards in separate dashboard categories",
+    "tags": {
+      "asset_class": ["futures"],
+      "data_source": ["technicals"],
+      "methodology": ["distribution"],
+      "intraday": false
+    }
   },
   {
     "id": "ib_20_session_analysis",
     "name": "IB 20-Session Analysis",
-    "description": "LOAD SPY 5Min bars with volume profile (78-bar window) and equity RTH session windows\nCOMPUTE Initial Balance (9:30-10:00 ET) high/low/width, IB breakout flags, extension ratios, and Dalton 6-type day classification\nCALCULATE rolling 20-session statistics: IB width z-score, percentile rank, breakout rates, and average extensions\nCLASSIFY sessions as Narrow IB (<=30th pctile) vs Wide IB (>=70th pctile) and compare ranges, extensions, and day types\nPLOT IB width trends with 20-session average, cumulative breakout rates, z-score over time, and narrow vs wide day type distributions\nSHOW summary tables (last session vs 20-session avg), boxplots, histograms, extension targets, prior VA context, and event markers for narrow/wide/both-broken days"
+    "description": "LOAD SPY 5Min bars with volume profile (78-bar window) and equity RTH session windows\nCOMPUTE Initial Balance (9:30-10:00 ET) high/low/width, IB breakout flags, extension ratios, and Dalton 6-type day classification\nCALCULATE rolling 20-session statistics: IB width z-score, percentile rank, breakout rates, and average extensions\nCLASSIFY sessions as Narrow IB (<=30th pctile) vs Wide IB (>=70th pctile) and compare ranges, extensions, and day types\nPLOT IB width trends with 20-session average, cumulative breakout rates, z-score over time, and narrow vs wide day type distributions\nSHOW summary tables (last session vs 20-session avg), boxplots, histograms, extension targets, prior VA context, and event markers for narrow/wide/both-broken days",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["volume_profile"],
+      "methodology": ["market_microstructure", "distribution"],
+      "intraday": true
+    }
   },
   {
     "id": "nasdaq_ib_low_break_reversal",
     "name": "NASDAQ IB Low Break + Prior Day Low Reversal Probability",
-    "description": "LOAD QQQ 5Min bars with Initial Balance (9:30-10:30 ET) session window and prior day high/low levels\nDETECT trigger days where session low broke both IB low and prior day's low (EOD evaluation)\nCOMPUTE win rate: probability of session close finishing above IB midpoint on triggered days\nTRACK cumulative win rate over time and cumulative return from IB low to close on triggered days\nPLOT probability trend, return distributions, extension below IB/prior-day-low histograms, and win rate by day-of-week/month\nSHOW summary cards (win rate, trigger count, best/worst return), IB reference levels chart, and win/loss event markers"
+    "description": "LOAD QQQ 5Min bars with Initial Balance (9:30-10:30 ET) session window and prior day high/low levels\nDETECT trigger days where session low broke both IB low and prior day's low (EOD evaluation)\nCOMPUTE win rate: probability of session close finishing above IB midpoint on triggered days\nTRACK cumulative win rate over time and cumulative return from IB low to close on triggered days\nPLOT probability trend, return distributions, extension below IB/prior-day-low histograms, and win rate by day-of-week/month\nSHOW summary cards (win rate, trigger count, best/worst return), IB reference levels chart, and win/loss event markers",
+    "tags": {
+      "asset_class": ["equities"],
+      "event_type": ["technical_signal"],
+      "methodology": ["mean_reversion", "market_microstructure"],
+      "intraday": true
+    }
   },
   {
     "id": "quarterly_opex_momentum_reversal",
     "name": "Quarterly OPEX Momentum Reversal",
-    "description": "LOAD SPY daily bars and detect quarterly OPEX dates (3rd Friday of Mar/Jun/Sep/Dec) using is_period_boundary\nCOMPUTE 10-day rate of change as momentum signal; enter long if momentum < 0 or short if > 0 on OPEX Monday\nHOLD positions with hold_until() and exit 10 trading days after OPEX Friday\nCALCULATE strategy daily returns, cumulative equity curve, and active-only return series\nPLOT cumulative P&L, return distribution histogram, total/avg return by quarter, quarterly heatmap, and boxplots by quarter/year\nSHOW summary cards (cumulative return, trade counts, long/short entries) and event markers for long and short entries"
+    "description": "LOAD SPY daily bars and detect quarterly OPEX dates (3rd Friday of Mar/Jun/Sep/Dec) using is_period_boundary\nCOMPUTE 10-day rate of change as momentum signal; enter long if momentum < 0 or short if > 0 on OPEX Monday\nHOLD positions with hold_until() and exit 10 trading days after OPEX Friday\nCALCULATE strategy daily returns, cumulative equity curve, and active-only return series\nPLOT cumulative P&L, return distribution histogram, total/avg return by quarter, quarterly heatmap, and boxplots by quarter/year\nSHOW summary cards (cumulative return, trade counts, long/short entries) and event markers for long and short entries",
+    "tags": {
+      "asset_class": ["equities"],
+      "event_type": ["calendar_event"],
+      "methodology": ["mean_reversion"],
+      "intraday": false
+    }
   },
   {
     "id": "rs007_fx_monthly_seasonality",
     "name": "FX Monthly Seasonality Analysis",
-    "description": "LOAD USD/CAD and USD/JPY daily and monthly bars from Polygon\nCOMPUTE daily and monthly returns, win/loss flags (positive vs negative months), and absolute monthly returns\nGROUP by calendar month using datetime_extract for seasonality breakdowns\nPLOT monthly returns heatmap (month x year), average return by month bar chart, and win rate by month\nSHOW summary tables: monthly return stats (avg, median, best, worst), win/loss rates per month, and absolute return stats\nVALIDATE Investopedia claims: USD/CAD Oct/Nov 63% win rate, USD/JPY Oct 68% win rate"
+    "description": "LOAD USD/CAD and USD/JPY daily and monthly bars from Polygon\nCOMPUTE daily and monthly returns, win/loss flags (positive vs negative months), and absolute monthly returns\nGROUP by calendar month using datetime_extract for seasonality breakdowns\nPLOT monthly returns heatmap (month x year), average return by month bar chart, and win rate by month\nSHOW summary tables: monthly return stats (avg, median, best, worst), win/loss rates per month, and absolute return stats\nVALIDATE Investopedia claims: USD/CAD Oct/Nov 63% win rate, USD/JPY Oct 68% win rate",
+    "tags": {
+      "asset_class": ["fx"],
+      "methodology": ["seasonality"],
+      "intraday": false
+    }
   },
   {
     "id": "rs010_eurusd_monthly_seasonality",
     "name": "EUR/USD Monthly Seasonality Analysis",
-    "description": "LOAD EUR/USD daily, monthly, and yearly bars from Polygon\nCOMPUTE daily, monthly, and yearly returns plus win/loss indicators and cumulative return series\nEXTRACT best/worst return dates using arg_max/arg_min on monthly timeframe\nPLOT monthly returns heatmap (month x year), average return by calendar month, yearly return bar chart, and day-of-week breakdown\nSHOW summary tables: monthly return stats (avg, median, best, worst), win/loss rates, and absolute returns grouped by month\nDISPLAY summary cards (best/worst return with dates, win rate, counts) and cumulative return equity curve"
+    "description": "LOAD EUR/USD daily, monthly, and yearly bars from Polygon\nCOMPUTE daily, monthly, and yearly returns plus win/loss indicators and cumulative return series\nEXTRACT best/worst return dates using arg_max/arg_min on monthly timeframe\nPLOT monthly returns heatmap (month x year), average return by calendar month, yearly return bar chart, and day-of-week breakdown\nSHOW summary tables: monthly return stats (avg, median, best, worst), win/loss rates, and absolute returns grouped by month\nDISPLAY summary cards (best/worst return with dates, win rate, counts) and cumulative return equity curve",
+    "tags": {
+      "asset_class": ["fx"],
+      "methodology": ["seasonality"],
+      "intraday": false
+    }
   },
   {
     "id": "sp500_worst_performers",
     "name": "S&P 500 Worst Performers Analysis",
-    "description": "LOAD daily bars for all S&P 500 stocks via polygon\nCOMPUTE 1-week return (5-day ROC), 50-day SMA, 52-week high, and all-time high for each stock\nCALCULATE days since 52-week high and days since all-time high using barssince\nFILTER to bottom 20 stocks ranked by worst 1-week return\nDASHBOARD shows boxplot of return distribution across all S&P 500, plus ranked table of 20 worst performers with SMA position and high-distance metrics"
+    "description": "LOAD daily bars for all S&P 500 stocks via polygon\nCOMPUTE 1-week return (5-day ROC), 50-day SMA, 52-week high, and all-time high for each stock\nCALCULATE days since 52-week high and days since all-time high using barssince\nFILTER to bottom 20 stocks ranked by worst 1-week return\nDASHBOARD shows boxplot of return distribution across all S&P 500, plus ranked table of 20 worst performers with SMA position and high-distance metrics",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["technicals"],
+      "methodology": ["screening"],
+      "intraday": false
+    }
   },
   {
     "id": "spx_opening_range_breakout",
     "name": "S&P 500 Opening Range Breakout Analysis",
-    "description": "LOAD 1-minute SPX index bars via polygon over 2 years\nDEFINE opening range as 09:30-09:45 ET high/low, detect upside and downside breakouts after OR completes\nCLASSIFY each day as up-only, down-only, both-sides, or no-breakout; track which direction broke first\nCOMPUTE OR width, breakout extensions (points and multiples of OR), close position relative to OR, and failed breakout rates\nCUMULATE pattern counts over time for trend analysis\nDASHBOARD shows hero cards with breakout/close statistics, summary table, cumulative trend lines, OR width histogram, extension boxplots, and both-sides-break gauge"
+    "description": "LOAD 1-minute SPX index bars via polygon over 2 years\nDEFINE opening range as 09:30-09:45 ET high/low, detect upside and downside breakouts after OR completes\nCLASSIFY each day as up-only, down-only, both-sides, or no-breakout; track which direction broke first\nCOMPUTE OR width, breakout extensions (points and multiples of OR), close position relative to OR, and failed breakout rates\nCUMULATE pattern counts over time for trend analysis\nDASHBOARD shows hero cards with breakout/close statistics, summary table, cumulative trend lines, OR width histogram, extension boxplots, and both-sides-break gauge",
+    "tags": {
+      "asset_class": ["equities"],
+      "event_type": ["technical_signal"],
+      "methodology": ["breakout", "market_microstructure"],
+      "intraday": true
+    }
   },
   {
     "id": "spy_morning_dip",
     "name": "SPY Morning Dip Mean Reversion",
-    "description": "LOAD 5-minute SPY bars via polygon over the past year\nIDENTIFY morning dip: price at 09:45 ET is below the RTH open\nCOMPUTE session return from 09:45 entry to 10:30 exit when trigger fires, track wins/losses\nCUMULATE compounded returns across triggered days to build equity curve\nDASHBOARD shows summary cards (final return, win/loss counts, avg/best/worst return), event markers for winning and losing trades, cumulative return line chart, and return distribution histogram"
+    "description": "LOAD 5-minute SPY bars via polygon over the past year\nIDENTIFY morning dip: price at 09:45 ET is below the RTH open\nCOMPUTE session return from 09:45 entry to 10:30 exit when trigger fires, track wins/losses\nCUMULATE compounded returns across triggered days to build equity curve\nDASHBOARD shows summary cards (final return, win/loss counts, avg/best/worst return), event markers for winning and losing trades, cumulative return line chart, and return distribution histogram",
+    "tags": {
+      "asset_class": ["equities"],
+      "event_type": ["technical_signal"],
+      "methodology": ["mean_reversion"],
+      "intraday": true
+    }
   },
   {
     "id": "spy_morning_dip_window_analysis",
     "name": "SPY Morning Dip - Window Optimization",
-    "description": "LOAD 5-minute SPY bars and define 20 entry/exit session windows across 4 entries (9:40-9:55) and 5 exits (10:00-11:00)\nCOMPUTE triggered returns for each window (buy when price below RTH open) and cumulative compounded equity curves\nAGGREGATE average returns per window for side-by-side bar chart comparison\nANALYZE day-of-week effect on the baseline 9:45-10:30 window\nDASHBOARD shows 20-window average return bar chart, day-of-week bars, cumulative return cards by entry time, and equity curve overlay for 9:45 entry variants"
+    "description": "LOAD 5-minute SPY bars and define 20 entry/exit session windows across 4 entries (9:40-9:55) and 5 exits (10:00-11:00)\nCOMPUTE triggered returns for each window (buy when price below RTH open) and cumulative compounded equity curves\nAGGREGATE average returns per window for side-by-side bar chart comparison\nANALYZE day-of-week effect on the baseline 9:45-10:30 window\nDASHBOARD shows 20-window average return bar chart, day-of-week bars, cumulative return cards by entry time, and equity curve overlay for 9:45 entry variants",
+    "tags": {
+      "asset_class": ["equities"],
+      "event_type": ["technical_signal"],
+      "methodology": ["mean_reversion"],
+      "intraday": true
+    }
   },
   {
     "id": "tradingview_technicals_slv",
     "name": "TradingView-Style Technical Analysis - SLV",
-    "description": "LOAD daily bars for SLV (Silver ETF) via polygon\nCOMPUTE 9 oscillators (RSI, Stochastic, CCI, ADX, AO, Momentum, MACD, Williams %R, Ultimate) and classify each as Buy/Sell/Neutral\nCOMPUTE 15 moving averages (SMA/EMA at 10-200, HMA, VWMA, Ichimoku) and classify price position vs each\nCALCULATE aggregate scores on 0-100 gauge scale for oscillators, MAs, and combined summary\nDERIVE Classic, Fibonacci, Camarilla, and Woodie pivot points from prior session\nDASHBOARD shows three summary gauges, signal count table, oscillator detail table, MA detail table, and 4-method pivot points table"
+    "description": "LOAD daily bars for SLV (Silver ETF) via polygon\nCOMPUTE 9 oscillators (RSI, Stochastic, CCI, ADX, AO, Momentum, MACD, Williams %R, Ultimate) and classify each as Buy/Sell/Neutral\nCOMPUTE 15 moving averages (SMA/EMA at 10-200, HMA, VWMA, Ichimoku) and classify price position vs each\nCALCULATE aggregate scores on 0-100 gauge scale for oscillators, MAs, and combined summary\nDERIVE Classic, Fibonacci, Camarilla, and Woodie pivot points from prior session\nDASHBOARD shows three summary gauges, signal count table, oscillator detail table, MA detail table, and 4-method pivot points table",
+    "tags": {
+      "asset_class": ["commodities"],
+      "data_source": ["technicals"],
+      "event_type": ["technical_signal"],
+      "methodology": ["screening"],
+      "intraday": false
+    }
   },
   {
     "id": "volume_profile_confluence",
     "name": "Multi-Timeframe Volume Profile Confluence",
-    "description": "LOAD 5-minute SPY bars and compute volume profiles across 3 tiers: 1-day (78 bars), 5-day (390 bars), and extended (500 bars)\nEXTRACT POC, VAH, VAL per tier plus VWAP, prior close, and prior high/low as reference levels\nDETECT confluence zones where levels from different timeframes cluster within 0.3% of anchor levels (POC 1D, POC 5D, VWAP, Prior Close)\nGRADE zone strength on 8-point scale checking prior levels, composite alignment, VPOC presence, volume confirmation, and level hold behavior\nTRACK historical test rates and outcomes (support vs resistance) for prior VPOC, VAH, VAL\nDASHBOARD shows multi-TF overview cards, level tables, confluence/zone score cards, grading breakdown, historical test rates, timeseries overlays, and distribution histograms with event markers for high-conviction zones"
+    "description": "LOAD 5-minute SPY bars and compute volume profiles across 3 tiers: 1-day (78 bars), 5-day (390 bars), and extended (500 bars)\nEXTRACT POC, VAH, VAL per tier plus VWAP, prior close, and prior high/low as reference levels\nDETECT confluence zones where levels from different timeframes cluster within 0.3% of anchor levels (POC 1D, POC 5D, VWAP, Prior Close)\nGRADE zone strength on 8-point scale checking prior levels, composite alignment, VPOC presence, volume confirmation, and level hold behavior\nTRACK historical test rates and outcomes (support vs resistance) for prior VPOC, VAH, VAL\nDASHBOARD shows multi-TF overview cards, level tables, confluence/zone score cards, grading breakdown, historical test rates, timeseries overlays, and distribution histograms with event markers for high-conviction zones",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["volume_profile"],
+      "methodology": ["market_microstructure"],
+      "intraday": true
+    }
   },
   {
     "id": "volume_profile_multi_session_analysis",
     "name": "Multi-Session Volume Profile Analysis",
-    "description": "LOAD 5-minute SPY bars and compute session (78-bar) and 5-day composite (390-bar) volume profiles\nBUILD 5-session lag chain (T-0 through T-4) tracking VPOC, VAH, VAL, VA width, close position, and profile shape per session\nCOMPUTE VA overlap percentages between adjacent sessions, VPOC migration deltas, and VA midpoint shift streaks\nCLASSIFY market regime as Balance (>70% overlap), Migrating Up/Down (3+ streak, <60% overlap), or Neutral\nDETECT Axia Futures price-value divergence (new high/low without VA following) and naked VPOCs (untouched prior session VPOCs)\nDASHBOARD shows 5-session migration table, regime detection cards with overlap/streak timeseries, divergence counts with event markers, composite profile comparison, and naked VPOC cluster alerts"
+    "description": "LOAD 5-minute SPY bars and compute session (78-bar) and 5-day composite (390-bar) volume profiles\nBUILD 5-session lag chain (T-0 through T-4) tracking VPOC, VAH, VAL, VA width, close position, and profile shape per session\nCOMPUTE VA overlap percentages between adjacent sessions, VPOC migration deltas, and VA midpoint shift streaks\nCLASSIFY market regime as Balance (>70% overlap), Migrating Up/Down (3+ streak, <60% overlap), or Neutral\nDETECT Axia Futures price-value divergence (new high/low without VA following) and naked VPOCs (untouched prior session VPOCs)\nDASHBOARD shows 5-session migration table, regime detection cards with overlap/streak timeseries, divergence counts with event markers, composite profile comparison, and naked VPOC cluster alerts",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["volume_profile"],
+      "methodology": ["market_microstructure"],
+      "intraday": true
+    }
   },
   {
     "id": "volume_profile_session_analysis",
     "name": "Volume Profile Session Analysis",
-    "description": "LOAD 5-minute SPY bars and compute per-session volume profile (VPOC, VAH, VAL) with 78-bar rolling window\nCALCULATE Initial Balance (first 30 min), IB extension ratios, close percentile, volume conviction ratio, and VWAP\nCLASSIFY Dalton day types (Normal, Trend, Double Distribution, Neutral, Normal Variation), profile shapes (P/b/D/B/Elongated), and opening types (Drive, Test-Drive, Reject-Reverse, Auction)\nANALYZE excess/tails for poor highs/lows (magnets), gap behavior, VPOC migration vs prior session, and intraday VA shift from mid-session\nDASHBOARD shows session overview cards, key levels table, close/extension analysis, day type and shape bar charts, auction quality table, distribution histograms and boxplots, with event markers for trend days, poor highs/lows, open-drives, and rejection-reversals"
+    "description": "LOAD 5-minute SPY bars and compute per-session volume profile (VPOC, VAH, VAL) with 78-bar rolling window\nCALCULATE Initial Balance (first 30 min), IB extension ratios, close percentile, volume conviction ratio, and VWAP\nCLASSIFY Dalton day types (Normal, Trend, Double Distribution, Neutral, Normal Variation), profile shapes (P/b/D/B/Elongated), and opening types (Drive, Test-Drive, Reject-Reverse, Auction)\nANALYZE excess/tails for poor highs/lows (magnets), gap behavior, VPOC migration vs prior session, and intraday VA shift from mid-session\nDASHBOARD shows session overview cards, key levels table, close/extension analysis, day type and shape bar charts, auction quality table, distribution histograms and boxplots, with event markers for trend days, poor highs/lows, open-drives, and rejection-reversals",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["volume_profile"],
+      "methodology": ["market_microstructure", "distribution"],
+      "intraday": true
+    }
   },
   {
     "id": "vpoc_tracking_naked_vpoc",
     "name": "VPOC Tracking & Naked VPOC Analysis",
-    "description": "LOAD 5-minute SPY bars and extract VPOCs from 10 prior sessions using valuewhen(occurrence=N)\nTRACK VPOC migration direction, consecutive streak length, net migration, and trending flag across 10 sessions\nDETECT naked (untested) VPOCs from 9 prior sessions using rolling min/max over N*78-bar windows, compute distances and prominence scores\nCLASSIFY prior-session VPOC test behavior as bounce (defended) vs break (accepted) based on approach direction and close position\nCOMPUTE cumulative bounce/break rates and high-priority naked VPOC count (within 1% of close)\nDASHBOARD shows migration cards and table, naked VPOC summary with 5-session detail table, test behavior cards with outcome bar chart, and event markers for nearby naked VPOCs, bounces, breaks, and migration streaks"
+    "description": "LOAD 5-minute SPY bars and extract VPOCs from 10 prior sessions using valuewhen(occurrence=N)\nTRACK VPOC migration direction, consecutive streak length, net migration, and trending flag across 10 sessions\nDETECT naked (untested) VPOCs from 9 prior sessions using rolling min/max over N*78-bar windows, compute distances and prominence scores\nCLASSIFY prior-session VPOC test behavior as bounce (defended) vs break (accepted) based on approach direction and close position\nCOMPUTE cumulative bounce/break rates and high-priority naked VPOC count (within 1% of close)\nDASHBOARD shows migration cards and table, naked VPOC summary with 5-session detail table, test behavior cards with outcome bar chart, and event markers for nearby naked VPOCs, bounces, breaks, and migration streaks",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["volume_profile"],
+      "methodology": ["market_microstructure"],
+      "intraday": true
+    }
   },
   {
     "id": "vwap_vpoc_convergence_analysis",
     "name": "VWAP-VPOC Convergence Analysis",
-    "description": "LOAD 5-minute SPY bars and compute session VWAP and VPOC (78-bar volume profile) each day\nCALCULATE VWAP-VPOC delta in points and percentage, classify as convergence (<=0.2%), intermediate, or decision zone (>0.5%)\nBUILD 5-session rolling history of VWAP, VPOC, and delta; detect trajectory patterns (converging, diverging, parallel)\nCLASSIFY close position relative to both anchors (above both, below both, between) and track VPOC-above-VWAP consistency\nCOMPUTE anchor reference levels (100-day high, 20-day swing low, month-start close, 20-day VWMA) for broader context\nDASHBOARD shows convergence overview cards, delta timeseries, VWAP vs VPOC scatter plots, 5-session history table, trajectory/close distribution bars, close distance histograms, delta boxplots, anchor levels table, and event markers for convergence and divergence zones"
+    "description": "LOAD 5-minute SPY bars and compute session VWAP and VPOC (78-bar volume profile) each day\nCALCULATE VWAP-VPOC delta in points and percentage, classify as convergence (<=0.2%), intermediate, or decision zone (>0.5%)\nBUILD 5-session rolling history of VWAP, VPOC, and delta; detect trajectory patterns (converging, diverging, parallel)\nCLASSIFY close position relative to both anchors (above both, below both, between) and track VPOC-above-VWAP consistency\nCOMPUTE anchor reference levels (100-day high, 20-day swing low, month-start close, 20-day VWMA) for broader context\nDASHBOARD shows convergence overview cards, delta timeseries, VWAP vs VPOC scatter plots, 5-session history table, trajectory/close distribution bars, close distance histograms, delta boxplots, anchor levels table, and event markers for convergence and divergence zones",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["volume_profile"],
+      "methodology": ["market_microstructure"],
+      "intraday": true
+    }
+  },
+  {
+    "id": "t1_01_aapl_post_earnings_drift_surprise",
+    "name": "AAPL Post-Earnings Drift by EPS Surprise Magnitude",
+    "description": "LOAD AAPL daily bars and quarterly earnings data via earnings(period=EarningsPeriod.quarterly)\nCLASSIFY events into Beat (>5% surprise), Miss (<-5% surprise), and Neutral regimes\nCOMPUTE normalized return paths from T-10 to T+60 relative to pre-event close\nCALCULATE window-specific returns (pre-10d, pre-5d, earnings day, post-5d through post-60d)\nDASHBOARD shows overview cards, cumulative earnings-day returns by regime, composite return path bars, post-60d return distributions, and event markers with EPS surprise details",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["earnings"],
+      "event_type": ["corporate_event"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "t1_02_tlt_cpi_impact",
+    "name": "CPI Release Impact on Treasury Bonds (TLT)",
+    "description": "LOAD TLT daily bars and CPI economic indicator via common_economic_indicators(category=MacroEconomicsIndicator.CPI)\nDETECT CPI acceleration using valuewhen to compare current vs prior CPI change\nCLASSIFY events as Hot CPI (accelerating inflation) vs Cool CPI (decelerating inflation)\nCOMPUTE normalized return paths from T-5 to T+20 relative to pre-event close\nDASHBOARD shows overview cards, cumulative CPI-day returns by regime, composite return path bars, post-20d return distributions, and event markers with CPI change details",
+    "tags": {
+      "asset_class": ["bonds"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["CPI"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "t1_03_spy_fed_rate_decision",
+    "name": "Fed Rate Decision Impact on SPY",
+    "description": "LOAD SPY daily bars and Fed Funds rate via common_economic_indicators(category=MacroEconomicsIndicator.FedFunds)\nCLASSIFY rate decisions as Hike (>=20bps), Cut (<=-20bps), or Hold using valuewhen for prior rate comparison\nCOMPUTE normalized return paths from T-5 to T+30 relative to pre-event close\nCALCULATE window-specific returns (pre-5d, pre-3d, fed day, post-3d through post-30d)\nDASHBOARD shows overview cards, cumulative fed-day returns by regime, composite return path bars, post-30d return distributions, and event markers with rate change details",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["Fed_Funds"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "t1_04_aapl_analyst_rating_drift",
+    "name": "AAPL Analyst Rating Upgrade vs Downgrade Drift",
+    "description": "LOAD AAPL daily bars and analyst ratings via analyst_ratings()\nCLASSIFY events as Upgrade (price target raised) vs Downgrade (price target lowered)\nCOMPUTE normalized return paths from T-10 to T+30 relative to pre-event close\nCALCULATE window-specific returns (pre-10d, pre-5d, rating day, post-5d through post-30d)\nDASHBOARD shows overview cards, cumulative rating-day returns by direction, composite return path bars, post-30d and rating-day return distributions, and event markers with price target change details",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["analyst_ratings"],
+      "event_type": ["corporate_event"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
   }
 ]
