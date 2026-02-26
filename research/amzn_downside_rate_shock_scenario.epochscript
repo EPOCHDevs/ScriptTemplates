@@ -1,0 +1,368 @@
+# =============================================================================
+# AMZN DOWNSIDE SCENARIO: +100bp REAL RATE RISE & FLAT FORWARD EARNINGS
+# =============================================================================
+#
+# Scenarios (2-stage DCF: 5yr explicit + terminal):
+#   Base:     g1=20%, WACC=10%, g_term=4%   -> justified P/E = 33.3x
+#   Downside: g1=0%,  WACC=11%, g_term=3%   -> justified P/E = 11.3x
+#   Severe:   g1=0%,  WACC=11%, g_term=2.5%  -> justified P/E = 10.9x
+#
+# Fair Value = TTM EPS * Justified P/E (time-varying through EPS)
+# Premium = (Price - FV) / FV (positive = overvalued vs scenario)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# FUNDAMENTAL DATA (sparse, forward-filled to daily)
+# =============================================================================
+
+inc_data = income_statement(period=ReportingPeriod.trailing_twelve_months)()
+bs_data = balance_sheet(period=ReportingPeriod.quarterly)()
+cf_data = cash_flow(period=ReportingPeriod.trailing_twelve_months)()
+
+eps = ffill(inc_data.basic_eps)
+shares = ffill(inc_data.basic_shares)
+revenue = ffill(inc_data.revenue)
+ebitda_val = ffill(inc_data.ebitda)
+operating_income = ffill(inc_data.operating_income)
+net_income_val = ffill(inc_data.net_income)
+gross_profit = ffill(inc_data.gross_profit)
+total_equity = ffill(bs_data.total_equity)
+lt_debt = ffill(bs_data.lt_debt)
+cash_val = ffill(bs_data.cash)
+ncf_operating = ffill(cf_data.ncf_operating)
+capex_val = ffill(cf_data.capex)
+
+# =============================================================================
+# FCF PER SHARE
+# =============================================================================
+
+fcf_raw = finance_ratio(ratio_type=FinanceRatioType.free_cash_flow, period=ReportingPeriod.trailing_twelve_months)(
+    ncf_operating=ncf_operating, capex=capex_val
+).value
+
+fcf_per_share = fcf_raw / shares if is_valid(shares) and shares > 0 else 0.0
+
+# =============================================================================
+# VALUATION MULTIPLES (actual, market-implied)
+# =============================================================================
+
+pe = finance_ratio(ratio_type=FinanceRatioType.price_to_earnings, period=ReportingPeriod.trailing_twelve_months)(
+    c=close, basic_eps=eps, basic_shares=shares
+).value
+
+ev_ebitda = finance_ratio(ratio_type=FinanceRatioType.ev_to_ebitda, period=ReportingPeriod.trailing_twelve_months)(
+    c=close, basic_shares=shares, ebitda=ebitda_val, lt_debt=lt_debt, cash=cash_val
+).value
+
+earnings_yield = finance_ratio(ratio_type=FinanceRatioType.earnings_yield, period=ReportingPeriod.trailing_twelve_months)(
+    c=close, basic_eps=eps, basic_shares=shares
+).value
+
+fcf_yield = fcf_per_share / close if is_valid(close) and close > 0 and is_valid(fcf_per_share) else 0.0
+
+# Margins
+op_margin = finance_ratio(ratio_type=FinanceRatioType.operating_margin, period=ReportingPeriod.trailing_twelve_months)(
+    operating_income=operating_income, revenue=revenue
+).value
+
+net_margin = finance_ratio(ratio_type=FinanceRatioType.net_margin, period=ReportingPeriod.trailing_twelve_months)(
+    net_income=net_income_val, revenue=revenue
+).value
+
+# =============================================================================
+# RATE ENVIRONMENT
+# =============================================================================
+
+rate_data = common_economic_indicators(category=MacroEconomicsIndicator.Treasury10Y)()
+nominal_10y = ffill(rate_data.result)
+
+# Shocked nominal rate (+100bp from real rate pass-through)
+nominal_10y_shocked = nominal_10y + 1.0
+
+# Pre-compute for reporter input (10Y as decimal for yield comparison)
+nominal_10y_pct = nominal_10y / 100.0
+
+# =============================================================================
+# SCENARIO FAIR VALUES
+# =============================================================================
+# Justified P/E from 2-stage model (5yr growth + terminal):
+#   Base:     sum((1.20/1.10)^t,t=1..5) + 1.20^5*1.04/(0.06*1.10^5) = 33.3x
+#   Downside: sum(1/1.11^t,t=1..5) + 1.03/(0.08*1.11^5)             = 11.3x
+#   Severe:   sum(1/1.11^t,t=1..5) + 1.025/(0.085*1.11^5)           = 10.9x
+
+# Fair value = EPS * justified P/E (time-varying through EPS changes)
+fv_base = eps * 33.3 if is_valid(eps) and eps > 0 else 0.0
+fv_downside = eps * 11.3 if is_valid(eps) and eps > 0 else 0.0
+fv_severe = eps * 10.9 if is_valid(eps) and eps > 0 else 0.0
+
+# Premium/discount to fair value (positive = overvalued vs scenario)
+prem_base = (close - fv_base) / fv_base if is_valid(fv_base) and fv_base > 0 else 0.0
+prem_downside = (close - fv_downside) / fv_downside if is_valid(fv_downside) and fv_downside > 0 else 0.0
+prem_severe = (close - fv_severe) / fv_severe if is_valid(fv_severe) and fv_severe > 0 else 0.0
+
+# =============================================================================
+# YEAR-OVER-YEAR GROWTH (context: is "flat" realistic?)
+# =============================================================================
+
+eps_prior = eps >> 252
+eps_yoy = (eps - eps_prior) / abs(eps_prior) if is_valid(eps_prior) and abs(eps_prior) > 0.01 else 0.0
+
+rev_prior = revenue >> 252
+rev_yoy = (revenue - rev_prior) / abs(rev_prior) if is_valid(rev_prior) and abs(rev_prior) > 0.01 else 0.0
+
+# =============================================================================
+# P/E IN DIFFERENT RATE REGIMES
+# =============================================================================
+
+# When 10Y nominal is above 4.5% (proxy for real rate > ~2.5%)
+pe_high_rate = where(nominal_10y >= 4.5, pe)
+pe_low_rate = where(nominal_10y < 3.0, pe)
+pe_mid_rate = where(nominal_10y >= 3.0 and nominal_10y < 4.5, pe)
+
+# Filing event detection for event markers
+had_filing = is_valid(inc_data.revenue) and is_valid(close)
+
+bar_ts = index()
+
+# =============================================================================
+# REPORTS — 1. SCENARIO OVERVIEW
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Current Snapshot',
+        cells=[
+            ColumnSpec(title='Price', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2, card_slot=CardSlot.Hero),
+            ColumnSpec(title='TTM EPS', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(title='Fwd P/E', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(title='EV/EBITDA', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(title='10Y Nominal', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    ),
+    category='1. Scenario Overview'
+)(close, eps, pe, ev_ebitda, nominal_10y)
+
+cards(
+    layout=CardLayout(
+        title='Scenario Fair Values',
+        cells=[
+            ColumnSpec(title='Base FV (20% g, 10% WACC)', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2, card_slot=CardSlot.Hero, card_color=Color.Success),
+            ColumnSpec(title='Downside FV (flat, 11%)', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2, card_color=Color.Warning),
+            ColumnSpec(title='Severe FV (flat, 11%, low term)', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2, card_color=Color.Error),
+            ColumnSpec(title='Prem vs Downside', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1, card_color=Color.Error)
+        ]
+    ),
+    category='1. Scenario Overview'
+)(fv_base, fv_downside, fv_severe, prem_downside)
+
+cards(
+    layout=CardLayout(
+        title='Growth & Margins',
+        cells=[
+            ColumnSpec(title='EPS YoY', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero),
+            ColumnSpec(title='Revenue YoY', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(title='Op Margin', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(title='FCF/Share', card_agg=AggregationType.Last, type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(title='FCF Yield', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='1. Scenario Overview'
+)(eps_yoy, rev_yoy, op_margin, fcf_per_share, fcf_yield)
+
+# =============================================================================
+# REPORTS — 2. PRICE VS FAIR VALUE
+# =============================================================================
+
+xy_lines(
+    title='AMZN Price vs Scenario Fair Values',
+    category='2. Fair Value Analysis',
+    y_axis_label='Price ($)',
+    y_axis_format=AxisValueFormat.MonetaryFormat,
+    y_axis_dp=0,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='AMZN Price', color=Color.Blue),
+        LineSeriesSpec(name='Base FV (33.3x EPS)', color=Color.Green),
+        LineSeriesSpec(name='Downside FV (11.3x EPS)', color=Color.Orange),
+        LineSeriesSpec(name='Severe FV (10.9x EPS)', color=Color.Red)
+    ])
+)(bar_ts, close, fv_base, fv_downside, fv_severe)
+
+xy_lines(
+    title='Premium/Discount to Scenario Fair Values',
+    category='2. Fair Value Analysis',
+    y_axis_label='Premium (+) / Discount (-)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=0,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='vs Base FV', color=Color.Green),
+        LineSeriesSpec(name='vs Downside FV', color=Color.Orange),
+        LineSeriesSpec(name='vs Severe FV', color=Color.Red)
+    ])
+)(bar_ts, prem_base, prem_downside, prem_severe)
+
+# =============================================================================
+# REPORTS — 3. MULTIPLE ANALYSIS
+# =============================================================================
+
+xy_lines(
+    title='P/E: Actual vs Scenario-Justified Levels',
+    category='3. Multiple Analysis',
+    y_axis_label='P/E Ratio',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=1,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Actual P/E', color=Color.Blue)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=33.3, title='Base (33.3x)', color=Color.Green, dash_style=DashStyle.Dash),
+        ReferenceLine(value=11.3, title='Downside (11.3x)', color=Color.Orange, dash_style=DashStyle.Dash),
+        ReferenceLine(value=10.9, title='Severe (10.9x)', color=Color.Red, dash_style=DashStyle.Dash)
+    ])
+)(bar_ts, pe)
+
+xy_lines(
+    title='EV/EBITDA Over Time',
+    category='3. Multiple Analysis',
+    y_axis_label='EV/EBITDA',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=1,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='EV/EBITDA', color=Color.Purple)
+    ])
+)(bar_ts, ev_ebitda)
+
+# P/E distributions by rate regime
+histogram(
+    title='P/E When 10Y > 4.5% (High Rate Regime)',
+    category='3. Multiple Analysis',
+    bins=20,
+    fill_color=Color.Red,
+    x_axis_label='P/E',
+    x_axis_format=AxisValueFormat.DecimalFormat
+)(pe_high_rate)
+
+histogram(
+    title='P/E When 10Y < 3.0% (Low Rate Regime)',
+    category='3. Multiple Analysis',
+    bins=20,
+    fill_color=Color.Blue,
+    x_axis_label='P/E',
+    x_axis_format=AxisValueFormat.DecimalFormat
+)(pe_low_rate)
+
+histogram(
+    title='P/E When 10Y 3.0-4.5% (Mid Rate Regime)',
+    category='3. Multiple Analysis',
+    bins=20,
+    fill_color=Color.Gray,
+    x_axis_label='P/E',
+    x_axis_format=AxisValueFormat.DecimalFormat
+)(pe_mid_rate)
+
+# =============================================================================
+# REPORTS — 4. RATE ENVIRONMENT
+# =============================================================================
+
+xy_lines(
+    title='10Y Nominal Treasury Yield',
+    category='4. Rate Environment',
+    y_axis_label='Yield (%)',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='10Y Nominal', color=Color.Blue),
+        LineSeriesSpec(name='Shocked (+100bp)', color=Color.Red)
+    ])
+)(bar_ts, nominal_10y, nominal_10y_shocked)
+
+xy_lines(
+    title='Earnings Yield vs 10Y Rate (Equity Duration Risk)',
+    category='4. Rate Environment',
+    y_axis_label='Yield',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Earnings Yield', color=Color.Blue),
+        LineSeriesSpec(name='FCF Yield', color=Color.Teal),
+        LineSeriesSpec(name='10Y Rate (decimal)', color=Color.Red)
+    ])
+)(bar_ts, earnings_yield, fcf_yield, nominal_10y_pct)
+
+# =============================================================================
+# REPORTS — 5. FUNDAMENTALS
+# =============================================================================
+
+xy_lines(
+    title='TTM EPS & FCF per Share',
+    category='5. Fundamentals',
+    y_axis_label='$ / Share',
+    y_axis_format=AxisValueFormat.MonetaryFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='TTM EPS', color=Color.Blue),
+        LineSeriesSpec(name='FCF / Share', color=Color.Teal)
+    ])
+)(bar_ts, eps, fcf_per_share)
+
+xy_lines(
+    title='YoY Growth Rates',
+    category='5. Fundamentals',
+    y_axis_label='YoY Growth',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='EPS YoY', color=Color.Blue),
+        LineSeriesSpec(name='Revenue YoY', color=Color.Purple)
+    ])
+)(bar_ts, eps_yoy, rev_yoy)
+
+xy_lines(
+    title='Operating & Net Margins (TTM)',
+    category='5. Fundamentals',
+    y_axis_label='Margin',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Operating Margin', color=Color.Blue),
+        LineSeriesSpec(name='Net Margin', color=Color.Teal)
+    ])
+)(bar_ts, op_margin, net_margin)
+
+# =============================================================================
+# REPORTS — 6. SCENARIO SUMMARY CARDS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Scenario Implied Drawdown',
+        cells=[
+            ColumnSpec(title='Prem vs Base', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero, card_color=Color.Success),
+            ColumnSpec(title='Prem vs Downside', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1, card_color=Color.Warning),
+            ColumnSpec(title='Prem vs Severe', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1, card_color=Color.Error),
+            ColumnSpec(title='Earnings Yield', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(title='FCF Yield', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='6. Summary'
+)(prem_base, prem_downside, prem_severe, earnings_yield, fcf_yield)
+
+# =============================================================================
+# REPORTS — 7. EVENT MARKERS (filing snapshots)
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Earnings Filing Snapshot',
+        icon=Icon.FileTextIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='TTM EPS', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='P/E', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Op Margin', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Prem vs Downside', type=CardRenderType.PercentFormat, dp=1)
+        ]
+    )
+)(had_filing, eps, pe, op_margin, prem_downside)

@@ -1,0 +1,303 @@
+# =============================================================================
+# SPY DIVIDEND EX-DATE PRICE DROP ANALYSIS
+# =============================================================================
+# Research Question: Does SPY drop by the exact dividend amount on ex-date,
+# or does it over/under-react? How does behavior differ for high vs low yield?
+#
+# Methodology:
+# - Event: Dividend ex-dates (cash dividends)
+# - Regimes: High yield (>0.4% of price) vs Low yield (<=0.4%)
+# - Window: T-5 to T+10 trading days around each ex-date
+# - Returns: Normalized to T-5 close (T-5 = 0%)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# DIVIDEND DATA & REGIME CLASSIFICATION
+# =============================================================================
+
+div_data = dividends(dividend_type=DividendType.CD)()
+cash_amount = div_data.cash_amount
+had_div = is_valid(cash_amount)
+
+# Dividend yield relative to close
+div_yield = cash_amount / close
+
+# Regime classification
+is_high_yield = had_div and (div_yield > 0.004)
+is_low_yield = had_div and (div_yield <= 0.004)
+
+# Expected vs actual drop analysis
+expected_drop = cash_amount / (close >> 1)
+actual_drop = ((close >> 1) - close) / (close >> 1)
+drop_ratio = actual_drop / expected_drop
+
+# Counters for cards
+high_count = 1.0 if is_high_yield else 0.0
+low_count = 1.0 if is_low_yield else 0.0
+
+# =============================================================================
+# NORMALIZED RETURN COMPUTATION (relative to T-5 close)
+# =============================================================================
+
+base = close >> 5
+ret_m3 = ((close >> 3) - base) / base
+ret_m1 = ((close >> 1) - base) / base
+ret_0 = (close - base) / base
+ret_p1 = ((close << 1) - base) / base
+ret_p3 = ((close << 3) - base) / base
+ret_p5 = ((close << 5) - base) / base
+ret_p10 = ((close << 10) - base) / base
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+pre_5d = ((close >> 1) - (close >> 5)) / (close >> 5)
+pre_3d = ((close >> 1) - (close >> 3)) / (close >> 3)
+exdate_day = (close - (close >> 1)) / (close >> 1)
+post_3d = ((close << 3) - close) / close
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+
+# =============================================================================
+# CUMULATIVE EVENT RETURNS
+# =============================================================================
+
+bar_ts = index()
+high_daily = exdate_day if is_high_yield else 0.0
+low_daily = exdate_day if is_low_yield else 0.0
+cum_high = cumulative()(high_daily)
+cum_low = cumulative()(low_daily)
+
+# =============================================================================
+# REGIME-FILTERED SERIES: COMPOSITE PATH
+# =============================================================================
+
+# High yield: composite path
+h_m3 = where(is_high_yield, ret_m3)
+h_m1 = where(is_high_yield, ret_m1)
+h_0 = where(is_high_yield, ret_0)
+h_p1 = where(is_high_yield, ret_p1)
+h_p3 = where(is_high_yield, ret_p3)
+h_p5 = where(is_high_yield, ret_p5)
+h_p10 = where(is_high_yield, ret_p10)
+
+# Low yield: composite path
+l_m3 = where(is_low_yield, ret_m3)
+l_m1 = where(is_low_yield, ret_m1)
+l_0 = where(is_low_yield, ret_0)
+l_p1 = where(is_low_yield, ret_p1)
+l_p3 = where(is_low_yield, ret_p3)
+l_p5 = where(is_low_yield, ret_p5)
+l_p10 = where(is_low_yield, ret_p10)
+
+# Window-specific: high yield
+h_pre5 = where(is_high_yield, pre_5d)
+h_pre3 = where(is_high_yield, pre_3d)
+h_exdate = where(is_high_yield, exdate_day)
+h_post3 = where(is_high_yield, post_3d)
+h_post5 = where(is_high_yield, post_5d)
+h_post10 = where(is_high_yield, post_10d)
+
+# Window-specific: low yield
+l_pre5 = where(is_low_yield, pre_5d)
+l_pre3 = where(is_low_yield, pre_3d)
+l_exdate = where(is_low_yield, exdate_day)
+l_post3 = where(is_low_yield, post_3d)
+l_post5 = where(is_low_yield, post_5d)
+l_post10 = where(is_low_yield, post_10d)
+
+# Event marker helper series
+h_div_yield = where(is_high_yield, div_yield)
+l_div_yield = where(is_low_yield, div_yield)
+
+# Drop ratio filtered by regime
+h_drop_ratio = where(is_high_yield, drop_ratio)
+l_drop_ratio = where(is_low_yield, drop_ratio)
+all_drop_ratio = where(had_div, drop_ratio)
+
+# =============================================================================
+# REPORTS - CATEGORY 1: OVERVIEW CARDS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Event Overview',
+        cells=[
+            ColumnSpec(title='High Yield Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Success),
+            ColumnSpec(title='Low Yield Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='1. Overview'
+)(high_count, low_count)
+
+# =============================================================================
+# REPORTS - CATEGORY 2: CUMULATIVE RETURNS
+# =============================================================================
+
+xy_lines(
+    title='Cumulative Ex-Date Return by Yield Regime',
+    category='2. Cumulative Returns',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='High Yield', color=Color.Green),
+        LineSeriesSpec(name='Low Yield', color=Color.Blue)
+    ])
+)(bar_ts, cum_high, cum_low)
+
+# =============================================================================
+# REPORTS - CATEGORY 3: COMPOSITE RETURN PATH
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='High Yield: Avg Return Path (T-5 to T+10)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Ex-Date',
+    y_axis_label='Avg Return (vs T-5)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-3'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+3'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10')
+    ])
+)(h_m3, h_m1, h_0, h_p1, h_p3, h_p5, h_p10)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Low Yield: Avg Return Path (T-5 to T+10)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Ex-Date',
+    y_axis_label='Avg Return (vs T-5)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-3'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+3'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10')
+    ])
+)(l_m3, l_m1, l_0, l_p1, l_p3, l_p5, l_p10)
+
+# =============================================================================
+# REPORTS - CATEGORY 4: DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='Post-10d Return Distribution (High Yield)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Green,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(h_post10)
+
+histogram(
+    title='Post-10d Return Distribution (Low Yield)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Blue,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(l_post10)
+
+histogram(
+    title='Drop Ratio Distribution (All Events)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Red,
+    x_axis_label='Actual/Expected Drop Ratio',
+    x_axis_format=AxisValueFormat.DecimalFormat
+)(all_drop_ratio)
+
+# =============================================================================
+# REPORTS - CATEGORY 5: EVENT MARKERS
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='High Yield Dividend Events',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Div Yield', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-10d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_high_yield, h_div_yield, h_pre5, h_post10)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Low Yield Dividend Events',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Div Yield', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-10d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_low_yield, l_div_yield, l_pre5, l_post10)
+
+# =============================================================================
+# REPORTS - CATEGORY 6: WINDOW COMPARISON
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='High Yield: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Pre-3d'),
+        BarSeriesSpec(name='Ex-Date'),
+        BarSeriesSpec(name='Post-3d'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d')
+    ])
+)(h_pre5, h_pre3, h_exdate, h_post3, h_post5, h_post10)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Low Yield: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Pre-3d'),
+        BarSeriesSpec(name='Ex-Date'),
+        BarSeriesSpec(name='Post-3d'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d')
+    ])
+)(l_pre5, l_pre3, l_exdate, l_post3, l_post5, l_post10)
+

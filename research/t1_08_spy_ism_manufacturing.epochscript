@@ -1,0 +1,297 @@
+# =============================================================================
+# ISM MANUFACTURING PMI IMPACT ON SPY
+# =============================================================================
+# Research Question: How does SPY react to ISM Manufacturing PMI releases?
+#
+# Methodology:
+# - Event: ISM Manufacturing PMI releases
+# - Regimes: Improving (current > prior) vs Deteriorating (current <= prior)
+# - Window: T-5 to T+20 trading days around each release
+# - Returns: Normalized to T-5 close (T-5 = 0%)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# ISM DATA & REGIME CLASSIFICATION
+# =============================================================================
+
+ism_data = common_economic_indicators(category=MacroEconomicsIndicator.ISMManufacturing)()
+ism_value = ism_data.result
+had_ism = is_valid(ism_value) and is_valid(close)
+
+# Prior ISM reading
+prior_ism = valuewhen(occurrence=1)(had_ism, ism_value)
+
+# Regimes: improving vs deteriorating
+is_improving = had_ism and is_valid(prior_ism) and (ism_value > prior_ism)
+is_deteriorating = had_ism and is_valid(prior_ism) and (ism_value <= prior_ism)
+
+# Counters for cards
+improving_count = 1.0 if is_improving else 0.0
+deteriorating_count = 1.0 if is_deteriorating else 0.0
+
+# =============================================================================
+# NORMALIZED RETURN COMPUTATION (relative to T-5 close)
+# =============================================================================
+
+base = close >> 5
+ret_m3 = ((close >> 3) - base) / base
+ret_m1 = ((close >> 1) - base) / base
+ret_0 = (close - base) / base
+ret_p1 = ((close << 1) - base) / base
+ret_p3 = ((close << 3) - base) / base
+ret_p5 = ((close << 5) - base) / base
+ret_p10 = ((close << 10) - base) / base
+ret_p15 = ((close << 15) - base) / base
+ret_p20 = ((close << 20) - base) / base
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+pre_5d = ((close >> 1) - (close >> 5)) / (close >> 5)
+pre_3d = ((close >> 1) - (close >> 3)) / (close >> 3)
+ism_day = (close - (close >> 1)) / (close >> 1)
+post_3d = ((close << 3) - close) / close
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+
+# =============================================================================
+# CUMULATIVE EVENT RETURNS
+# =============================================================================
+
+bar_ts = index()
+imp_daily = ism_day if is_improving else 0.0
+det_daily = ism_day if is_deteriorating else 0.0
+cum_imp = cumulative()(imp_daily)
+cum_det = cumulative()(det_daily)
+
+# =============================================================================
+# REGIME-FILTERED SERIES: COMPOSITE PATH
+# =============================================================================
+
+# Improving: composite path
+i_m3 = where(is_improving, ret_m3)
+i_m1 = where(is_improving, ret_m1)
+i_0 = where(is_improving, ret_0)
+i_p1 = where(is_improving, ret_p1)
+i_p3 = where(is_improving, ret_p3)
+i_p5 = where(is_improving, ret_p5)
+i_p10 = where(is_improving, ret_p10)
+i_p15 = where(is_improving, ret_p15)
+i_p20 = where(is_improving, ret_p20)
+
+# Deteriorating: composite path
+d_m3 = where(is_deteriorating, ret_m3)
+d_m1 = where(is_deteriorating, ret_m1)
+d_0 = where(is_deteriorating, ret_0)
+d_p1 = where(is_deteriorating, ret_p1)
+d_p3 = where(is_deteriorating, ret_p3)
+d_p5 = where(is_deteriorating, ret_p5)
+d_p10 = where(is_deteriorating, ret_p10)
+d_p15 = where(is_deteriorating, ret_p15)
+d_p20 = where(is_deteriorating, ret_p20)
+
+# Window-specific: improving
+i_pre5 = where(is_improving, pre_5d)
+i_pre3 = where(is_improving, pre_3d)
+i_ism = where(is_improving, ism_day)
+i_post3 = where(is_improving, post_3d)
+i_post5 = where(is_improving, post_5d)
+i_post10 = where(is_improving, post_10d)
+i_post20 = where(is_improving, post_20d)
+
+# Window-specific: deteriorating
+d_pre5 = where(is_deteriorating, pre_5d)
+d_pre3 = where(is_deteriorating, pre_3d)
+d_ism = where(is_deteriorating, ism_day)
+d_post3 = where(is_deteriorating, post_3d)
+d_post5 = where(is_deteriorating, post_5d)
+d_post10 = where(is_deteriorating, post_10d)
+d_post20 = where(is_deteriorating, post_20d)
+
+# Event marker helper series
+i_ism_value = where(is_improving, ism_value)
+d_ism_value = where(is_deteriorating, ism_value)
+
+# =============================================================================
+# REPORTS - CATEGORY 1: OVERVIEW CARDS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Event Overview',
+        cells=[
+            ColumnSpec(title='Improving Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Success),
+            ColumnSpec(title='Deteriorating Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Error)
+        ]
+    ),
+    category='1. Overview'
+)(improving_count, deteriorating_count)
+
+# =============================================================================
+# REPORTS - CATEGORY 2: CUMULATIVE RETURNS
+# =============================================================================
+
+xy_lines(
+    title='Cumulative ISM-Day Return by Regime',
+    category='2. Cumulative Returns',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Improving', color=Color.Green),
+        LineSeriesSpec(name='Deteriorating', color=Color.Red)
+    ])
+)(bar_ts, cum_imp, cum_det)
+
+# =============================================================================
+# REPORTS - CATEGORY 3: COMPOSITE RETURN PATH
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Improving: Avg Return Path (T-5 to T+20)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from ISM Release',
+    y_axis_label='Avg Return (vs T-5)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-3'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+3'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+15'),
+        BarSeriesSpec(name='T+20')
+    ])
+)(i_m3, i_m1, i_0, i_p1, i_p3, i_p5, i_p10, i_p15, i_p20)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Deteriorating: Avg Return Path (T-5 to T+20)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from ISM Release',
+    y_axis_label='Avg Return (vs T-5)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-3'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+3'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+15'),
+        BarSeriesSpec(name='T+20')
+    ])
+)(d_m3, d_m1, d_0, d_p1, d_p3, d_p5, d_p10, d_p15, d_p20)
+
+# =============================================================================
+# REPORTS - CATEGORY 4: DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='Post-20d Return Distribution (Improving)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Green,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(i_post20)
+
+histogram(
+    title='Post-20d Return Distribution (Deteriorating)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Red,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(d_post20)
+
+# =============================================================================
+# REPORTS - CATEGORY 5: EVENT MARKERS
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Improving Events',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='ISM Value', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_improving, i_ism_value, i_pre5, i_post20)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Deteriorating Events',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='ISM Value', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_deteriorating, d_ism_value, d_pre5, d_post20)
+
+# =============================================================================
+# REPORTS - CATEGORY 6: WINDOW COMPARISON
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Improving: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Pre-3d'),
+        BarSeriesSpec(name='ISM Day'),
+        BarSeriesSpec(name='Post-3d'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d')
+    ])
+)(i_pre5, i_pre3, i_ism, i_post3, i_post5, i_post10, i_post20)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Deteriorating: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Pre-3d'),
+        BarSeriesSpec(name='ISM Day'),
+        BarSeriesSpec(name='Post-3d'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d')
+    ])
+)(d_pre5, d_pre3, d_ism, d_post3, d_post5, d_post10, d_post20)

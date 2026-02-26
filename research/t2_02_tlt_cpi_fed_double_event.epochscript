@@ -1,0 +1,404 @@
+# =============================================================================
+# CPI + FED FUNDS DOUBLE EVENT ON BONDS (TLT)
+# =============================================================================
+# Research Question: How does TLT react when CPI regime aligns with Fed
+# rate decisions? Compare hot CPI + hike vs cool CPI + cut vs mixed signals.
+#
+# Methodology:
+# - Event: Fed Funds rate decision days
+# - Condition: Forward-filled CPI acceleration regime
+# - Window: T-5 to T+20 trading days
+# - Returns: Normalized to T-5 close (T-5 = 0%)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# CPI DATA & REGIME DETECTION
+# =============================================================================
+
+cpi_data = common_economic_indicators(category=MacroEconomicsIndicator.CPI)()
+cpi_value = cpi_data.result
+had_cpi = is_valid(cpi_value) and is_valid(close)
+prior_cpi = valuewhen(occurrence=1)(had_cpi, cpi_value)
+cpi_change = cpi_value - prior_cpi
+prior2_cpi = valuewhen(occurrence=2)(had_cpi, cpi_value)
+prior_change = prior_cpi - prior2_cpi
+
+# CPI hot = accelerating (current change > prior change), cool = decelerating
+cpi_hot_raw = 1.0 if (had_cpi and is_valid(prior_change) and (cpi_change > prior_change)) else (0.0 if (had_cpi and is_valid(prior_change)) else 0.0 / 0.0)
+cpi_regime = ffill(cpi_hot_raw)
+
+# =============================================================================
+# FED FUNDS DATA & DECISION DETECTION
+# =============================================================================
+
+fed_data = common_economic_indicators(category=MacroEconomicsIndicator.FedFunds)()
+fed_value = fed_data.result
+had_fed = is_valid(fed_value) and is_valid(close)
+prior_fed = valuewhen(occurrence=1)(had_fed, fed_value)
+is_hike = had_fed and is_valid(prior_fed) and (fed_value > prior_fed)
+is_cut = had_fed and is_valid(prior_fed) and (fed_value < prior_fed)
+
+# =============================================================================
+# COMBINED REGIME CLASSIFICATION
+# =============================================================================
+
+# On Fed decision days, check prevailing CPI regime
+is_hot_hike = is_hike and is_valid(cpi_regime) and (cpi_regime > 0.5)
+is_cool_cut = is_cut and is_valid(cpi_regime) and (cpi_regime < 0.5)
+is_mixed = (is_hike or is_cut) and not is_hot_hike and not is_cool_cut
+
+# Counters for cards
+hot_hike_count = 1.0 if is_hot_hike else 0.0
+cool_cut_count = 1.0 if is_cool_cut else 0.0
+mixed_count = 1.0 if is_mixed else 0.0
+
+# =============================================================================
+# NORMALIZED RETURN COMPUTATION (relative to T-5 close)
+# =============================================================================
+
+base = close >> 5
+ret_m3 = ((close >> 3) - base) / base
+ret_m1 = ((close >> 1) - base) / base
+ret_0 = (close - base) / base
+ret_p1 = ((close << 1) - base) / base
+ret_p3 = ((close << 3) - base) / base
+ret_p5 = ((close << 5) - base) / base
+ret_p10 = ((close << 10) - base) / base
+ret_p15 = ((close << 15) - base) / base
+ret_p20 = ((close << 20) - base) / base
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+pre_5d = ((close >> 1) - (close >> 5)) / (close >> 5)
+pre_3d = ((close >> 1) - (close >> 3)) / (close >> 3)
+event_day = (close - (close >> 1)) / (close >> 1)
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+
+# =============================================================================
+# CUMULATIVE EVENT RETURNS
+# =============================================================================
+
+bar_ts = index()
+hh_event_daily = event_day if is_hot_hike else 0.0
+cc_event_daily = event_day if is_cool_cut else 0.0
+mx_event_daily = event_day if is_mixed else 0.0
+cum_hh = cumulative()(hh_event_daily)
+cum_cc = cumulative()(cc_event_daily)
+cum_mx = cumulative()(mx_event_daily)
+
+# =============================================================================
+# REGIME-FILTERED SERIES
+# =============================================================================
+
+# Hot CPI + Hike: composite path
+hh_m3 = where(is_hot_hike, ret_m3)
+hh_m1 = where(is_hot_hike, ret_m1)
+hh_0 = where(is_hot_hike, ret_0)
+hh_p1 = where(is_hot_hike, ret_p1)
+hh_p3 = where(is_hot_hike, ret_p3)
+hh_p5 = where(is_hot_hike, ret_p5)
+hh_p10 = where(is_hot_hike, ret_p10)
+hh_p15 = where(is_hot_hike, ret_p15)
+hh_p20 = where(is_hot_hike, ret_p20)
+
+# Cool CPI + Cut: composite path
+cc_m3 = where(is_cool_cut, ret_m3)
+cc_m1 = where(is_cool_cut, ret_m1)
+cc_0 = where(is_cool_cut, ret_0)
+cc_p1 = where(is_cool_cut, ret_p1)
+cc_p3 = where(is_cool_cut, ret_p3)
+cc_p5 = where(is_cool_cut, ret_p5)
+cc_p10 = where(is_cool_cut, ret_p10)
+cc_p15 = where(is_cool_cut, ret_p15)
+cc_p20 = where(is_cool_cut, ret_p20)
+
+# Mixed: composite path
+mx_m3 = where(is_mixed, ret_m3)
+mx_m1 = where(is_mixed, ret_m1)
+mx_0 = where(is_mixed, ret_0)
+mx_p1 = where(is_mixed, ret_p1)
+mx_p3 = where(is_mixed, ret_p3)
+mx_p5 = where(is_mixed, ret_p5)
+mx_p10 = where(is_mixed, ret_p10)
+mx_p15 = where(is_mixed, ret_p15)
+mx_p20 = where(is_mixed, ret_p20)
+
+# Window-specific: hot hike
+hh_pre5 = where(is_hot_hike, pre_5d)
+hh_pre3 = where(is_hot_hike, pre_3d)
+hh_event = where(is_hot_hike, event_day)
+hh_post5 = where(is_hot_hike, post_5d)
+hh_post10 = where(is_hot_hike, post_10d)
+hh_post20 = where(is_hot_hike, post_20d)
+
+# Window-specific: cool cut
+cc_pre5 = where(is_cool_cut, pre_5d)
+cc_pre3 = where(is_cool_cut, pre_3d)
+cc_event = where(is_cool_cut, event_day)
+cc_post5 = where(is_cool_cut, post_5d)
+cc_post10 = where(is_cool_cut, post_10d)
+cc_post20 = where(is_cool_cut, post_20d)
+
+# Window-specific: mixed
+mx_pre5 = where(is_mixed, pre_5d)
+mx_pre3 = where(is_mixed, pre_3d)
+mx_event = where(is_mixed, event_day)
+mx_post5 = where(is_mixed, post_5d)
+mx_post10 = where(is_mixed, post_10d)
+mx_post20 = where(is_mixed, post_20d)
+
+# Event marker helpers
+hh_cpi_regime_val = where(is_hot_hike, cpi_regime)
+cc_cpi_regime_val = where(is_cool_cut, cpi_regime)
+mx_cpi_regime_val = where(is_mixed, cpi_regime)
+
+# =============================================================================
+# REPORTS - CATEGORY 1: OVERVIEW CARDS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Event Overview',
+        cells=[
+            ColumnSpec(title='Hot CPI + Hike', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Error),
+            ColumnSpec(title='Cool CPI + Cut', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Success),
+            ColumnSpec(title='Mixed Signal', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Blue)
+        ]
+    ),
+    category='1. Overview'
+)(hot_hike_count, cool_cut_count, mixed_count)
+
+# =============================================================================
+# REPORTS - CATEGORY 2: CUMULATIVE RETURNS
+# =============================================================================
+
+xy_lines(
+    title='Cumulative Event-Day Return by Regime',
+    category='2. Cumulative Returns',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Hot CPI + Hike', color=Color.Red),
+        LineSeriesSpec(name='Cool CPI + Cut', color=Color.Green),
+        LineSeriesSpec(name='Mixed', color=Color.Blue)
+    ])
+)(bar_ts, cum_hh, cum_cc, cum_mx)
+
+# =============================================================================
+# REPORTS - CATEGORY 3: COMPOSITE RETURN PATH
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Hot CPI + Hike: Avg Return Path (T-5 to T+20)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Fed Decision',
+    y_axis_label='Avg Return (vs T-5)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-3'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+3'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+15'),
+        BarSeriesSpec(name='T+20')
+    ])
+)(hh_m3, hh_m1, hh_0, hh_p1, hh_p3, hh_p5, hh_p10, hh_p15, hh_p20)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Cool CPI + Cut: Avg Return Path (T-5 to T+20)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Fed Decision',
+    y_axis_label='Avg Return (vs T-5)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-3'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+3'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+15'),
+        BarSeriesSpec(name='T+20')
+    ])
+)(cc_m3, cc_m1, cc_0, cc_p1, cc_p3, cc_p5, cc_p10, cc_p15, cc_p20)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Mixed Signal: Avg Return Path (T-5 to T+20)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Fed Decision',
+    y_axis_label='Avg Return (vs T-5)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-3'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+3'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+15'),
+        BarSeriesSpec(name='T+20')
+    ])
+)(mx_m3, mx_m1, mx_0, mx_p1, mx_p3, mx_p5, mx_p10, mx_p15, mx_p20)
+
+# =============================================================================
+# REPORTS - CATEGORY 4: DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='Post-20d Return Distribution (Hot CPI + Hike)',
+    category='4. Distributions',
+    bins=15,
+    fill_color=Color.Red,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(hh_post20)
+
+histogram(
+    title='Post-20d Return Distribution (Cool CPI + Cut)',
+    category='4. Distributions',
+    bins=15,
+    fill_color=Color.Green,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(cc_post20)
+
+histogram(
+    title='Post-20d Return Distribution (Mixed)',
+    category='4. Distributions',
+    bins=15,
+    fill_color=Color.Blue,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(mx_post20)
+
+# =============================================================================
+# REPORTS - CATEGORY 5: EVENT MARKERS
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Hot CPI + Hike Events',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='CPI Regime', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Event Day Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_hot_hike, hh_cpi_regime_val, hh_event, hh_post20)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Cool CPI + Cut Events',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='CPI Regime', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Event Day Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_cool_cut, cc_cpi_regime_val, cc_event, cc_post20)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Mixed Signal Events',
+        icon=Icon.AlertTriangleIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='CPI Regime', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Event Day Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_mixed, mx_cpi_regime_val, mx_event, mx_post20)
+
+# =============================================================================
+# REPORTS - CATEGORY 6: WINDOW COMPARISON
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Hot CPI + Hike: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Pre-3d'),
+        BarSeriesSpec(name='Event Day'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d')
+    ])
+)(hh_pre5, hh_pre3, hh_event, hh_post5, hh_post10, hh_post20)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Cool CPI + Cut: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Pre-3d'),
+        BarSeriesSpec(name='Event Day'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d')
+    ])
+)(cc_pre5, cc_pre3, cc_event, cc_post5, cc_post10, cc_post20)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Mixed Signal: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Pre-3d'),
+        BarSeriesSpec(name='Event Day'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d')
+    ])
+)(mx_pre5, mx_pre3, mx_event, mx_post5, mx_post10, mx_post20)

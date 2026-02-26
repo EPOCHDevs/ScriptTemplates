@@ -1,0 +1,404 @@
+# =============================================================================
+# AAPL EARNINGS + ANALYST RATING DOUBLE EVENT
+# =============================================================================
+# Research Question: Do concordant earnings + analyst rating signals amplify
+# post-earnings price drift? Compare positive surprise + PT raise vs negative
+# surprise + PT cut vs discordant signals.
+#
+# Methodology:
+# - Event: Quarterly earnings announcements
+# - Condition: Forward-filled analyst rating direction (PT raise vs cut)
+# - Window: T-10 to T+30 trading days
+# - Returns: Normalized to T-10 close (T-10 = 0%)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# EARNINGS DATA
+# =============================================================================
+
+earnings_data = earnings(period=EarningsPeriod.quarterly)()
+surprise_pct = earnings_data.eps_surprise_percent
+had_earnings = is_valid(surprise_pct)
+
+# =============================================================================
+# ANALYST RATINGS DATA
+# =============================================================================
+
+ratings = analyst_ratings()()
+pt = ratings.adjusted_price_target
+prev_pt = ratings.previous_adjusted_price_target
+had_rating = is_valid(pt) and is_valid(prev_pt)
+is_pt_raise = pt > prev_pt
+is_pt_cut = pt < prev_pt
+
+# Forward-fill rating direction: 1.0 = upgrade, -1.0 = downgrade
+rating_dir_raw = 1.0 if (had_rating and is_pt_raise) else (-1.0 if (had_rating and is_pt_cut) else 0.0 / 0.0)
+rating_dir = ffill(rating_dir_raw)
+
+# =============================================================================
+# COMBINED REGIME CLASSIFICATION
+# =============================================================================
+
+# On earnings day, check last known rating direction
+is_concordant_positive = had_earnings and (surprise_pct > 0.0) and is_valid(rating_dir) and (rating_dir > 0.0)
+is_concordant_negative = had_earnings and (surprise_pct < 0.0) and is_valid(rating_dir) and (rating_dir < 0.0)
+is_discordant = had_earnings and is_valid(rating_dir) and not is_concordant_positive and not is_concordant_negative
+
+# Counters for cards
+concord_pos_count = 1.0 if is_concordant_positive else 0.0
+concord_neg_count = 1.0 if is_concordant_negative else 0.0
+discordant_count = 1.0 if is_discordant else 0.0
+
+# =============================================================================
+# NORMALIZED RETURN COMPUTATION (relative to T-10 close)
+# =============================================================================
+
+base = close >> 10
+ret_m5 = ((close >> 5) - base) / base
+ret_m1 = ((close >> 1) - base) / base
+ret_0 = (close - base) / base
+ret_p1 = ((close << 1) - base) / base
+ret_p5 = ((close << 5) - base) / base
+ret_p10 = ((close << 10) - base) / base
+ret_p20 = ((close << 20) - base) / base
+ret_p30 = ((close << 30) - base) / base
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+pre_10d = ((close >> 1) - (close >> 10)) / (close >> 10)
+pre_5d = ((close >> 1) - (close >> 5)) / (close >> 5)
+earn_day = (close - (close >> 1)) / (close >> 1)
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+post_30d = ((close << 30) - close) / close
+
+# =============================================================================
+# CUMULATIVE EVENT RETURNS
+# =============================================================================
+
+bar_ts = index()
+cp_earn_daily = earn_day if is_concordant_positive else 0.0
+cn_earn_daily = earn_day if is_concordant_negative else 0.0
+disc_earn_daily = earn_day if is_discordant else 0.0
+cum_cp_earn = cumulative()(cp_earn_daily)
+cum_cn_earn = cumulative()(cn_earn_daily)
+cum_disc_earn = cumulative()(disc_earn_daily)
+
+# =============================================================================
+# REGIME-FILTERED SERIES
+# =============================================================================
+
+# Concordant Positive: composite path
+cp_m5 = where(is_concordant_positive, ret_m5)
+cp_m1 = where(is_concordant_positive, ret_m1)
+cp_0 = where(is_concordant_positive, ret_0)
+cp_p1 = where(is_concordant_positive, ret_p1)
+cp_p5 = where(is_concordant_positive, ret_p5)
+cp_p10 = where(is_concordant_positive, ret_p10)
+cp_p20 = where(is_concordant_positive, ret_p20)
+cp_p30 = where(is_concordant_positive, ret_p30)
+
+# Concordant Negative: composite path
+cn_m5 = where(is_concordant_negative, ret_m5)
+cn_m1 = where(is_concordant_negative, ret_m1)
+cn_0 = where(is_concordant_negative, ret_0)
+cn_p1 = where(is_concordant_negative, ret_p1)
+cn_p5 = where(is_concordant_negative, ret_p5)
+cn_p10 = where(is_concordant_negative, ret_p10)
+cn_p20 = where(is_concordant_negative, ret_p20)
+cn_p30 = where(is_concordant_negative, ret_p30)
+
+# Discordant: composite path
+di_m5 = where(is_discordant, ret_m5)
+di_m1 = where(is_discordant, ret_m1)
+di_0 = where(is_discordant, ret_0)
+di_p1 = where(is_discordant, ret_p1)
+di_p5 = where(is_discordant, ret_p5)
+di_p10 = where(is_discordant, ret_p10)
+di_p20 = where(is_discordant, ret_p20)
+di_p30 = where(is_discordant, ret_p30)
+
+# Window-specific: concordant positive
+cp_pre10 = where(is_concordant_positive, pre_10d)
+cp_pre5 = where(is_concordant_positive, pre_5d)
+cp_earn = where(is_concordant_positive, earn_day)
+cp_post5 = where(is_concordant_positive, post_5d)
+cp_post10 = where(is_concordant_positive, post_10d)
+cp_post20 = where(is_concordant_positive, post_20d)
+cp_post30 = where(is_concordant_positive, post_30d)
+
+# Window-specific: concordant negative
+cn_pre10 = where(is_concordant_negative, pre_10d)
+cn_pre5 = where(is_concordant_negative, pre_5d)
+cn_earn = where(is_concordant_negative, earn_day)
+cn_post5 = where(is_concordant_negative, post_5d)
+cn_post10 = where(is_concordant_negative, post_10d)
+cn_post20 = where(is_concordant_negative, post_20d)
+cn_post30 = where(is_concordant_negative, post_30d)
+
+# Window-specific: discordant
+di_pre10 = where(is_discordant, pre_10d)
+di_pre5 = where(is_discordant, pre_5d)
+di_earn = where(is_discordant, earn_day)
+di_post5 = where(is_discordant, post_5d)
+di_post10 = where(is_discordant, post_10d)
+di_post20 = where(is_discordant, post_20d)
+di_post30 = where(is_discordant, post_30d)
+
+# Event marker helpers
+cp_surprise = where(is_concordant_positive, surprise_pct)
+cp_rating = where(is_concordant_positive, rating_dir)
+cn_surprise = where(is_concordant_negative, surprise_pct)
+cn_rating = where(is_concordant_negative, rating_dir)
+di_surprise = where(is_discordant, surprise_pct)
+di_rating = where(is_discordant, rating_dir)
+
+# =============================================================================
+# REPORTS - CATEGORY 1: OVERVIEW CARDS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Event Overview',
+        cells=[
+            ColumnSpec(title='Concordant Positive', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Success),
+            ColumnSpec(title='Concordant Negative', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Error),
+            ColumnSpec(title='Discordant', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Blue)
+        ]
+    ),
+    category='1. Overview'
+)(concord_pos_count, concord_neg_count, discordant_count)
+
+# =============================================================================
+# REPORTS - CATEGORY 2: CUMULATIVE RETURNS
+# =============================================================================
+
+xy_lines(
+    title='Cumulative Earnings-Day Return by Regime',
+    category='2. Cumulative Returns',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Concordant Positive', color=Color.Green),
+        LineSeriesSpec(name='Concordant Negative', color=Color.Red),
+        LineSeriesSpec(name='Discordant', color=Color.Blue)
+    ])
+)(bar_ts, cum_cp_earn, cum_cn_earn, cum_disc_earn)
+
+# =============================================================================
+# REPORTS - CATEGORY 3: COMPOSITE RETURN PATH
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Concordant Positive: Avg Return Path (T-10 to T+30)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Earnings',
+    y_axis_label='Avg Return (vs T-10)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-5'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+20'),
+        BarSeriesSpec(name='T+30')
+    ])
+)(cp_m5, cp_m1, cp_0, cp_p1, cp_p5, cp_p10, cp_p20, cp_p30)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Concordant Negative: Avg Return Path (T-10 to T+30)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Earnings',
+    y_axis_label='Avg Return (vs T-10)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-5'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+20'),
+        BarSeriesSpec(name='T+30')
+    ])
+)(cn_m5, cn_m1, cn_0, cn_p1, cn_p5, cn_p10, cn_p20, cn_p30)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Discordant: Avg Return Path (T-10 to T+30)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Earnings',
+    y_axis_label='Avg Return (vs T-10)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-5'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+20'),
+        BarSeriesSpec(name='T+30')
+    ])
+)(di_m5, di_m1, di_0, di_p1, di_p5, di_p10, di_p20, di_p30)
+
+# =============================================================================
+# REPORTS - CATEGORY 4: DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='Post-30d Return Distribution (Concordant Positive)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Green,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(cp_post30)
+
+histogram(
+    title='Post-30d Return Distribution (Concordant Negative)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Red,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(cn_post30)
+
+histogram(
+    title='Post-30d Return Distribution (Discordant)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Blue,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(di_post30)
+
+# =============================================================================
+# REPORTS - CATEGORY 5: EVENT MARKERS
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Concordant Positive Events',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='EPS Surprise %', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Rating Direction', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-30d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_concordant_positive, cp_surprise, cp_rating, cp_post30)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Concordant Negative Events',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='EPS Surprise %', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Rating Direction', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-30d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_concordant_negative, cn_surprise, cn_rating, cn_post30)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Discordant Events',
+        icon=Icon.AlertTriangleIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='EPS Surprise %', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Rating Direction', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-30d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_discordant, di_surprise, di_rating, di_post30)
+
+# =============================================================================
+# REPORTS - CATEGORY 6: WINDOW COMPARISON
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Concordant Positive: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-10d'),
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Earn Day'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d'),
+        BarSeriesSpec(name='Post-30d')
+    ])
+)(cp_pre10, cp_pre5, cp_earn, cp_post5, cp_post10, cp_post20, cp_post30)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Concordant Negative: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-10d'),
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Earn Day'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d'),
+        BarSeriesSpec(name='Post-30d')
+    ])
+)(cn_pre10, cn_pre5, cn_earn, cn_post5, cn_post10, cn_post20, cn_post30)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Discordant: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-10d'),
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Earn Day'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d'),
+        BarSeriesSpec(name='Post-30d')
+    ])
+)(di_pre10, di_pre5, di_earn, di_post5, di_post10, di_post20, di_post30)

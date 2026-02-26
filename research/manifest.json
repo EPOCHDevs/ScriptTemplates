@@ -390,5 +390,264 @@
       "methodology": ["event_study"],
       "intraday": false
     }
+  },
+  {
+    "id": "t1_05_gc_nfp_gold_impact",
+    "name": "NFP Release Impact on Gold Futures (GC)",
+    "description": "LOAD GC-Futures daily bars and NFP economic indicator via common_economic_indicators(category=MacroEconomicsIndicator.NonfarmPayrolls)\nDETECT NFP release dates and compute month-over-month change using valuewhen\nCLASSIFY events as Strong NFP (>200K change, bearish gold) vs Weak NFP (<100K change, bullish gold)\nCOMPUTE normalized return paths from T-5 to T+20 relative to pre-event close\nDASHBOARD shows overview cards, cumulative NFP-day returns by regime, composite return path bars, post-20d return distributions, and event markers with NFP change details",
+    "tags": {
+      "asset_class": ["commodities"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["NFP"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "t1_06_spy_dividend_exdate",
+    "name": "SPY Dividend Ex-Date Price Drop Analysis",
+    "description": "LOAD SPY daily bars and dividend data via dividends(dividend_type=DividendType.CD)\nCOMPUTE dividend yield relative to close and classify as High Yield (>0.4%) vs Low Yield (<=0.4%)\nCALCULATE expected vs actual price drop and drop ratio on ex-date\nCOMPUTE normalized return paths from T-5 to T+10 relative to pre-event close\nDASHBOARD shows overview cards, cumulative ex-date returns by yield regime, composite return path bars, post-10d and drop ratio distributions, and event markers with yield details",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["dividends"],
+      "event_type": ["corporate_event"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "t1_07_spy_yield_curve_inversion",
+    "name": "Yield Curve Inversion Impact on SPY",
+    "description": "LOAD SPY daily bars and Treasury yields (10Y and 2Y) via common_economic_indicators\nDETECT yield curve inversion (2Y > 10Y) and un-inversion (2Y crosses back below 10Y) events\nCOMPUTE normalized return paths from T-60 to T+252 relative to pre-event close\nDASHBOARD shows overview cards, cumulative event-day returns, composite return path bars, post-252d return distributions, and event markers with spread details",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["yield_curve"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "t1_08_spy_ism_manufacturing",
+    "name": "ISM Manufacturing PMI Impact on SPY",
+    "description": "LOAD SPY daily bars and ISM Manufacturing PMI via common_economic_indicators\nCLASSIFY events as Improving (current > prior reading) vs Deteriorating (current < prior) using valuewhen\nCOMPUTE normalized return paths from T-5 to T+20 relative to pre-event close\nDASHBOARD shows overview cards, cumulative PMI-day returns by regime, composite return path bars, post-20d return distributions, and event markers with PMI change details",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["ISM"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "t1_09_eurusd_cpi_impact",
+    "name": "CPI Release Impact on EUR/USD",
+    "description": "LOAD EUR/USD (^EURUSD-FX) daily bars and CPI economic indicator via common_economic_indicators\nDETECT CPI acceleration using valuewhen to compare current vs prior CPI change\nCLASSIFY events as Hot CPI (accelerating) vs Cool CPI (decelerating)\nCOMPUTE normalized return paths from T-5 to T+20 relative to pre-event close\nDASHBOARD shows overview cards, cumulative CPI-day returns by regime, composite return path bars, and event markers",
+    "tags": {
+      "asset_class": ["fx"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["CPI"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "t1_10_tsla_short_volume_spike",
+    "name": "TSLA Short Volume Spike Signal",
+    "description": "LOAD TSLA daily bars and short volume data via short_volume()\nDETECT short volume spikes using ratio > 1.15x threshold of recent average\nCLASSIFY events as Bullish Signal (spike followed by up move) vs Bearish Signal\nCOMPUTE normalized return paths from T-5 to T+20 relative to pre-event close\nDASHBOARD shows overview cards, cumulative returns by signal type, composite return paths, and event markers with short volume ratio details",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["short_interest"],
+      "event_type": ["technical_signal"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "t1_02b_zb_cpi_intraday",
+    "name": "CPI Release Intraday Impact on Treasury Futures (ZB)",
+    "description": "LOAD TLT 5Min bars and CPI economic indicator for intraday event study around 8:30 AM ET\nDETECT CPI release days and classify as Hot CPI vs Cool CPI using valuewhen comparison\nDEFINE session windows: pre (7:30-8:30), immediate (8:30-8:35), short (8:35-9:00), and post windows\nCOMPUTE window returns and range for CPI days only\nDASHBOARD shows summary cards, window return comparisons, and intraday reaction charts",
+    "tags": {
+      "asset_class": ["bonds"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["CPI"],
+      "methodology": ["event_study"],
+      "intraday": true
+    }
+  },
+  {
+    "id": "t1_05b_gc_nfp_intraday",
+    "name": "NFP Release Intraday Impact on Gold Futures (GC)",
+    "description": "LOAD GC-Futures 5Min bars via futures_continuation and NFP economic indicator\nDETECT NFP release dates and classify as Strong (>200K) vs Weak (<100K) using valuewhen\nDEFINE session windows around 8:30 AM ET: pre, immediate, short, and post windows\nCOMPUTE window returns for NFP days only\nDASHBOARD shows summary cards, intraday reaction comparison bars, and window return analysis",
+    "tags": {
+      "asset_class": ["commodities"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["NFP"],
+      "methodology": ["event_study"],
+      "intraday": true
+    }
+  },
+  {
+    "id": "t1_08b_spy_ism_intraday",
+    "name": "ISM Manufacturing PMI Intraday Impact on SPY",
+    "description": "LOAD SPY 5Min bars and ISM Manufacturing PMI for intraday event study around 10:00 AM ET\nDETECT ISM release days and classify as Improving vs Deteriorating using valuewhen comparison\nDEFINE session windows around 10:00 AM ET: pre, immediate, short, and post windows\nCOMPUTE window returns for ISM days only\nDASHBOARD shows summary cards, window return comparisons, and intraday reaction charts",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["ISM"],
+      "methodology": ["event_study"],
+      "intraday": true
+    }
+  },
+  {
+    "id": "t1_09b_eurusd_cpi_intraday",
+    "name": "CPI Release Intraday Impact on EUR/USD",
+    "description": "LOAD EUR/USD (^EURUSD-FX) 5Min bars and CPI economic indicator\nDETECT CPI release days and classify as Hot CPI vs Cool CPI around 8:30 AM ET\nDEFINE session windows: pre, immediate, short, and post windows\nCOMPUTE window returns for CPI days only\nDASHBOARD shows summary cards, intraday FX reaction comparisons, and window return analysis",
+    "tags": {
+      "asset_class": ["fx"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["CPI"],
+      "methodology": ["event_study"],
+      "intraday": true
+    }
+  },
+  {
+    "id": "t2_01_aapl_earnings_rating_double_event",
+    "name": "AAPL Earnings + Analyst Rating Double Event",
+    "description": "LOAD AAPL daily bars, quarterly earnings, and analyst ratings\nDETECT concordance: earnings beat/miss within 30 bars of analyst upgrade/downgrade\nCLASSIFY as Positive Concordant (beat+upgrade), Negative Concordant (miss+downgrade), or Discordant\nCOMPUTE normalized return paths from T-10 to T+30 for each concordance regime\nDASHBOARD shows event census cards, cumulative returns, composite return paths, and concordance analysis",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["earnings", "analyst_ratings"],
+      "event_type": ["corporate_event"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "t2_02_tlt_cpi_fed_double_event",
+    "name": "CPI + Fed Funds Double Event on Bonds (TLT)",
+    "description": "LOAD TLT daily bars, CPI indicator, and Fed Funds rate\nDETECT double macro events: CPI release within 30 bars of Fed rate change\nCLASSIFY as Hot+Hike, Cool+Cut, or Mixed regime\nCOMPUTE normalized return paths from T-5 to T+20 for each double-event regime\nDASHBOARD shows event census, cumulative returns, composite return paths, and regime comparison",
+    "tags": {
+      "asset_class": ["bonds"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["CPI", "Fed_Funds"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "t2_03_nvda_earnings_volatility",
+    "name": "NVDA Earnings Surprise vs Post-Earnings Volatility",
+    "description": "LOAD NVDA daily bars and quarterly earnings data\nCLASSIFY earnings events as Beat (>5% surprise) or Miss and compute pre-event volatility change\nCALCULATE average volatility change around earnings using stddev of returns\nCOMPUTE normalized return paths from T-10 to T+30 relative to pre-event close\nDASHBOARD shows event overview cards, cumulative returns, composite return paths, volatility metrics, and event markers",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["earnings"],
+      "event_type": ["corporate_event"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "t2_04_spy_claims_yield_curve",
+    "name": "Initial Claims Spike + Yield Curve Regime on SPY",
+    "description": "LOAD SPY daily bars, initial jobless claims, and yield curve spread (10Y-2Y)\nDETECT claims spikes and condition on yield curve state (inverted vs normal)\nCLASSIFY as Spike+Inverted, Spike+Normal, or No Spike regime\nCOMPUTE normalized return paths from T-5 to T+20 for each double-condition regime\nDASHBOARD shows event census, cumulative returns, composite return paths, and regime comparison",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["economic_indicators"],
+      "event_type": ["macro_event"],
+      "indicator": ["yield_curve"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "t2_05_tsla_short_interest_earnings",
+    "name": "TSLA Short Interest + Earnings Short Squeeze Setup",
+    "description": "LOAD TSLA daily bars, short interest data, and quarterly earnings\nCLASSIFY short interest as High (above median) or Low and combine with earnings beat/miss\nCREATE regimes: High SI + Beat, High SI + Miss, Low SI + Beat, Low SI + Miss\nCOMPUTE normalized return paths from T-10 to T+30 for each combined regime\nDASHBOARD shows event census, cumulative returns, composite return paths, and event markers",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["short_interest", "earnings"],
+      "event_type": ["corporate_event"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "t2_06_aapl_gross_margin_drift",
+    "name": "AAPL Gross Margin Expansion/Contraction Drift",
+    "description": "LOAD AAPL daily bars and quarterly income statement data\nCOMPUTE gross margin (gross_profit/revenue) and detect margin expansion vs contraction using valuewhen\nCLASSIFY as Margin Expansion or Margin Contraction regime\nCOMPUTE normalized return paths from T-10 to T+30 relative to pre-event close\nDASHBOARD shows event census, cumulative returns, composite return paths, margin trend charts, and event markers",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["earnings"],
+      "event_type": ["corporate_event"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "nvda_earnings_revenue_acceleration",
+    "name": "NVDA Earnings: Revenue Acceleration Event Study",
+    "description": "LOAD NVDA daily bars and quarterly earnings data via earnings(period=EarningsPeriod.quarterly)\nCOMPUTE YoY revenue growth and detect acceleration (current > prior quarter) using valuewhen\nCLASSIFY events as Accelerating or Decelerating revenue growth regime\nCOMPUTE normalized return paths from T-30 to T+30 relative to pre-event close\nDASHBOARD shows overview cards, cumulative earnings-day returns by regime, composite return path bars, distributions, and event markers with revenue growth details",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["earnings"],
+      "event_type": ["corporate_event"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "aapl_valuation_multiples_peer_comparison",
+    "name": "AAPL Valuation Multiples: 5Y History & Large-Cap Tech Peer Comparison",
+    "description": "LOAD daily bars for 6 large-cap tech stocks (AAPL, MSFT, GOOGL, AMZN, META, NVDA)\nCOMPUTE P/E, P/S, EV/EBITDA, P/B via finance_ratio plus gross/operating/net margins\nCALCULATE rolling 5-year z-scores and margin-adjusted P/E for relative value assessment\nDASHBOARD shows cross-sectional summary tables, valuation bar charts by asset, margin comparisons, z-score bars, and time-series overlays for all metrics using cs_* reporters",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["earnings"],
+      "methodology": ["cross_sectional"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "msft_return_decomposition",
+    "name": "MSFT Return Decomposition: Earnings Growth, Multiple Expansion & Rate Sensitivity",
+    "description": "LOAD MSFT daily bars, TTM income statement, and FRED 10Y TIPS real yield (DFII10)\nCOMPUTE daily log returns decomposed into earnings growth, rate-driven multiple change, and residual sentiment\nCALCULATE rolling 60-day beta and correlation to real yield changes\nDASHBOARD shows cumulative return attribution (stacked area), total vs component returns, scatter plot of returns vs yield changes, rolling beta/correlation, P/E and EPS context charts",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["earnings", "economic_indicators"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "amzn_downside_rate_shock_scenario",
+    "name": "AMZN Downside Scenario: +100bp Real Rate Rise & Flat Forward Earnings",
+    "description": "LOAD AMZN daily bars, TTM fundamentals (income, balance sheet, cash flow), and 10Y Treasury yield\nCOMPUTE 3 scenario fair values using justified P/E multipliers (Base 33.3x, Downside 11.3x, Severe 10.9x) applied to TTM EPS\nCALCULATE premium/discount to each fair value, EPS/revenue YoY growth, FCF yield, and P/E by rate regime\nDASHBOARD shows scenario overview cards, price vs fair value charts, P/E with reference lines, rate regime histograms, yield comparisons, and fundamental trend charts",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["earnings", "economic_indicators"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
+  },
+  {
+    "id": "tsla_sentiment_vs_fundamental_deterioration",
+    "name": "TSLA: Sentiment Proxy vs Fundamental Deterioration",
+    "description": "LOAD TSLA daily bars, analyst ratings, quarterly earnings, and income statement\nDETECT sentiment events (analyst downgrades) and fundamental events (earnings miss, margin contraction, revenue deceleration)\nCLASSIFY concordance: pure sentiment (downgrade without recent fundamental) vs concordant (downgrade near fundamental event)\nCOMPUTE normalized return paths from T-10 to T+30 for each event type\nDASHBOARD shows event census, sentiment vs fundamental return paths, persistence analysis, concordance comparison, cumulative returns, and event markers",
+    "tags": {
+      "asset_class": ["equities"],
+      "data_source": ["earnings", "analyst_ratings"],
+      "event_type": ["corporate_event"],
+      "methodology": ["event_study"],
+      "intraday": false
+    }
   }
 ]

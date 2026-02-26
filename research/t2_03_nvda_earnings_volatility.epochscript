@@ -1,0 +1,344 @@
+# =============================================================================
+# NVDA EARNINGS SURPRISE vs POST-EARNINGS VOLATILITY
+# =============================================================================
+# Research Question: Do large earnings surprises change the volatility regime
+# for NVDA? Compare pre/post realized vol for large beats vs large misses.
+#
+# Methodology:
+# - Event: Quarterly earnings announcements
+# - Condition: EPS surprise > 5% (beat) or < -5% (miss)
+# - Volatility: 20-day rolling stdev of daily returns
+# - Window: T-10 to T+30 trading days
+# - Returns: Normalized to T-10 close (T-10 = 0%)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# EARNINGS DATA & SURPRISE CLASSIFICATION
+# =============================================================================
+
+earnings_data = earnings(period=EarningsPeriod.quarterly)()
+surprise_pct = earnings_data.eps_surprise_percent
+had_earnings = is_valid(surprise_pct)
+
+# Regime classification
+is_beat = had_earnings and (surprise_pct > 0.05)
+is_miss = had_earnings and (surprise_pct < -0.05)
+
+# Counters for cards
+beat_count = 1.0 if is_beat else 0.0
+miss_count = 1.0 if is_miss else 0.0
+
+# =============================================================================
+# VOLATILITY COMPUTATION
+# =============================================================================
+
+daily_ret = returns()(close)
+realized_vol = stddev(20)(daily_ret)
+
+# Pre/post vol relative to earnings
+pre_vol = realized_vol >> 1
+post_vol = realized_vol << 20
+vol_change = (post_vol - pre_vol) / pre_vol
+
+# =============================================================================
+# NORMALIZED RETURN COMPUTATION (relative to T-10 close)
+# =============================================================================
+
+base = close >> 10
+ret_m5 = ((close >> 5) - base) / base
+ret_m1 = ((close >> 1) - base) / base
+ret_0 = (close - base) / base
+ret_p1 = ((close << 1) - base) / base
+ret_p5 = ((close << 5) - base) / base
+ret_p10 = ((close << 10) - base) / base
+ret_p20 = ((close << 20) - base) / base
+ret_p30 = ((close << 30) - base) / base
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+pre_10d = ((close >> 1) - (close >> 10)) / (close >> 10)
+pre_5d = ((close >> 1) - (close >> 5)) / (close >> 5)
+earn_day = (close - (close >> 1)) / (close >> 1)
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+post_30d = ((close << 30) - close) / close
+
+# =============================================================================
+# CUMULATIVE EVENT RETURNS
+# =============================================================================
+
+bar_ts = index()
+beat_earn_daily = earn_day if is_beat else 0.0
+miss_earn_daily = earn_day if is_miss else 0.0
+cum_beat_earn = cumulative()(beat_earn_daily)
+cum_miss_earn = cumulative()(miss_earn_daily)
+
+# =============================================================================
+# REGIME-FILTERED SERIES
+# =============================================================================
+
+# Beat: composite path
+b_m5 = where(is_beat, ret_m5)
+b_m1 = where(is_beat, ret_m1)
+b_0 = where(is_beat, ret_0)
+b_p1 = where(is_beat, ret_p1)
+b_p5 = where(is_beat, ret_p5)
+b_p10 = where(is_beat, ret_p10)
+b_p20 = where(is_beat, ret_p20)
+b_p30 = where(is_beat, ret_p30)
+
+# Miss: composite path
+m_m5 = where(is_miss, ret_m5)
+m_m1 = where(is_miss, ret_m1)
+m_0 = where(is_miss, ret_0)
+m_p1 = where(is_miss, ret_p1)
+m_p5 = where(is_miss, ret_p5)
+m_p10 = where(is_miss, ret_p10)
+m_p20 = where(is_miss, ret_p20)
+m_p30 = where(is_miss, ret_p30)
+
+# Window-specific: beat
+b_pre10 = where(is_beat, pre_10d)
+b_pre5 = where(is_beat, pre_5d)
+b_earn = where(is_beat, earn_day)
+b_post5 = where(is_beat, post_5d)
+b_post10 = where(is_beat, post_10d)
+b_post20 = where(is_beat, post_20d)
+b_post30 = where(is_beat, post_30d)
+
+# Window-specific: miss
+m_pre10 = where(is_miss, pre_10d)
+m_pre5 = where(is_miss, pre_5d)
+m_earn = where(is_miss, earn_day)
+m_post5 = where(is_miss, post_5d)
+m_post10 = where(is_miss, post_10d)
+m_post20 = where(is_miss, post_20d)
+m_post30 = where(is_miss, post_30d)
+
+# Volatility-specific filtered series
+b_pre_vol = where(is_beat, pre_vol)
+b_post_vol = where(is_beat, post_vol)
+b_vol_change = where(is_beat, vol_change)
+m_pre_vol = where(is_miss, pre_vol)
+m_post_vol = where(is_miss, post_vol)
+m_vol_change = where(is_miss, vol_change)
+
+# Event marker helpers
+b_surprise = where(is_beat, surprise_pct)
+m_surprise = where(is_miss, surprise_pct)
+
+# =============================================================================
+# REPORTS - CATEGORY 1: OVERVIEW CARDS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Event Overview',
+        cells=[
+            ColumnSpec(title='Beat Events (>5%)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Success),
+            ColumnSpec(title='Miss Events (<-5%)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Error)
+        ]
+    ),
+    category='1. Overview'
+)(beat_count, miss_count)
+
+cards(
+    layout=CardLayout(
+        title='Volatility Regime Change',
+        cells=[
+            ColumnSpec(title='Beat: Avg Vol Change', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, card_color=Color.Success),
+            ColumnSpec(title='Miss: Avg Vol Change', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, card_color=Color.Error)
+        ]
+    ),
+    category='1. Overview'
+)(b_vol_change, m_vol_change)
+
+# =============================================================================
+# REPORTS - CATEGORY 2: CUMULATIVE RETURNS
+# =============================================================================
+
+xy_lines(
+    title='Cumulative Earnings-Day Return by Regime',
+    category='2. Cumulative Returns',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Beat (>5%)', color=Color.Green),
+        LineSeriesSpec(name='Miss (<-5%)', color=Color.Red)
+    ])
+)(bar_ts, cum_beat_earn, cum_miss_earn)
+
+# =============================================================================
+# REPORTS - CATEGORY 3: COMPOSITE RETURN PATH
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Beat (>5%): Avg Return Path (T-10 to T+30)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Earnings',
+    y_axis_label='Avg Return (vs T-10)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-5'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+20'),
+        BarSeriesSpec(name='T+30')
+    ])
+)(b_m5, b_m1, b_0, b_p1, b_p5, b_p10, b_p20, b_p30)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Miss (<-5%): Avg Return Path (T-10 to T+30)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Earnings',
+    y_axis_label='Avg Return (vs T-10)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-5'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+20'),
+        BarSeriesSpec(name='T+30')
+    ])
+)(m_m5, m_m1, m_0, m_p1, m_p5, m_p10, m_p20, m_p30)
+
+# =============================================================================
+# REPORTS - CATEGORY 4: DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='Vol Change Distribution (Beat >5%)',
+    category='4. Distributions',
+    bins=15,
+    fill_color=Color.Green,
+    x_axis_label='Pct Change in 20d Realized Vol',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(b_vol_change)
+
+histogram(
+    title='Vol Change Distribution (Miss <-5%)',
+    category='4. Distributions',
+    bins=15,
+    fill_color=Color.Red,
+    x_axis_label='Pct Change in 20d Realized Vol',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(m_vol_change)
+
+histogram(
+    title='Post-30d Return Distribution (Beat >5%)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Green,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(b_post30)
+
+histogram(
+    title='Post-30d Return Distribution (Miss <-5%)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Red,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(m_post30)
+
+# =============================================================================
+# REPORTS - CATEGORY 5: EVENT MARKERS
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Beat Events (>5%)',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='EPS Surprise %', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre Vol', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post Vol', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Vol Change', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-30d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_beat, b_surprise, b_pre_vol, b_post_vol, b_vol_change, b_post30)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Miss Events (<-5%)',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='EPS Surprise %', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre Vol', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post Vol', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Vol Change', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-30d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_miss, m_surprise, m_pre_vol, m_post_vol, m_vol_change, m_post30)
+
+# =============================================================================
+# REPORTS - CATEGORY 6: WINDOW COMPARISON
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Beat (>5%): Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-10d'),
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Earn Day'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d'),
+        BarSeriesSpec(name='Post-30d')
+    ])
+)(b_pre10, b_pre5, b_earn, b_post5, b_post10, b_post20, b_post30)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Miss (<-5%): Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-10d'),
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Earn Day'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d'),
+        BarSeriesSpec(name='Post-30d')
+    ])
+)(m_pre10, m_pre5, m_earn, m_post5, m_post10, m_post20, m_post30)

@@ -1,0 +1,308 @@
+# =============================================================================
+# YIELD CURVE INVERSION IMPACT ON SPY
+# =============================================================================
+# Research Question: How does SPY react when the 10Y-2Y treasury spread
+# crosses below zero (yield curve inversion) vs back above zero?
+#
+# Methodology:
+# - Event: 10Y-2Y spread zero crossings (inversion / un-inversion)
+# - Regimes: New Inversion (spread crosses below 0), Un-Inversion (crosses above 0)
+# - Window: T-60 to T+252 trading days
+# - Returns: Normalized to T-60 close (T-60 = 0%)
+# - Note: Very few events expected - wide confidence intervals
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# YIELD CURVE SPREAD DATA & ZERO-CROSSING DETECTION
+# =============================================================================
+
+spread_data = common_economic_indicators(category=MacroEconomicsIndicator.Spread10Y2Y)()
+spread_value = spread_data.result
+
+# Forward fill so we have values every day (spread only published on announcement dates)
+spread_filled = ffill(spread_value)
+
+# Detect zero crossings using forward-filled spread
+prev_spread = spread_filled >> 1
+
+# New inversion: spread just crossed below zero
+is_new_inversion = (spread_filled < 0.0) and (prev_spread >= 0.0) and is_valid(prev_spread) and is_valid(close)
+
+# Un-inversion: spread just crossed back above zero
+is_un_inversion = (spread_filled >= 0.0) and (prev_spread < 0.0) and is_valid(prev_spread) and is_valid(close)
+
+# Counters for cards
+inv_count = 1.0 if is_new_inversion else 0.0
+uninv_count = 1.0 if is_un_inversion else 0.0
+
+# =============================================================================
+# NORMALIZED RETURN COMPUTATION (relative to T-60 close)
+# =============================================================================
+
+base = close >> 60
+ret_m40 = ((close >> 40) - base) / base
+ret_m20 = ((close >> 20) - base) / base
+ret_m10 = ((close >> 10) - base) / base
+ret_0 = (close - base) / base
+ret_p10 = ((close << 10) - base) / base
+ret_p20 = ((close << 20) - base) / base
+ret_p40 = ((close << 40) - base) / base
+ret_p60 = ((close << 60) - base) / base
+ret_p120 = ((close << 120) - base) / base
+ret_p252 = ((close << 252) - base) / base
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+pre_60d = ((close >> 1) - (close >> 60)) / (close >> 60)
+pre_20d = ((close >> 1) - (close >> 20)) / (close >> 20)
+event_day = (close - (close >> 1)) / (close >> 1)
+post_20d = ((close << 20) - close) / close
+post_60d = ((close << 60) - close) / close
+post_120d = ((close << 120) - close) / close
+post_252d = ((close << 252) - close) / close
+
+# =============================================================================
+# CUMULATIVE EVENT RETURNS
+# =============================================================================
+
+bar_ts = index()
+inv_daily = event_day if is_new_inversion else 0.0
+uninv_daily = event_day if is_un_inversion else 0.0
+cum_inv = cumulative()(inv_daily)
+cum_uninv = cumulative()(uninv_daily)
+
+# =============================================================================
+# REGIME-FILTERED SERIES: COMPOSITE PATH
+# =============================================================================
+
+# Inversion: composite path
+i_m40 = where(is_new_inversion, ret_m40)
+i_m20 = where(is_new_inversion, ret_m20)
+i_m10 = where(is_new_inversion, ret_m10)
+i_0 = where(is_new_inversion, ret_0)
+i_p10 = where(is_new_inversion, ret_p10)
+i_p20 = where(is_new_inversion, ret_p20)
+i_p40 = where(is_new_inversion, ret_p40)
+i_p60 = where(is_new_inversion, ret_p60)
+i_p120 = where(is_new_inversion, ret_p120)
+i_p252 = where(is_new_inversion, ret_p252)
+
+# Un-Inversion: composite path
+u_m40 = where(is_un_inversion, ret_m40)
+u_m20 = where(is_un_inversion, ret_m20)
+u_m10 = where(is_un_inversion, ret_m10)
+u_0 = where(is_un_inversion, ret_0)
+u_p10 = where(is_un_inversion, ret_p10)
+u_p20 = where(is_un_inversion, ret_p20)
+u_p40 = where(is_un_inversion, ret_p40)
+u_p60 = where(is_un_inversion, ret_p60)
+u_p120 = where(is_un_inversion, ret_p120)
+u_p252 = where(is_un_inversion, ret_p252)
+
+# Window-specific: inversion
+i_pre60 = where(is_new_inversion, pre_60d)
+i_pre20 = where(is_new_inversion, pre_20d)
+i_event = where(is_new_inversion, event_day)
+i_post20 = where(is_new_inversion, post_20d)
+i_post60 = where(is_new_inversion, post_60d)
+i_post120 = where(is_new_inversion, post_120d)
+i_post252 = where(is_new_inversion, post_252d)
+
+# Window-specific: un-inversion
+u_pre60 = where(is_un_inversion, pre_60d)
+u_pre20 = where(is_un_inversion, pre_20d)
+u_event = where(is_un_inversion, event_day)
+u_post20 = where(is_un_inversion, post_20d)
+u_post60 = where(is_un_inversion, post_60d)
+u_post120 = where(is_un_inversion, post_120d)
+u_post252 = where(is_un_inversion, post_252d)
+
+# Event marker helper series
+i_spread = where(is_new_inversion, spread_filled)
+u_spread = where(is_un_inversion, spread_filled)
+
+# =============================================================================
+# REPORTS - CATEGORY 1: OVERVIEW CARDS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Event Overview',
+        cells=[
+            ColumnSpec(title='New Inversion Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Error),
+            ColumnSpec(title='Un-Inversion Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Success)
+        ]
+    ),
+    category='1. Overview'
+)(inv_count, uninv_count)
+
+# =============================================================================
+# REPORTS - CATEGORY 2: CUMULATIVE RETURNS
+# =============================================================================
+
+xy_lines(
+    title='Cumulative Event-Day Return by Regime',
+    category='2. Cumulative Returns',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Inversion', color=Color.Red),
+        LineSeriesSpec(name='Un-Inversion', color=Color.Green)
+    ])
+)(bar_ts, cum_inv, cum_uninv)
+
+# =============================================================================
+# REPORTS - CATEGORY 3: COMPOSITE RETURN PATH
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Inversion: Avg Return Path (T-60 to T+252)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Inversion',
+    y_axis_label='Avg Return (vs T-60)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-40'),
+        BarSeriesSpec(name='T-20'),
+        BarSeriesSpec(name='T-10'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+20'),
+        BarSeriesSpec(name='T+40'),
+        BarSeriesSpec(name='T+60'),
+        BarSeriesSpec(name='T+120'),
+        BarSeriesSpec(name='T+252')
+    ])
+)(i_m40, i_m20, i_m10, i_0, i_p10, i_p20, i_p40, i_p60, i_p120, i_p252)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Un-Inversion: Avg Return Path (T-60 to T+252)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Un-Inversion',
+    y_axis_label='Avg Return (vs T-60)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-40'),
+        BarSeriesSpec(name='T-20'),
+        BarSeriesSpec(name='T-10'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+20'),
+        BarSeriesSpec(name='T+40'),
+        BarSeriesSpec(name='T+60'),
+        BarSeriesSpec(name='T+120'),
+        BarSeriesSpec(name='T+252')
+    ])
+)(u_m40, u_m20, u_m10, u_0, u_p10, u_p20, u_p40, u_p60, u_p120, u_p252)
+
+# =============================================================================
+# REPORTS - CATEGORY 4: DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='Post-252d Return Distribution (Inversions)',
+    category='4. Distributions',
+    bins=10,
+    fill_color=Color.Red,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(i_post252)
+
+histogram(
+    title='Post-252d Return Distribution (Un-Inversions)',
+    category='4. Distributions',
+    bins=10,
+    fill_color=Color.Green,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(u_post252)
+
+# =============================================================================
+# REPORTS - CATEGORY 5: EVENT MARKERS
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Inversion Events',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='10Y-2Y Spread', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-60d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-252d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_new_inversion, i_spread, i_pre60, i_post252)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Un-Inversion Events',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='10Y-2Y Spread', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-60d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-252d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_un_inversion, u_spread, u_pre60, u_post252)
+
+# =============================================================================
+# REPORTS - CATEGORY 6: WINDOW COMPARISON
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Inversion: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-60d'),
+        BarSeriesSpec(name='Pre-20d'),
+        BarSeriesSpec(name='Event Day'),
+        BarSeriesSpec(name='Post-20d'),
+        BarSeriesSpec(name='Post-60d'),
+        BarSeriesSpec(name='Post-120d'),
+        BarSeriesSpec(name='Post-252d')
+    ])
+)(i_pre60, i_pre20, i_event, i_post20, i_post60, i_post120, i_post252)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Un-Inversion: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-60d'),
+        BarSeriesSpec(name='Pre-20d'),
+        BarSeriesSpec(name='Event Day'),
+        BarSeriesSpec(name='Post-20d'),
+        BarSeriesSpec(name='Post-60d'),
+        BarSeriesSpec(name='Post-120d'),
+        BarSeriesSpec(name='Post-252d')
+    ])
+)(u_pre60, u_pre20, u_event, u_post20, u_post60, u_post120, u_post252)

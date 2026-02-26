@@ -1,0 +1,322 @@
+# =============================================================================
+# ISM MANUFACTURING PMI INTRADAY IMPACT ON SPY (T1-08b)
+# =============================================================================
+# Intraday companion to T1-08 daily ISM/SPY study.
+# ISM Manufacturing PMI releases at 10:00 AM ET on the first business day
+# of each month — one hour after market open.
+# Improving (current > prior) vs Deteriorating regime classification.
+# =============================================================================
+
+# === DATA SOURCE (1Min bars, stock — no continuation needed) ===
+src = market_data_source(timeframe=1Min)()
+close = src.c
+high = src.h
+low = src.l
+open_price = src.o
+
+# === ISM DAY DETECTION ===
+ism_data = common_economic_indicators(category=MacroEconomicsIndicator.ISMManufacturing)()
+ism_value = ism_data.result
+ism_filled = ffill_day()(ism_value)
+is_ism_day = is_valid(ism_filled) and is_valid(close)
+
+# === ISM REGIME CLASSIFICATION (improving vs deteriorating) ===
+# Compare current ISM value to prior ISM value
+had_ism = is_valid(ism_value)
+prior_ism = valuewhen(occurrence=1)(had_ism, ism_value)
+ism_change = ism_value - prior_ism
+ism_chg_filled = ffill_day()(ism_change)
+
+# Forward-fill regime: 1.0 = improving (current > prior), 0.0 = deteriorating
+ism_regime_raw = 1.0 if (is_valid(ism_value) and is_valid(prior_ism) and (ism_value > prior_ism)) else (0.0 if (is_valid(ism_value) and is_valid(prior_ism)) else 0.0/0.0)
+ism_regime = ffill(ism_regime_raw)
+is_improving = is_ism_day and is_valid(ism_regime) and (ism_regime > 0.5)
+is_deteriorating = is_ism_day and is_valid(ism_regime) and (ism_regime < 0.5)
+
+# === SESSION WINDOWS (ISM releases at 10:00 AM ET) ===
+
+# Pre-Release: 09:30-10:00 (market open to release, 30 min)
+w_pre = session_window(session=Session(start='09:30', end='10:00', tz='America/New_York'))(open_price, high, low, close)
+
+# Immediate: 10:00-10:01 (first 1 min spike)
+w_imm = session_window(session=Session(start='10:00', end='10:01', tz='America/New_York'))(open_price, high, low, close)
+
+# Short: 10:05-10:30 (digestion 25 min)
+w_short = session_window(session=Session(start='10:05', end='10:30', tz='America/New_York'))(open_price, high, low, close)
+
+# 1hr Post: 10:00-11:00 (full hour after release)
+w_1hr = session_window(session=Session(start='10:00', end='11:00', tz='America/New_York'))(open_price, high, low, close)
+
+# RTH Remainder: 11:00-16:00 (rest of trading day)
+w_rth = session_window(session=Session(start='11:00', end='16:00', tz='America/New_York'))(open_price, high, low, close)
+
+# Full Day: 10:00-16:00 (release to close)
+w_full = session_window(session=Session(start='10:00', end='16:00', tz='America/New_York'))(open_price, high, low, close)
+
+# === ALL-DAY WINDOW RETURNS ===
+r_pre = ((w_pre.close - w_pre.open) / w_pre.open) if w_pre.closed else 0
+r_imm = ((w_imm.close - w_imm.open) / w_imm.open) if w_imm.closed else 0
+r_short = ((w_short.close - w_short.open) / w_short.open) if w_short.closed else 0
+r_1hr = ((w_1hr.close - w_1hr.open) / w_1hr.open) if w_1hr.closed else 0
+r_rth = ((w_rth.close - w_rth.open) / w_rth.open) if w_rth.closed else 0
+r_full = ((w_full.close - w_full.open) / w_full.open) if w_full.closed else 0
+
+# === ALL-DAY WINDOW RANGES ===
+tr_pre = ((w_pre.high - w_pre.low) / w_pre.open) if w_pre.closed else 0
+tr_imm = ((w_imm.high - w_imm.low) / w_imm.open) if w_imm.closed else 0
+tr_short = ((w_short.high - w_short.low) / w_short.open) if w_short.closed else 0
+tr_1hr = ((w_1hr.high - w_1hr.low) / w_1hr.open) if w_1hr.closed else 0
+tr_rth = ((w_rth.high - w_rth.low) / w_rth.open) if w_rth.closed else 0
+tr_full = ((w_full.high - w_full.low) / w_full.open) if w_full.closed else 0
+
+# === COUNTERS ===
+imp_count = where(w_full.closed and is_improving, 1.0)
+det_count = where(w_full.closed and is_deteriorating, 1.0)
+
+# === CUMULATIVE EVENT RETURNS ===
+imp_imm_daily = r_imm if (w_imm.closed and is_improving) else 0.0
+det_imm_daily = r_imm if (w_imm.closed and is_deteriorating) else 0.0
+cum_imp_imm = cumulative()(imp_imm_daily)
+cum_det_imm = cumulative()(det_imm_daily)
+
+# === EVENT MARKER HELPER SERIES ===
+imm_ret_latched = valuewhen(occurrence=0)(w_imm.closed, r_imm)
+imp_ism_chg = where(w_1hr.closed and is_improving, ism_chg_filled)
+imp_em_imm = where(w_1hr.closed and is_improving, imm_ret_latched)
+imp_em_1hr = where(w_1hr.closed and is_improving, r_1hr)
+det_ism_chg = where(w_1hr.closed and is_deteriorating, ism_chg_filled)
+det_em_imm = where(w_1hr.closed and is_deteriorating, imm_ret_latched)
+det_em_1hr = where(w_1hr.closed and is_deteriorating, r_1hr)
+
+# === ALIGNED SERIES FOR XY_BARS (all latched to w_full.closed trigger) ===
+# xy_bars requires all inputs non-null on same bar. Different session windows
+# close on different bars, so we latch each return with valuewhen and align
+# all to w_full.closed.
+pre_ret_latched = valuewhen(occurrence=0)(w_pre.closed, r_pre)
+short_ret_latched = valuewhen(occurrence=0)(w_short.closed, r_short)
+hr_ret_latched = valuewhen(occurrence=0)(w_1hr.closed, r_1hr)
+rth_ret_latched = valuewhen(occurrence=0)(w_rth.closed, r_rth)
+
+# Improving aligned
+imp_bar_pre = where(w_full.closed and is_improving, pre_ret_latched)
+imp_bar_imm = where(w_full.closed and is_improving, imm_ret_latched)
+imp_bar_short = where(w_full.closed and is_improving, short_ret_latched)
+imp_bar_1hr = where(w_full.closed and is_improving, hr_ret_latched)
+imp_bar_rth = where(w_full.closed and is_improving, rth_ret_latched)
+imp_bar_full = where(w_full.closed and is_improving, r_full)
+
+# Deteriorating aligned
+det_bar_pre = where(w_full.closed and is_deteriorating, pre_ret_latched)
+det_bar_imm = where(w_full.closed and is_deteriorating, imm_ret_latched)
+det_bar_short = where(w_full.closed and is_deteriorating, short_ret_latched)
+det_bar_1hr = where(w_full.closed and is_deteriorating, hr_ret_latched)
+det_bar_rth = where(w_full.closed and is_deteriorating, rth_ret_latched)
+det_bar_full = where(w_full.closed and is_deteriorating, r_full)
+
+# Range latches
+pre_tr_latched = valuewhen(occurrence=0)(w_pre.closed, tr_pre)
+imm_tr_latched = valuewhen(occurrence=0)(w_imm.closed, tr_imm)
+short_tr_latched = valuewhen(occurrence=0)(w_short.closed, tr_short)
+hr_tr_latched = valuewhen(occurrence=0)(w_1hr.closed, tr_1hr)
+rth_tr_latched = valuewhen(occurrence=0)(w_rth.closed, tr_rth)
+
+imp_vol_pre = where(w_full.closed and is_improving, pre_tr_latched)
+imp_vol_imm = where(w_full.closed and is_improving, imm_tr_latched)
+imp_vol_short = where(w_full.closed and is_improving, short_tr_latched)
+imp_vol_1hr = where(w_full.closed and is_improving, hr_tr_latched)
+imp_vol_rth = where(w_full.closed and is_improving, rth_tr_latched)
+imp_vol_full = where(w_full.closed and is_improving, tr_full)
+
+det_vol_pre = where(w_full.closed and is_deteriorating, pre_tr_latched)
+det_vol_imm = where(w_full.closed and is_deteriorating, imm_tr_latched)
+det_vol_short = where(w_full.closed and is_deteriorating, short_tr_latched)
+det_vol_1hr = where(w_full.closed and is_deteriorating, hr_tr_latched)
+det_vol_rth = where(w_full.closed and is_deteriorating, rth_tr_latched)
+det_vol_full = where(w_full.closed and is_deteriorating, tr_full)
+
+# =============================================================================
+# REPORTS - CATEGORY 1: OVERVIEW CARDS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='ISM Day Overview',
+        cells=[
+            ColumnSpec(title='Improving Days', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Success),
+            ColumnSpec(title='Deteriorating Days', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Error)
+        ]
+    ),
+    category='1. Overview'
+)(imp_count, det_count)
+
+# =============================================================================
+# REPORTS - CATEGORY 2: CUMULATIVE RETURNS
+# =============================================================================
+
+bar_idx = index()
+
+xy_lines(
+    title='Cumulative Immediate Return by Regime',
+    category='2. Cumulative Returns',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Improving ISM', color=Color.Green),
+        LineSeriesSpec(name='Deteriorating ISM', color=Color.Red)
+    ])
+)(bar_idx, cum_imp_imm, cum_det_imm)
+
+# =============================================================================
+# REPORTS - CATEGORY 3: WINDOW COMPARISON
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Improving: Avg SPY Return by Window',
+    category='3. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Avg Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=4,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre 30min'),
+        BarSeriesSpec(name='Imm 1min'),
+        BarSeriesSpec(name='Short 25min'),
+        BarSeriesSpec(name='1hr Post'),
+        BarSeriesSpec(name='RTH'),
+        BarSeriesSpec(name='Full Day')
+    ])
+)(imp_bar_pre, imp_bar_imm, imp_bar_short, imp_bar_1hr, imp_bar_rth, imp_bar_full)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Deteriorating: Avg SPY Return by Window',
+    category='3. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Avg Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=4,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre 30min'),
+        BarSeriesSpec(name='Imm 1min'),
+        BarSeriesSpec(name='Short 25min'),
+        BarSeriesSpec(name='1hr Post'),
+        BarSeriesSpec(name='RTH'),
+        BarSeriesSpec(name='Full Day')
+    ])
+)(det_bar_pre, det_bar_imm, det_bar_short, det_bar_1hr, det_bar_rth, det_bar_full)
+
+# =============================================================================
+# REPORTS - CATEGORY 4: VOLATILITY
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Improving: Avg SPY Range by Window',
+    category='4. Volatility',
+    x_axis_label='Window',
+    y_axis_label='Avg Range',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre 30min'),
+        BarSeriesSpec(name='Imm 1min'),
+        BarSeriesSpec(name='Short 25min'),
+        BarSeriesSpec(name='1hr Post'),
+        BarSeriesSpec(name='RTH'),
+        BarSeriesSpec(name='Full Day')
+    ])
+)(imp_vol_pre, imp_vol_imm, imp_vol_short, imp_vol_1hr, imp_vol_rth, imp_vol_full)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Deteriorating: Avg SPY Range by Window',
+    category='4. Volatility',
+    x_axis_label='Window',
+    y_axis_label='Avg Range',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre 30min'),
+        BarSeriesSpec(name='Imm 1min'),
+        BarSeriesSpec(name='Short 25min'),
+        BarSeriesSpec(name='1hr Post'),
+        BarSeriesSpec(name='RTH'),
+        BarSeriesSpec(name='Full Day')
+    ])
+)(det_vol_pre, det_vol_imm, det_vol_short, det_vol_1hr, det_vol_rth, det_vol_full)
+
+# =============================================================================
+# REPORTS - CATEGORY 5: DISTRIBUTIONS (Scatter)
+# =============================================================================
+# With ~6 events per regime over 10 years, histograms are sparse.
+# Scatter shows dose-response: ISM change magnitude vs return.
+
+all_ism_chg = where(w_1hr.closed and (is_improving or is_deteriorating), ism_chg_filled)
+
+xy_scatter(
+    title='ISM Change vs Immediate 1min SPY Return',
+    category='5. Distributions',
+    x_axis_label='ISM MoM Change',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Immediate Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    series=ScatterSeriesSchema(series=[
+        ScatterSeriesSpec(name='Improving', color=Color.Green),
+        ScatterSeriesSpec(name='Deteriorating', color=Color.Red)
+    ])
+)(all_ism_chg, imp_em_imm, det_em_imm)
+
+xy_scatter(
+    title='ISM Change vs 1hr Post SPY Return',
+    category='5. Distributions',
+    x_axis_label='ISM MoM Change',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='1hr Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    series=ScatterSeriesSchema(series=[
+        ScatterSeriesSpec(name='Improving', color=Color.Green),
+        ScatterSeriesSpec(name='Deteriorating', color=Color.Red)
+    ])
+)(all_ism_chg, imp_em_1hr, det_em_1hr)
+
+# =============================================================================
+# REPORTS - CATEGORY 6: EVENT MARKERS
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Improving ISM Events',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='ISM Change', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Imm 1min Return', type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='1hr Post Return', type=CardRenderType.PercentFormat, dp=3)
+        ]
+    )
+)(is_improving, imp_ism_chg, imp_em_imm, imp_em_1hr)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Deteriorating ISM Events',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='ISM Change', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Imm 1min Return', type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='1hr Post Return', type=CardRenderType.PercentFormat, dp=3)
+        ]
+    )
+)(is_deteriorating, det_ism_chg, det_em_imm, det_em_1hr)

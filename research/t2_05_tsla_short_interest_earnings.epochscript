@@ -1,0 +1,356 @@
+# =============================================================================
+# TSLA SHORT INTEREST + EARNINGS SHORT SQUEEZE SETUP
+# =============================================================================
+# Research Question: Does high short interest amplify post-earnings drift for
+# TSLA? Compare price behavior for beats vs misses conditioned on high vs low
+# short interest (days_to_cover > 3 = high SI).
+#
+# Methodology:
+# - Event: Quarterly earnings announcements
+# - Condition: Forward-filled short interest days_to_cover level
+# - Window: T-10 to T+30 trading days
+# - Returns: Normalized to T-10 close (T-10 = 0%)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# EARNINGS DATA
+# =============================================================================
+
+earnings_data = earnings(period=EarningsPeriod.quarterly)()
+surprise_pct = earnings_data.eps_surprise_percent
+had_earnings = is_valid(surprise_pct)
+is_positive = surprise_pct > 0.0
+
+# =============================================================================
+# SHORT INTEREST DATA (forward-filled bi-monthly)
+# =============================================================================
+
+si_data = short_interest()()
+dtc = si_data.days_to_cover
+dtc_filled = ffill(dtc)
+is_high_si = is_valid(dtc_filled) and (dtc_filled > 3.0)
+
+# =============================================================================
+# COMBINED 4-REGIME CLASSIFICATION
+# =============================================================================
+
+is_high_si_beat = had_earnings and is_positive and is_high_si
+is_high_si_miss = had_earnings and not is_positive and is_high_si
+is_low_si_beat = had_earnings and is_positive and not is_high_si
+is_low_si_miss = had_earnings and not is_positive and not is_high_si
+
+# Counters for cards
+hsb_count = 1.0 if is_high_si_beat else 0.0
+hsm_count = 1.0 if is_high_si_miss else 0.0
+lsb_count = 1.0 if is_low_si_beat else 0.0
+lsm_count = 1.0 if is_low_si_miss else 0.0
+
+# =============================================================================
+# NORMALIZED RETURN COMPUTATION (relative to T-10 close)
+# =============================================================================
+
+base = close >> 10
+ret_m5 = ((close >> 5) - base) / base
+ret_m1 = ((close >> 1) - base) / base
+ret_0 = (close - base) / base
+ret_p1 = ((close << 1) - base) / base
+ret_p5 = ((close << 5) - base) / base
+ret_p10 = ((close << 10) - base) / base
+ret_p20 = ((close << 20) - base) / base
+ret_p30 = ((close << 30) - base) / base
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+pre_10d = ((close >> 1) - (close >> 10)) / (close >> 10)
+pre_5d = ((close >> 1) - (close >> 5)) / (close >> 5)
+earn_day = (close - (close >> 1)) / (close >> 1)
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+post_30d = ((close << 30) - close) / close
+
+# =============================================================================
+# CUMULATIVE EVENT RETURNS
+# =============================================================================
+
+bar_ts = index()
+hsb_earn_daily = earn_day if is_high_si_beat else 0.0
+hsm_earn_daily = earn_day if is_high_si_miss else 0.0
+lsb_earn_daily = earn_day if is_low_si_beat else 0.0
+lsm_earn_daily = earn_day if is_low_si_miss else 0.0
+cum_hsb = cumulative()(hsb_earn_daily)
+cum_hsm = cumulative()(hsm_earn_daily)
+cum_lsb = cumulative()(lsb_earn_daily)
+cum_lsm = cumulative()(lsm_earn_daily)
+
+# =============================================================================
+# REGIME-FILTERED SERIES
+# =============================================================================
+
+# High SI Beat: composite path
+hsb_m5 = where(is_high_si_beat, ret_m5)
+hsb_m1 = where(is_high_si_beat, ret_m1)
+hsb_0 = where(is_high_si_beat, ret_0)
+hsb_p1 = where(is_high_si_beat, ret_p1)
+hsb_p5 = where(is_high_si_beat, ret_p5)
+hsb_p10 = where(is_high_si_beat, ret_p10)
+hsb_p20 = where(is_high_si_beat, ret_p20)
+hsb_p30 = where(is_high_si_beat, ret_p30)
+
+# High SI Miss: composite path
+hsm_m5 = where(is_high_si_miss, ret_m5)
+hsm_m1 = where(is_high_si_miss, ret_m1)
+hsm_0 = where(is_high_si_miss, ret_0)
+hsm_p1 = where(is_high_si_miss, ret_p1)
+hsm_p5 = where(is_high_si_miss, ret_p5)
+hsm_p10 = where(is_high_si_miss, ret_p10)
+hsm_p20 = where(is_high_si_miss, ret_p20)
+hsm_p30 = where(is_high_si_miss, ret_p30)
+
+# Low SI Beat: composite path
+lsb_m5 = where(is_low_si_beat, ret_m5)
+lsb_m1 = where(is_low_si_beat, ret_m1)
+lsb_0 = where(is_low_si_beat, ret_0)
+lsb_p1 = where(is_low_si_beat, ret_p1)
+lsb_p5 = where(is_low_si_beat, ret_p5)
+lsb_p10 = where(is_low_si_beat, ret_p10)
+lsb_p20 = where(is_low_si_beat, ret_p20)
+lsb_p30 = where(is_low_si_beat, ret_p30)
+
+# Low SI Miss: composite path
+lsm_m5 = where(is_low_si_miss, ret_m5)
+lsm_m1 = where(is_low_si_miss, ret_m1)
+lsm_0 = where(is_low_si_miss, ret_0)
+lsm_p1 = where(is_low_si_miss, ret_p1)
+lsm_p5 = where(is_low_si_miss, ret_p5)
+lsm_p10 = where(is_low_si_miss, ret_p10)
+lsm_p20 = where(is_low_si_miss, ret_p20)
+lsm_p30 = where(is_low_si_miss, ret_p30)
+
+# Window-specific: high SI beat
+hsb_pre10 = where(is_high_si_beat, pre_10d)
+hsb_pre5 = where(is_high_si_beat, pre_5d)
+hsb_earn = where(is_high_si_beat, earn_day)
+hsb_post5 = where(is_high_si_beat, post_5d)
+hsb_post10 = where(is_high_si_beat, post_10d)
+hsb_post20 = where(is_high_si_beat, post_20d)
+hsb_post30 = where(is_high_si_beat, post_30d)
+
+# Window-specific: high SI miss
+hsm_pre10 = where(is_high_si_miss, pre_10d)
+hsm_pre5 = where(is_high_si_miss, pre_5d)
+hsm_earn = where(is_high_si_miss, earn_day)
+hsm_post5 = where(is_high_si_miss, post_5d)
+hsm_post10 = where(is_high_si_miss, post_10d)
+hsm_post20 = where(is_high_si_miss, post_20d)
+hsm_post30 = where(is_high_si_miss, post_30d)
+
+# Window-specific: low SI beat
+lsb_pre10 = where(is_low_si_beat, pre_10d)
+lsb_pre5 = where(is_low_si_beat, pre_5d)
+lsb_earn = where(is_low_si_beat, earn_day)
+lsb_post5 = where(is_low_si_beat, post_5d)
+lsb_post10 = where(is_low_si_beat, post_10d)
+lsb_post20 = where(is_low_si_beat, post_20d)
+lsb_post30 = where(is_low_si_beat, post_30d)
+
+# Window-specific: low SI miss
+lsm_pre10 = where(is_low_si_miss, pre_10d)
+lsm_pre5 = where(is_low_si_miss, pre_5d)
+lsm_earn = where(is_low_si_miss, earn_day)
+lsm_post5 = where(is_low_si_miss, post_5d)
+lsm_post10 = where(is_low_si_miss, post_10d)
+lsm_post20 = where(is_low_si_miss, post_20d)
+lsm_post30 = where(is_low_si_miss, post_30d)
+
+# Event marker helpers
+hsb_surprise = where(is_high_si_beat, surprise_pct)
+hsb_dtc = where(is_high_si_beat, dtc_filled)
+hsm_surprise = where(is_high_si_miss, surprise_pct)
+hsm_dtc = where(is_high_si_miss, dtc_filled)
+
+# =============================================================================
+# REPORTS - CATEGORY 1: OVERVIEW CARDS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Event Overview',
+        cells=[
+            ColumnSpec(title='High SI Beat', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Success),
+            ColumnSpec(title='High SI Miss', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Error),
+            ColumnSpec(title='Low SI Beat', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Blue),
+            ColumnSpec(title='Low SI Miss', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Yellow)
+        ]
+    ),
+    category='1. Overview'
+)(hsb_count, hsm_count, lsb_count, lsm_count)
+
+# =============================================================================
+# REPORTS - CATEGORY 2: CUMULATIVE RETURNS
+# =============================================================================
+
+xy_lines(
+    title='Cumulative Earnings-Day Return by Regime',
+    category='2. Cumulative Returns',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='High SI Beat', color=Color.Green),
+        LineSeriesSpec(name='High SI Miss', color=Color.Red),
+        LineSeriesSpec(name='Low SI Beat', color=Color.Blue),
+        LineSeriesSpec(name='Low SI Miss', color=Color.Yellow)
+    ])
+)(bar_ts, cum_hsb, cum_hsm, cum_lsb, cum_lsm)
+
+# =============================================================================
+# REPORTS - CATEGORY 3: COMPOSITE RETURN PATH
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='High SI Beat (Squeeze Setup): Avg Return Path (T-10 to T+30)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Earnings',
+    y_axis_label='Avg Return (vs T-10)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-5'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+20'),
+        BarSeriesSpec(name='T+30')
+    ])
+)(hsb_m5, hsb_m1, hsb_0, hsb_p1, hsb_p5, hsb_p10, hsb_p20, hsb_p30)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='High SI Miss (Shorts Validated): Avg Return Path (T-10 to T+30)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Earnings',
+    y_axis_label='Avg Return (vs T-10)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-5'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+20'),
+        BarSeriesSpec(name='T+30')
+    ])
+)(hsm_m5, hsm_m1, hsm_0, hsm_p1, hsm_p5, hsm_p10, hsm_p20, hsm_p30)
+
+# =============================================================================
+# REPORTS - CATEGORY 4: DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='Post-30d Return Distribution (High SI Beat)',
+    category='4. Distributions',
+    bins=15,
+    fill_color=Color.Green,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(hsb_post30)
+
+histogram(
+    title='Post-30d Return Distribution (High SI Miss)',
+    category='4. Distributions',
+    bins=15,
+    fill_color=Color.Red,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(hsm_post30)
+
+# =============================================================================
+# REPORTS - CATEGORY 5: EVENT MARKERS
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='High SI Beat Events (Squeeze Setup)',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='EPS Surprise %', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Days to Cover', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-30d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_high_si_beat, hsb_surprise, hsb_dtc, hsb_post30)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='High SI Miss Events (Shorts Validated)',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='EPS Surprise %', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Days to Cover', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-30d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_high_si_miss, hsm_surprise, hsm_dtc, hsm_post30)
+
+# =============================================================================
+# REPORTS - CATEGORY 6: WINDOW COMPARISON
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='High SI Beat: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-10d'),
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Earn Day'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d'),
+        BarSeriesSpec(name='Post-30d')
+    ])
+)(hsb_pre10, hsb_pre5, hsb_earn, hsb_post5, hsb_post10, hsb_post20, hsb_post30)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='High SI Miss: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-10d'),
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Earn Day'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d'),
+        BarSeriesSpec(name='Post-30d')
+    ])
+)(hsm_pre10, hsm_pre5, hsm_earn, hsm_post5, hsm_post10, hsm_post20, hsm_post30)

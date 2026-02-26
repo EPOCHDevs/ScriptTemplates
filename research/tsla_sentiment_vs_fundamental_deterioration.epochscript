@@ -1,0 +1,457 @@
+# =============================================================================
+# TSLA: SENTIMENT PROXY vs FUNDAMENTAL DETERIORATION
+# =============================================================================
+# Hypothesis: TSLA sentiment events (analyst downgrades) produce sharp drops
+# that mean-revert, while fundamental deterioration (earnings miss, margin
+# compression) leads to sustained drift. Concordant events amplify.
+#
+# Sentiment Proxy: analyst_ratings downgrades
+# Fundamental: earnings misses, operating margin contraction, revenue deceleration
+# Window: T-10 to T+30 trading days
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# SENTIMENT PROXY: ANALYST DOWNGRADES
+# =============================================================================
+# rating_action string values: downgrades, upgrades, maintains,
+# initiates_coverage_on, reiterates, reinstates, suspends, assumes
+
+ratings = analyst_ratings()()
+rating_action = ratings.rating_action
+had_rating = is_valid(rating_action) and is_valid(close)
+is_downgrade = had_rating and rating_action == "downgrades"
+
+# =============================================================================
+# FUNDAMENTAL: EARNINGS DATA
+# =============================================================================
+
+earn = earnings(period=EarningsPeriod.quarterly)()
+surprise_pct = earn.eps_surprise_percent
+had_earnings = is_valid(surprise_pct) and is_valid(close)
+
+# Earnings miss: negative surprise > 2% (decimal: -0.02)
+is_earnings_miss = had_earnings and surprise_pct < -0.02
+is_earnings_beat = had_earnings and surprise_pct > 0.02
+
+# =============================================================================
+# FUNDAMENTAL: OPERATING MARGIN (QoQ CHANGE)
+# =============================================================================
+
+inc_data = income_statement(period=ReportingPeriod.quarterly)()
+operating_income = inc_data.operating_income
+revenue_val = inc_data.revenue
+
+# Current quarter operating margin
+op_margin_raw = operating_income / revenue_val
+had_filing = is_valid(op_margin_raw) and is_valid(close)
+
+# Prior quarter margin via valuewhen
+prior_op_margin = valuewhen(occurrence=1)(had_filing, op_margin_raw)
+
+is_margin_contraction = had_filing and is_valid(prior_op_margin) and (op_margin_raw < prior_op_margin)
+is_margin_expansion = had_filing and is_valid(prior_op_margin) and (op_margin_raw >= prior_op_margin)
+
+# =============================================================================
+# FUNDAMENTAL: REVENUE DECELERATION (YoY GROWTH DECLINING)
+# =============================================================================
+
+# Current quarter revenue and 4-quarter-ago revenue (YoY)
+prior_4q_revenue = valuewhen(occurrence=4)(had_filing, revenue_val)
+yoy_growth = (revenue_val - prior_4q_revenue) / prior_4q_revenue if is_valid(prior_4q_revenue) and prior_4q_revenue > 0 else 0.0
+
+# Prior quarter's YoY growth
+prior_yoy = valuewhen(occurrence=1)(had_filing and is_valid(prior_4q_revenue), yoy_growth)
+
+is_revenue_decel = had_filing and is_valid(prior_yoy) and is_valid(yoy_growth) and (yoy_growth < prior_yoy) and is_valid(prior_4q_revenue)
+
+# =============================================================================
+# CONCORDANCE: DOWNGRADE WITHIN 30 BARS OF FUNDAMENTAL EVENT
+# =============================================================================
+
+# barssince counts bars since condition last true (DropNulls handles sparse booleans)
+# coalesce replaces NA (before first event) with 9999
+bars_since_miss = coalesce(barssince(is_earnings_miss), 9999)
+bars_since_contraction = coalesce(barssince(is_margin_contraction), 9999)
+bars_since_decel = coalesce(barssince(is_revenue_decel), 9999)
+
+has_recent_fund = bars_since_miss < 30 or bars_since_contraction < 30 or bars_since_decel < 30
+
+# Concordant: downgrade when fundamental deterioration is recent
+is_concordant_downgrade = is_downgrade and has_recent_fund
+is_pure_sentiment = is_downgrade and not has_recent_fund
+
+# =============================================================================
+# EVENT COUNTERS
+# =============================================================================
+
+downgrade_count = 1.0 if is_downgrade else 0.0
+miss_count = 1.0 if is_earnings_miss else 0.0
+contraction_count = 1.0 if is_margin_contraction else 0.0
+decel_count = 1.0 if is_revenue_decel else 0.0
+concordant_count = 1.0 if is_concordant_downgrade else 0.0
+pure_sentiment_count = 1.0 if is_pure_sentiment else 0.0
+
+# =============================================================================
+# NORMALIZED RETURN COMPUTATION (relative to T-10 close)
+# =============================================================================
+
+base = close >> 10
+ret_m5 = ((close >> 5) - base) / base
+ret_m1 = ((close >> 1) - base) / base
+ret_0 = (close - base) / base
+ret_p1 = ((close << 1) - base) / base
+ret_p5 = ((close << 5) - base) / base
+ret_p10 = ((close << 10) - base) / base
+ret_p20 = ((close << 20) - base) / base
+ret_p30 = ((close << 30) - base) / base
+
+# Window-specific returns
+filing_day = (close - (close >> 1)) / (close >> 1)
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+post_30d = ((close << 30) - close) / close
+
+# =============================================================================
+# REGIME-FILTERED RETURNS: SENTIMENT PROXY (DOWNGRADES)
+# =============================================================================
+
+s_m5 = where(is_downgrade, ret_m5)
+s_m1 = where(is_downgrade, ret_m1)
+s_0 = where(is_downgrade, ret_0)
+s_p1 = where(is_downgrade, ret_p1)
+s_p5 = where(is_downgrade, ret_p5)
+s_p10 = where(is_downgrade, ret_p10)
+s_p20 = where(is_downgrade, ret_p20)
+s_p30 = where(is_downgrade, ret_p30)
+
+s_day = where(is_downgrade, filing_day)
+s_post5 = where(is_downgrade, post_5d)
+s_post10 = where(is_downgrade, post_10d)
+s_post20 = where(is_downgrade, post_20d)
+s_post30 = where(is_downgrade, post_30d)
+
+# =============================================================================
+# REGIME-FILTERED RETURNS: EARNINGS MISS
+# =============================================================================
+
+em_m5 = where(is_earnings_miss, ret_m5)
+em_m1 = where(is_earnings_miss, ret_m1)
+em_0 = where(is_earnings_miss, ret_0)
+em_p1 = where(is_earnings_miss, ret_p1)
+em_p5 = where(is_earnings_miss, ret_p5)
+em_p10 = where(is_earnings_miss, ret_p10)
+em_p20 = where(is_earnings_miss, ret_p20)
+em_p30 = where(is_earnings_miss, ret_p30)
+
+em_day = where(is_earnings_miss, filing_day)
+em_post5 = where(is_earnings_miss, post_5d)
+em_post10 = where(is_earnings_miss, post_10d)
+em_post20 = where(is_earnings_miss, post_20d)
+em_post30 = where(is_earnings_miss, post_30d)
+
+# =============================================================================
+# REGIME-FILTERED RETURNS: MARGIN CONTRACTION
+# =============================================================================
+
+mc_m5 = where(is_margin_contraction, ret_m5)
+mc_m1 = where(is_margin_contraction, ret_m1)
+mc_0 = where(is_margin_contraction, ret_0)
+mc_p1 = where(is_margin_contraction, ret_p1)
+mc_p5 = where(is_margin_contraction, ret_p5)
+mc_p10 = where(is_margin_contraction, ret_p10)
+mc_p20 = where(is_margin_contraction, ret_p20)
+mc_p30 = where(is_margin_contraction, ret_p30)
+
+mc_day = where(is_margin_contraction, filing_day)
+mc_post5 = where(is_margin_contraction, post_5d)
+mc_post10 = where(is_margin_contraction, post_10d)
+mc_post20 = where(is_margin_contraction, post_20d)
+mc_post30 = where(is_margin_contraction, post_30d)
+
+# =============================================================================
+# REGIME-FILTERED RETURNS: CONCORDANT (DOWNGRADE + RECENT FUNDAMENTAL)
+# =============================================================================
+
+cc_day = where(is_concordant_downgrade, filing_day)
+cc_post5 = where(is_concordant_downgrade, post_5d)
+cc_post10 = where(is_concordant_downgrade, post_10d)
+cc_post20 = where(is_concordant_downgrade, post_20d)
+cc_post30 = where(is_concordant_downgrade, post_30d)
+
+ps_day = where(is_pure_sentiment, filing_day)
+ps_post5 = where(is_pure_sentiment, post_5d)
+ps_post10 = where(is_pure_sentiment, post_10d)
+ps_post20 = where(is_pure_sentiment, post_20d)
+ps_post30 = where(is_pure_sentiment, post_30d)
+
+# =============================================================================
+# CUMULATIVE RETURNS BY EVENT TYPE
+# =============================================================================
+
+bar_ts = index()
+cum_sentiment = cumulative()(s_day if is_valid(s_day) else 0.0)
+cum_miss = cumulative()(em_day if is_valid(em_day) else 0.0)
+cum_contraction = cumulative()(mc_day if is_valid(mc_day) else 0.0)
+
+# =============================================================================
+# REPORTS — 1. EVENT CENSUS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Event Census',
+        cells=[
+            ColumnSpec(title='Analyst Downgrades', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Orange),
+            ColumnSpec(title='Earnings Misses', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Red),
+            ColumnSpec(title='Margin Contractions', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Red),
+            ColumnSpec(title='Revenue Decelerations', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Red)
+        ]
+    ),
+    category='1. Event Census'
+)(downgrade_count, miss_count, contraction_count, decel_count)
+
+cards(
+    layout=CardLayout(
+        title='Concordance Analysis',
+        cells=[
+            ColumnSpec(title='Pure Sentiment (No Fundamental)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Amber),
+            ColumnSpec(title='Concordant (Downgrade + Fundamental)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Error)
+        ]
+    ),
+    category='1. Event Census'
+)(pure_sentiment_count, concordant_count)
+
+# =============================================================================
+# REPORTS — 2. SENTIMENT PROXY: DOWNGRADE RETURN PATH
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Analyst Downgrade: Avg Return Path (T-10 to T+30)',
+    category='2. Sentiment Proxy (Downgrades)',
+    x_axis_label='Offset',
+    y_axis_label='Avg Return (vs T-10)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-5'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+20'),
+        BarSeriesSpec(name='T+30')
+    ])
+)(s_m5, s_m1, s_0, s_p1, s_p5, s_p10, s_p20, s_p30)
+
+histogram(
+    title='Downgrade: Post-30d Return Distribution',
+    category='2. Sentiment Proxy (Downgrades)',
+    bins=15,
+    fill_color=Color.Orange,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(s_post30)
+
+# =============================================================================
+# REPORTS — 3. FUNDAMENTAL: EARNINGS MISS RETURN PATH
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Earnings Miss: Avg Return Path (T-10 to T+30)',
+    category='3. Fundamental (Earnings Miss)',
+    x_axis_label='Offset',
+    y_axis_label='Avg Return (vs T-10)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-5'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+20'),
+        BarSeriesSpec(name='T+30')
+    ])
+)(em_m5, em_m1, em_0, em_p1, em_p5, em_p10, em_p20, em_p30)
+
+histogram(
+    title='Earnings Miss: Post-30d Return Distribution',
+    category='3. Fundamental (Earnings Miss)',
+    bins=10,
+    fill_color=Color.Red,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(em_post30)
+
+# =============================================================================
+# REPORTS — 4. FUNDAMENTAL: MARGIN CONTRACTION RETURN PATH
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Margin Contraction: Avg Return Path (T-10 to T+30)',
+    category='4. Fundamental (Margin Contraction)',
+    x_axis_label='Offset',
+    y_axis_label='Avg Return (vs T-10)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-5'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+20'),
+        BarSeriesSpec(name='T+30')
+    ])
+)(mc_m5, mc_m1, mc_0, mc_p1, mc_p5, mc_p10, mc_p20, mc_p30)
+
+histogram(
+    title='Margin Contraction: Post-30d Return Distribution',
+    category='4. Fundamental (Margin Contraction)',
+    bins=10,
+    fill_color=Color.Red,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(mc_post30)
+
+# =============================================================================
+# REPORTS — 5. HEAD-TO-HEAD: SENTIMENT vs FUNDAMENTAL
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Mean Post-Event Returns: Sentiment vs Earnings Miss vs Margin Contraction',
+    category='5. Head-to-Head Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Downgrade T+0', color=Color.Orange),
+        BarSeriesSpec(name='Downgrade T+5', color=Color.Orange),
+        BarSeriesSpec(name='Downgrade T+20', color=Color.Orange),
+        BarSeriesSpec(name='Downgrade T+30', color=Color.Orange),
+        BarSeriesSpec(name='Miss T+0', color=Color.Red),
+        BarSeriesSpec(name='Miss T+5', color=Color.Red),
+        BarSeriesSpec(name='Miss T+20', color=Color.Red),
+        BarSeriesSpec(name='Miss T+30', color=Color.Red)
+    ])
+)(s_day, s_post5, s_post20, s_post30, em_day, em_post5, em_post20, em_post30)
+
+xy_lines(
+    title='Cumulative Event-Day Return: Sentiment vs Fundamentals',
+    category='5. Head-to-Head Comparison',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Downgrades (Sentiment)', color=Color.Orange),
+        LineSeriesSpec(name='Earnings Miss', color=Color.Red),
+        LineSeriesSpec(name='Margin Contraction', color=Color.Purple)
+    ])
+)(bar_ts, cum_sentiment, cum_miss, cum_contraction)
+
+# =============================================================================
+# REPORTS — 6. PERSISTENCE: INITIAL REACTION vs DRIFT
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Reaction vs Persistence: T+5 (Initial) vs T+30 (Drift)',
+    category='6. Persistence Analysis',
+    x_axis_label='Event Type x Horizon',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Downgrade T+5', color=Color.Amber),
+        BarSeriesSpec(name='Downgrade T+30', color=Color.Orange),
+        BarSeriesSpec(name='Miss T+5', color=Color.Rose),
+        BarSeriesSpec(name='Miss T+30', color=Color.Red),
+        BarSeriesSpec(name='Margin T+5', color=Color.Violet),
+        BarSeriesSpec(name='Margin T+30', color=Color.Purple)
+    ])
+)(s_post5, s_post30, em_post5, em_post30, mc_post5, mc_post30)
+
+# =============================================================================
+# REPORTS — 7. CONCORDANCE: PURE SENTIMENT vs CONCORDANT
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Pure Sentiment vs Concordant Downgrade: Post-Event Returns',
+    category='7. Concordance',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pure Sent T+0', color=Color.Amber),
+        BarSeriesSpec(name='Pure Sent T+10', color=Color.Amber),
+        BarSeriesSpec(name='Pure Sent T+30', color=Color.Amber),
+        BarSeriesSpec(name='Concordant T+0', color=Color.Red),
+        BarSeriesSpec(name='Concordant T+10', color=Color.Red),
+        BarSeriesSpec(name='Concordant T+30', color=Color.Red)
+    ])
+)(ps_day, ps_post10, ps_post30, cc_day, cc_post10, cc_post30)
+
+# =============================================================================
+# REPORTS — 8. EVENT MARKERS
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Analyst Downgrade',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Event-Day Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-30d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_downgrade, s_day, s_post30)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Earnings Miss',
+        icon=Icon.AlertTriangleIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='EPS Surprise %', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Event-Day Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-30d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_earnings_miss, where(is_earnings_miss, surprise_pct), em_day, em_post30)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Margin Contraction',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Op Margin', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Prior Margin', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-30d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_margin_contraction, where(is_margin_contraction, op_margin_raw), where(is_margin_contraction, prior_op_margin), mc_post30)

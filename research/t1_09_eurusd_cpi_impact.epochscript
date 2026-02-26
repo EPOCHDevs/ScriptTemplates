@@ -1,0 +1,304 @@
+# =============================================================================
+# CPI RELEASE IMPACT ON EUR/USD
+# =============================================================================
+# Research Question: How does EUR/USD react to US CPI releases?
+# Hot CPI (accelerating inflation) typically strengthens USD, pushing EURUSD down.
+#
+# Methodology:
+# - Event: US CPI releases
+# - Regimes: Hot CPI (acceleration > prior acceleration) vs Cool CPI
+# - Window: T-5 to T+20 trading days around each release
+# - Returns: Normalized to T-5 close (T-5 = 0%)
+# - Cross-asset companion to T1-02 TLT study
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# CPI DATA & REGIME CLASSIFICATION
+# =============================================================================
+
+cpi_data = common_economic_indicators(category=MacroEconomicsIndicator.CPI)()
+cpi_value = cpi_data.result
+had_cpi = is_valid(cpi_value) and is_valid(close)
+
+# Prior CPI readings for acceleration detection
+prior_cpi = valuewhen(occurrence=1)(had_cpi, cpi_value)
+cpi_change = cpi_value - prior_cpi
+
+prior2_cpi = valuewhen(occurrence=2)(had_cpi, cpi_value)
+prior_change = prior_cpi - prior2_cpi
+
+# Hot = inflation accelerating (current change > prior change)
+# Cool = inflation decelerating or stable
+is_hot = had_cpi and is_valid(prior_change) and (cpi_change > prior_change)
+is_cool = had_cpi and is_valid(prior_change) and (cpi_change <= prior_change)
+
+# Counters for cards
+hot_count = 1.0 if is_hot else 0.0
+cool_count = 1.0 if is_cool else 0.0
+
+# =============================================================================
+# NORMALIZED RETURN COMPUTATION (relative to T-5 close)
+# =============================================================================
+
+base = close >> 5
+ret_m3 = ((close >> 3) - base) / base
+ret_m1 = ((close >> 1) - base) / base
+ret_0 = (close - base) / base
+ret_p1 = ((close << 1) - base) / base
+ret_p3 = ((close << 3) - base) / base
+ret_p5 = ((close << 5) - base) / base
+ret_p10 = ((close << 10) - base) / base
+ret_p15 = ((close << 15) - base) / base
+ret_p20 = ((close << 20) - base) / base
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+pre_5d = ((close >> 1) - (close >> 5)) / (close >> 5)
+pre_3d = ((close >> 1) - (close >> 3)) / (close >> 3)
+cpi_day = (close - (close >> 1)) / (close >> 1)
+post_3d = ((close << 3) - close) / close
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+
+# =============================================================================
+# CUMULATIVE EVENT RETURNS
+# =============================================================================
+
+bar_ts = index()
+hot_daily = cpi_day if is_hot else 0.0
+cool_daily = cpi_day if is_cool else 0.0
+cum_hot = cumulative()(hot_daily)
+cum_cool = cumulative()(cool_daily)
+
+# =============================================================================
+# REGIME-FILTERED SERIES: COMPOSITE PATH
+# =============================================================================
+
+# Hot CPI: composite path
+h_m3 = where(is_hot, ret_m3)
+h_m1 = where(is_hot, ret_m1)
+h_0 = where(is_hot, ret_0)
+h_p1 = where(is_hot, ret_p1)
+h_p3 = where(is_hot, ret_p3)
+h_p5 = where(is_hot, ret_p5)
+h_p10 = where(is_hot, ret_p10)
+h_p15 = where(is_hot, ret_p15)
+h_p20 = where(is_hot, ret_p20)
+
+# Cool CPI: composite path
+c_m3 = where(is_cool, ret_m3)
+c_m1 = where(is_cool, ret_m1)
+c_0 = where(is_cool, ret_0)
+c_p1 = where(is_cool, ret_p1)
+c_p3 = where(is_cool, ret_p3)
+c_p5 = where(is_cool, ret_p5)
+c_p10 = where(is_cool, ret_p10)
+c_p15 = where(is_cool, ret_p15)
+c_p20 = where(is_cool, ret_p20)
+
+# Window-specific: hot
+h_pre5 = where(is_hot, pre_5d)
+h_pre3 = where(is_hot, pre_3d)
+h_cpi = where(is_hot, cpi_day)
+h_post3 = where(is_hot, post_3d)
+h_post5 = where(is_hot, post_5d)
+h_post10 = where(is_hot, post_10d)
+h_post20 = where(is_hot, post_20d)
+
+# Window-specific: cool
+c_pre5 = where(is_cool, pre_5d)
+c_pre3 = where(is_cool, pre_3d)
+c_cpi = where(is_cool, cpi_day)
+c_post3 = where(is_cool, post_3d)
+c_post5 = where(is_cool, post_5d)
+c_post10 = where(is_cool, post_10d)
+c_post20 = where(is_cool, post_20d)
+
+# Event marker helper series
+h_cpi_change = where(is_hot, cpi_change)
+c_cpi_change = where(is_cool, cpi_change)
+
+# =============================================================================
+# REPORTS - CATEGORY 1: OVERVIEW CARDS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Event Overview',
+        cells=[
+            ColumnSpec(title='Hot CPI Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Error),
+            ColumnSpec(title='Cool CPI Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Success)
+        ]
+    ),
+    category='1. Overview'
+)(hot_count, cool_count)
+
+# =============================================================================
+# REPORTS - CATEGORY 2: CUMULATIVE RETURNS
+# =============================================================================
+
+xy_lines(
+    title='Cumulative CPI-Day Return by Regime',
+    category='2. Cumulative Returns',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Hot CPI', color=Color.Red),
+        LineSeriesSpec(name='Cool CPI', color=Color.Green)
+    ])
+)(bar_ts, cum_hot, cum_cool)
+
+# =============================================================================
+# REPORTS - CATEGORY 3: COMPOSITE RETURN PATH
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Hot CPI: Avg EURUSD Return Path (T-5 to T+20)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from CPI Release',
+    y_axis_label='Avg Return (vs T-5)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-3'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+3'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+15'),
+        BarSeriesSpec(name='T+20')
+    ])
+)(h_m3, h_m1, h_0, h_p1, h_p3, h_p5, h_p10, h_p15, h_p20)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Cool CPI: Avg EURUSD Return Path (T-5 to T+20)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from CPI Release',
+    y_axis_label='Avg Return (vs T-5)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-3'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+3'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+15'),
+        BarSeriesSpec(name='T+20')
+    ])
+)(c_m3, c_m1, c_0, c_p1, c_p3, c_p5, c_p10, c_p15, c_p20)
+
+# =============================================================================
+# REPORTS - CATEGORY 4: DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='Post-20d EURUSD Return Distribution (Hot CPI)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Red,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(h_post20)
+
+histogram(
+    title='Post-20d EURUSD Return Distribution (Cool CPI)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Green,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(c_post20)
+
+# =============================================================================
+# REPORTS - CATEGORY 5: EVENT MARKERS
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Hot CPI Events',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='CPI Change', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_hot, h_cpi_change, h_pre5, h_post20)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Cool CPI Events',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='CPI Change', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_cool, c_cpi_change, c_pre5, c_post20)
+
+# =============================================================================
+# REPORTS - CATEGORY 6: WINDOW COMPARISON
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Hot CPI: Mean EURUSD Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Pre-3d'),
+        BarSeriesSpec(name='CPI Day'),
+        BarSeriesSpec(name='Post-3d'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d')
+    ])
+)(h_pre5, h_pre3, h_cpi, h_post3, h_post5, h_post10, h_post20)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Cool CPI: Mean EURUSD Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Pre-3d'),
+        BarSeriesSpec(name='CPI Day'),
+        BarSeriesSpec(name='Post-3d'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d')
+    ])
+)(c_pre5, c_pre3, c_cpi, c_post3, c_post5, c_post10, c_post20)

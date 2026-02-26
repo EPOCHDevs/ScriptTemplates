@@ -1,0 +1,300 @@
+# =============================================================================
+# NFP RELEASE IMPACT ON GOLD FUTURES (GC)
+# =============================================================================
+# Research Question: How do gold futures react to NFP releases? Does strong
+# jobs data (>200K change) pressure gold while weak data (<100K) supports it?
+#
+# Methodology:
+# - Event: Non-Farm Payrolls release dates
+# - Condition: NFP change >200K (strong) vs <100K (weak)
+# - Window: T-5 to T+20 trading days
+# - Returns: Normalized to T-5 close (T-5 = 0%)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# NFP DATA & CLASSIFICATION
+# =============================================================================
+
+nfp_data = common_economic_indicators(category=MacroEconomicsIndicator.NonfarmPayrolls)()
+nfp_value = nfp_data.result
+had_nfp = is_valid(nfp_value) and is_valid(close)
+
+# Compute NFP change from prior release
+prior_nfp = valuewhen(occurrence=1)(had_nfp, nfp_value)
+nfp_change = nfp_value - prior_nfp
+
+# Regime classification
+is_strong = had_nfp and is_valid(prior_nfp) and (nfp_change > 200.0)
+is_weak = had_nfp and is_valid(prior_nfp) and (nfp_change < 100.0)
+
+# Counters for cards
+strong_count = 1.0 if is_strong else 0.0
+weak_count = 1.0 if is_weak else 0.0
+
+# =============================================================================
+# NORMALIZED RETURN COMPUTATION (relative to T-5 close)
+# =============================================================================
+
+base = close >> 5
+ret_m3 = ((close >> 3) - base) / base
+ret_m1 = ((close >> 1) - base) / base
+ret_0 = (close - base) / base
+ret_p1 = ((close << 1) - base) / base
+ret_p3 = ((close << 3) - base) / base
+ret_p5 = ((close << 5) - base) / base
+ret_p10 = ((close << 10) - base) / base
+ret_p15 = ((close << 15) - base) / base
+ret_p20 = ((close << 20) - base) / base
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+pre_5d = ((close >> 1) - (close >> 5)) / (close >> 5)
+pre_3d = ((close >> 1) - (close >> 3)) / (close >> 3)
+nfp_day = (close - (close >> 1)) / (close >> 1)
+post_3d = ((close << 3) - close) / close
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+
+# =============================================================================
+# CUMULATIVE EVENT RETURNS
+# =============================================================================
+
+bar_ts = index()
+strong_event_daily = nfp_day if is_strong else 0.0
+weak_event_daily = nfp_day if is_weak else 0.0
+cum_strong = cumulative()(strong_event_daily)
+cum_weak = cumulative()(weak_event_daily)
+
+# =============================================================================
+# REGIME-FILTERED SERIES
+# =============================================================================
+
+# Strong NFP: composite path
+s_m3 = where(is_strong, ret_m3)
+s_m1 = where(is_strong, ret_m1)
+s_0 = where(is_strong, ret_0)
+s_p1 = where(is_strong, ret_p1)
+s_p3 = where(is_strong, ret_p3)
+s_p5 = where(is_strong, ret_p5)
+s_p10 = where(is_strong, ret_p10)
+s_p15 = where(is_strong, ret_p15)
+s_p20 = where(is_strong, ret_p20)
+
+# Weak NFP: composite path
+w_m3 = where(is_weak, ret_m3)
+w_m1 = where(is_weak, ret_m1)
+w_0 = where(is_weak, ret_0)
+w_p1 = where(is_weak, ret_p1)
+w_p3 = where(is_weak, ret_p3)
+w_p5 = where(is_weak, ret_p5)
+w_p10 = where(is_weak, ret_p10)
+w_p15 = where(is_weak, ret_p15)
+w_p20 = where(is_weak, ret_p20)
+
+# Window-specific: strong
+s_pre5 = where(is_strong, pre_5d)
+s_pre3 = where(is_strong, pre_3d)
+s_nfp = where(is_strong, nfp_day)
+s_post3 = where(is_strong, post_3d)
+s_post5 = where(is_strong, post_5d)
+s_post10 = where(is_strong, post_10d)
+s_post20 = where(is_strong, post_20d)
+
+# Window-specific: weak
+w_pre5 = where(is_weak, pre_5d)
+w_pre3 = where(is_weak, pre_3d)
+w_nfp = where(is_weak, nfp_day)
+w_post3 = where(is_weak, post_3d)
+w_post5 = where(is_weak, post_5d)
+w_post10 = where(is_weak, post_10d)
+w_post20 = where(is_weak, post_20d)
+
+# Event marker helper series
+s_nfp_change = where(is_strong, nfp_change)
+w_nfp_change = where(is_weak, nfp_change)
+
+# =============================================================================
+# REPORTS - CATEGORY 1: OVERVIEW CARDS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='NFP Event Overview',
+        cells=[
+            ColumnSpec(title='Strong NFP Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Error),
+            ColumnSpec(title='Weak NFP Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Success)
+        ]
+    ),
+    category='1. Overview'
+)(strong_count, weak_count)
+
+# =============================================================================
+# REPORTS - CATEGORY 2: CUMULATIVE RETURNS
+# =============================================================================
+
+xy_lines(
+    title='Cumulative NFP-Day Return by Jobs Strength',
+    category='2. Cumulative Returns',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Strong NFP (>200K)', color=Color.Red),
+        LineSeriesSpec(name='Weak NFP (<100K)', color=Color.Green)
+    ])
+)(bar_ts, cum_strong, cum_weak)
+
+# =============================================================================
+# REPORTS - CATEGORY 3: COMPOSITE RETURN PATH
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Strong NFP: Avg Return Path (T-5 to T+20)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from NFP Release',
+    y_axis_label='Avg Return (vs T-5)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-3'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+3'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+15'),
+        BarSeriesSpec(name='T+20')
+    ])
+)(s_m3, s_m1, s_0, s_p1, s_p3, s_p5, s_p10, s_p15, s_p20)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Weak NFP: Avg Return Path (T-5 to T+20)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from NFP Release',
+    y_axis_label='Avg Return (vs T-5)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-3'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+3'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+15'),
+        BarSeriesSpec(name='T+20')
+    ])
+)(w_m3, w_m1, w_0, w_p1, w_p3, w_p5, w_p10, w_p15, w_p20)
+
+# =============================================================================
+# REPORTS - CATEGORY 4: DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='Post-20d Return Distribution (Strong NFP)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Red,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(s_post20)
+
+histogram(
+    title='Post-20d Return Distribution (Weak NFP)',
+    category='4. Distributions',
+    bins=20,
+    fill_color=Color.Green,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(w_post20)
+
+# =============================================================================
+# REPORTS - CATEGORY 5: EVENT MARKERS
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Strong NFP Events (>200K Change)',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='NFP Change', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_strong, s_nfp_change, s_pre5, s_post20)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Weak NFP Events (<100K Change)',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='NFP Change', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_weak, w_nfp_change, w_pre5, w_post20)
+
+# =============================================================================
+# REPORTS - CATEGORY 6: WINDOW COMPARISON
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Strong NFP: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Pre-3d'),
+        BarSeriesSpec(name='NFP Day'),
+        BarSeriesSpec(name='Post-3d'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d')
+    ])
+)(s_pre5, s_pre3, s_nfp, s_post3, s_post5, s_post10, s_post20)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Weak NFP: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Pre-3d'),
+        BarSeriesSpec(name='NFP Day'),
+        BarSeriesSpec(name='Post-3d'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d')
+    ])
+)(w_pre5, w_pre3, w_nfp, w_post3, w_post5, w_post10, w_post20)
+

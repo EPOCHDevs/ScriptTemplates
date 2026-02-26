@@ -1,0 +1,317 @@
+# =============================================================================
+# AAPL VALUATION MULTIPLES: 5Y HISTORY & LARGE-CAP TECH PEER COMPARISON
+# =============================================================================
+# Cross-sectional valuation study using cs_* reporters for global dashboard.
+# Transform ID: income_statement (singular). finance_ratio output: .value
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# FUNDAMENTAL DATA (sparse, keyed to filing_date)
+# =============================================================================
+
+inc_data = income_statement(period=ReportingPeriod.trailing_twelve_months)()
+bs_data = balance_sheet(period=ReportingPeriod.quarterly)()
+
+# Forward-fill to daily frequency
+eps = ffill(inc_data.basic_eps)
+shares = ffill(inc_data.basic_shares)
+revenue = ffill(inc_data.revenue)
+ebitda_val = ffill(inc_data.ebitda)
+gross_profit = ffill(inc_data.gross_profit)
+operating_income = ffill(inc_data.operating_income)
+net_income_val = ffill(inc_data.net_income)
+total_equity = ffill(bs_data.total_equity)
+lt_debt = ffill(bs_data.lt_debt)
+cash_val = ffill(bs_data.cash)
+
+# =============================================================================
+# VALUATION MULTIPLES (daily, price-driven)
+# =============================================================================
+
+pe = finance_ratio(ratio_type=FinanceRatioType.price_to_earnings, period=ReportingPeriod.trailing_twelve_months)(
+    c=close, basic_eps=eps, basic_shares=shares
+).value
+
+ps = finance_ratio(ratio_type=FinanceRatioType.price_to_sales, period=ReportingPeriod.trailing_twelve_months)(
+    c=close, revenue=revenue, basic_shares=shares
+).value
+
+ev_ebitda = finance_ratio(ratio_type=FinanceRatioType.ev_to_ebitda, period=ReportingPeriod.trailing_twelve_months)(
+    c=close, basic_shares=shares, ebitda=ebitda_val, lt_debt=lt_debt, cash=cash_val
+).value
+
+pb = finance_ratio(ratio_type=FinanceRatioType.price_to_book, period=ReportingPeriod.quarterly)(
+    c=close, total_equity=total_equity, basic_shares=shares
+).value
+
+# =============================================================================
+# PROFITABILITY MARGINS (TTM)
+# =============================================================================
+
+gross_margin = finance_ratio(ratio_type=FinanceRatioType.gross_margin, period=ReportingPeriod.trailing_twelve_months)(
+    gross_profit=gross_profit, revenue=revenue
+).value
+
+op_margin = finance_ratio(ratio_type=FinanceRatioType.operating_margin, period=ReportingPeriod.trailing_twelve_months)(
+    operating_income=operating_income, revenue=revenue
+).value
+
+net_margin = finance_ratio(ratio_type=FinanceRatioType.net_margin, period=ReportingPeriod.trailing_twelve_months)(
+    net_income=net_income_val, revenue=revenue
+).value
+
+# =============================================================================
+# MARGIN-ADJUSTED P/E
+# =============================================================================
+
+margin_adj_pe = pe / op_margin if is_valid(op_margin) and op_margin > 0.01 else pe
+
+# =============================================================================
+# ROLLING 5-YEAR Z-SCORES
+# =============================================================================
+
+pe_mean = sma(period=1260)(pe)
+pe_std = stddev(period=1260)(pe)
+pe_zscore = where(is_valid(pe_std) and pe_std > 0, (pe - pe_mean) / pe_std)
+
+ps_mean = sma(period=1260)(ps)
+ps_std = stddev(period=1260)(ps)
+ps_zscore = where(is_valid(ps_std) and ps_std > 0, (ps - ps_mean) / ps_std)
+
+eve_mean = sma(period=1260)(ev_ebitda)
+eve_std = stddev(period=1260)(ev_ebitda)
+eve_zscore = where(is_valid(eve_std) and eve_std > 0, (ev_ebitda - eve_mean) / eve_std)
+
+pb_mean = sma(period=1260)(pb)
+pb_std = stddev(period=1260)(pb)
+pb_zscore = where(is_valid(pb_std) and pb_std > 0, (pb - pb_mean) / pb_std)
+
+# Filing event detection
+had_filing = is_valid(inc_data.revenue) and is_valid(close)
+
+bar_ts = index()
+
+# =============================================================================
+# CROSS-SECTIONAL REPORTS — GLOBAL DASHBOARD
+# =============================================================================
+
+# --- 1. Summary Table: Assets as rows, metrics as columns ---
+
+cs_summary_table(
+    title='Valuation & Margin Comparison (Latest)',
+    category='1. Cross-Sectional Snapshot',
+    agg=AggregationType.Last,
+    schema=TableReportSchema(columns=[
+        ColumnSpec(title='P/E', type=CardRenderType.DecimalFormat, dp=1),
+        ColumnSpec(title='P/S', type=CardRenderType.DecimalFormat, dp=2),
+        ColumnSpec(title='EV/EBITDA', type=CardRenderType.DecimalFormat, dp=1),
+        ColumnSpec(title='P/B', type=CardRenderType.DecimalFormat, dp=1),
+        ColumnSpec(title='Gross Margin', type=CardRenderType.PercentFormat, dp=1),
+        ColumnSpec(title='Op Margin', type=CardRenderType.PercentFormat, dp=1),
+        ColumnSpec(title='Net Margin', type=CardRenderType.PercentFormat, dp=1),
+        ColumnSpec(title='Adj P/E', type=CardRenderType.DecimalFormat, dp=0)
+    ])
+)(pe, ps, ev_ebitda, pb, gross_margin, op_margin, net_margin, margin_adj_pe)
+
+cs_summary_table(
+    title='Valuation Z-Scores vs Own 5Y History',
+    category='1. Cross-Sectional Snapshot',
+    agg=AggregationType.Last,
+    schema=TableReportSchema(columns=[
+        ColumnSpec(title='P/E Z', type=CardRenderType.DecimalFormat, dp=2),
+        ColumnSpec(title='P/S Z', type=CardRenderType.DecimalFormat, dp=2),
+        ColumnSpec(title='EV/EBITDA Z', type=CardRenderType.DecimalFormat, dp=2),
+        ColumnSpec(title='P/B Z', type=CardRenderType.DecimalFormat, dp=2)
+    ])
+)(pe_zscore, ps_zscore, eve_zscore, pb_zscore)
+
+# --- 2. Bar Charts: Current metrics by asset ---
+
+cs_bars(
+    title='P/E Ratio (TTM) by Asset',
+    category='2. Valuation Bars',
+    agg=AggregationType.Last,
+    y_axis_label='P/E',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=1,
+    colors=['Blue']
+)(pe)
+
+cs_bars(
+    title='P/S Ratio (TTM) by Asset',
+    category='2. Valuation Bars',
+    agg=AggregationType.Last,
+    y_axis_label='P/S',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=2,
+    colors=['Purple']
+)(ps)
+
+cs_bars(
+    title='EV/EBITDA (TTM) by Asset',
+    category='2. Valuation Bars',
+    agg=AggregationType.Last,
+    y_axis_label='EV/EBITDA',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=1,
+    colors=['Teal']
+)(ev_ebitda)
+
+cs_bars(
+    title='Margin-Adjusted P/E by Asset',
+    category='2. Valuation Bars',
+    agg=AggregationType.Last,
+    y_axis_label='P/E / Op Margin',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=0,
+    colors=['Indigo']
+)(margin_adj_pe)
+
+# --- 3. Margin Bars ---
+
+cs_bars(
+    title='Operating Margin (TTM) by Asset',
+    category='3. Profitability',
+    agg=AggregationType.Last,
+    y_axis_label='Operating Margin',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    colors=['Green']
+)(op_margin)
+
+cs_bars(
+    title='Net Margin (TTM) by Asset',
+    category='3. Profitability',
+    agg=AggregationType.Last,
+    y_axis_label='Net Margin',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    colors=['Emerald']
+)(net_margin)
+
+# --- 4. Z-Score Bars ---
+
+cs_bars(
+    title='P/E Z-Score by Asset (vs Own 5Y)',
+    category='4. Relative Value',
+    agg=AggregationType.Last,
+    y_axis_label='Z-Score',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=2,
+    colors=['Blue']
+)(pe_zscore)
+
+cs_bars(
+    title='EV/EBITDA Z-Score by Asset (vs Own 5Y)',
+    category='4. Relative Value',
+    agg=AggregationType.Last,
+    y_axis_label='Z-Score',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=2,
+    colors=['Teal']
+)(eve_zscore)
+
+# --- 5. Time Series: All assets overlaid ---
+
+cs_lines(
+    title='P/E Ratio Over Time',
+    category='5. Valuation History',
+    y_axis_label='P/E',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=1
+)(bar_ts, pe)
+
+cs_lines(
+    title='P/S Ratio Over Time',
+    category='5. Valuation History',
+    y_axis_label='P/S',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=2
+)(bar_ts, ps)
+
+cs_lines(
+    title='EV/EBITDA Over Time',
+    category='5. Valuation History',
+    y_axis_label='EV/EBITDA',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=1
+)(bar_ts, ev_ebitda)
+
+cs_lines(
+    title='Margin-Adjusted P/E Over Time',
+    category='5. Valuation History',
+    y_axis_label='P/E / Op Margin',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=0
+)(bar_ts, margin_adj_pe)
+
+# --- 6. Margin Time Series ---
+
+cs_lines(
+    title='Operating Margin (TTM) Over Time',
+    category='6. Margin History',
+    y_axis_label='Operating Margin',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1
+)(bar_ts, op_margin)
+
+cs_lines(
+    title='Net Margin (TTM) Over Time',
+    category='6. Margin History',
+    y_axis_label='Net Margin',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1
+)(bar_ts, net_margin)
+
+# --- 7. Z-Score Time Series ---
+
+cs_lines(
+    title='P/E Z-Score Over Time',
+    category='7. Z-Score History',
+    y_axis_label='Z-Score',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=2
+)(bar_ts, pe_zscore)
+
+cs_lines(
+    title='EV/EBITDA Z-Score Over Time',
+    category='7. Z-Score History',
+    y_axis_label='Z-Score',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=2
+)(bar_ts, eve_zscore)
+
+# =============================================================================
+# PER-ASSET REPORTS — ASSET DASHBOARD (deep dive)
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Valuation & Margins',
+        cells=[
+            ColumnSpec(title='P/E', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1, card_slot=CardSlot.Hero),
+            ColumnSpec(title='P/S', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='EV/EBITDA', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(title='Op Margin', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(title='P/E Z', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    ),
+    category='Detail'
+)(pe, ps, ev_ebitda, op_margin, pe_zscore)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Filing Snapshot',
+        icon=Icon.FileTextIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='P/E', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='EV/EBITDA', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Op Margin', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='P/E Z', type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    )
+)(had_filing, pe, ev_ebitda, op_margin, pe_zscore)

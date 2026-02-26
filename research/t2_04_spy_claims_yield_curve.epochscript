@@ -1,0 +1,314 @@
+# =============================================================================
+# INITIAL CLAIMS SPIKE + YIELD CURVE REGIME ON SPY
+# =============================================================================
+# Research Question: Do jobless claims spikes matter more when the yield curve
+# is inverted? Compare SPY reaction to claims spikes during normal vs inverted
+# yield curve environments.
+#
+# Methodology:
+# - Event: Initial claims spike (>10% above prior 3-reading average)
+# - Condition: Forward-filled 10Y-2Y yield spread regime
+# - Window: T-5 to T+20 trading days
+# - Returns: Normalized to T-5 close (T-5 = 0%)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# INITIAL CLAIMS DATA & SPIKE DETECTION
+# =============================================================================
+
+claims_data = common_economic_indicators(category=MacroEconomicsIndicator.InitialClaims)()
+claims = claims_data.result
+had_claims = is_valid(claims) and is_valid(close)
+prior_claims = valuewhen(occurrence=1)(had_claims, claims)
+prior2_claims = valuewhen(occurrence=2)(had_claims, claims)
+prior3_claims = valuewhen(occurrence=3)(had_claims, claims)
+
+# Spike = current claims > 1.1 * avg of prior 3 readings
+prior_avg = (prior_claims + prior2_claims + prior3_claims) / 3.0
+is_spike = had_claims and is_valid(prior_avg) and (claims > prior_avg * 1.1)
+
+# =============================================================================
+# YIELD CURVE REGIME (FORWARD-FILLED)
+# =============================================================================
+
+spread_data = common_economic_indicators(category=MacroEconomicsIndicator.Spread10Y2Y)()
+spread = spread_data.result
+spread_filled = ffill(spread)
+is_curve_inverted = is_valid(spread_filled) and (spread_filled < 0.0)
+
+# =============================================================================
+# COMBINED REGIME CLASSIFICATION
+# =============================================================================
+
+is_spike_inverted = is_spike and is_curve_inverted
+is_spike_normal = is_spike and not is_curve_inverted
+
+# Counters for cards
+spike_inv_count = 1.0 if is_spike_inverted else 0.0
+spike_norm_count = 1.0 if is_spike_normal else 0.0
+
+# =============================================================================
+# NORMALIZED RETURN COMPUTATION (relative to T-5 close)
+# =============================================================================
+
+base = close >> 5
+ret_m3 = ((close >> 3) - base) / base
+ret_m1 = ((close >> 1) - base) / base
+ret_0 = (close - base) / base
+ret_p1 = ((close << 1) - base) / base
+ret_p3 = ((close << 3) - base) / base
+ret_p5 = ((close << 5) - base) / base
+ret_p10 = ((close << 10) - base) / base
+ret_p15 = ((close << 15) - base) / base
+ret_p20 = ((close << 20) - base) / base
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+pre_5d = ((close >> 1) - (close >> 5)) / (close >> 5)
+pre_3d = ((close >> 1) - (close >> 3)) / (close >> 3)
+event_day = (close - (close >> 1)) / (close >> 1)
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+
+# =============================================================================
+# CUMULATIVE EVENT RETURNS
+# =============================================================================
+
+bar_ts = index()
+si_event_daily = event_day if is_spike_inverted else 0.0
+sn_event_daily = event_day if is_spike_normal else 0.0
+cum_si = cumulative()(si_event_daily)
+cum_sn = cumulative()(sn_event_daily)
+
+# =============================================================================
+# REGIME-FILTERED SERIES
+# =============================================================================
+
+# Spike + Inverted: composite path
+si_m3 = where(is_spike_inverted, ret_m3)
+si_m1 = where(is_spike_inverted, ret_m1)
+si_0 = where(is_spike_inverted, ret_0)
+si_p1 = where(is_spike_inverted, ret_p1)
+si_p3 = where(is_spike_inverted, ret_p3)
+si_p5 = where(is_spike_inverted, ret_p5)
+si_p10 = where(is_spike_inverted, ret_p10)
+si_p15 = where(is_spike_inverted, ret_p15)
+si_p20 = where(is_spike_inverted, ret_p20)
+
+# Spike + Normal: composite path
+sn_m3 = where(is_spike_normal, ret_m3)
+sn_m1 = where(is_spike_normal, ret_m1)
+sn_0 = where(is_spike_normal, ret_0)
+sn_p1 = where(is_spike_normal, ret_p1)
+sn_p3 = where(is_spike_normal, ret_p3)
+sn_p5 = where(is_spike_normal, ret_p5)
+sn_p10 = where(is_spike_normal, ret_p10)
+sn_p15 = where(is_spike_normal, ret_p15)
+sn_p20 = where(is_spike_normal, ret_p20)
+
+# Window-specific: spike inverted
+si_pre5 = where(is_spike_inverted, pre_5d)
+si_pre3 = where(is_spike_inverted, pre_3d)
+si_event = where(is_spike_inverted, event_day)
+si_post5 = where(is_spike_inverted, post_5d)
+si_post10 = where(is_spike_inverted, post_10d)
+si_post20 = where(is_spike_inverted, post_20d)
+
+# Window-specific: spike normal
+sn_pre5 = where(is_spike_normal, pre_5d)
+sn_pre3 = where(is_spike_normal, pre_3d)
+sn_event = where(is_spike_normal, event_day)
+sn_post5 = where(is_spike_normal, post_5d)
+sn_post10 = where(is_spike_normal, post_10d)
+sn_post20 = where(is_spike_normal, post_20d)
+
+# Event marker helpers
+si_claims_val = where(is_spike_inverted, claims)
+si_spread_val = where(is_spike_inverted, spread_filled)
+sn_claims_val = where(is_spike_normal, claims)
+sn_spread_val = where(is_spike_normal, spread_filled)
+
+# =============================================================================
+# REPORTS - CATEGORY 1: OVERVIEW CARDS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Event Overview',
+        cells=[
+            ColumnSpec(title='Spike + Inverted Curve', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Error),
+            ColumnSpec(title='Spike + Normal Curve', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Blue)
+        ]
+    ),
+    category='1. Overview'
+)(spike_inv_count, spike_norm_count)
+
+# =============================================================================
+# REPORTS - CATEGORY 2: CUMULATIVE RETURNS
+# =============================================================================
+
+xy_lines(
+    title='Cumulative Event-Day Return by Regime',
+    category='2. Cumulative Returns',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Spike + Inverted', color=Color.Red),
+        LineSeriesSpec(name='Spike + Normal', color=Color.Blue)
+    ])
+)(bar_ts, cum_si, cum_sn)
+
+# =============================================================================
+# REPORTS - CATEGORY 3: COMPOSITE RETURN PATH
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Spike + Inverted Curve: Avg Return Path (T-5 to T+20)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Claims Spike',
+    y_axis_label='Avg Return (vs T-5)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-3'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+3'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+15'),
+        BarSeriesSpec(name='T+20')
+    ])
+)(si_m3, si_m1, si_0, si_p1, si_p3, si_p5, si_p10, si_p15, si_p20)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Spike + Normal Curve: Avg Return Path (T-5 to T+20)',
+    category='3. Composite Return Path',
+    x_axis_label='Offset from Claims Spike',
+    y_axis_label='Avg Return (vs T-5)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='T-3'),
+        BarSeriesSpec(name='T-1'),
+        BarSeriesSpec(name='T=0'),
+        BarSeriesSpec(name='T+1'),
+        BarSeriesSpec(name='T+3'),
+        BarSeriesSpec(name='T+5'),
+        BarSeriesSpec(name='T+10'),
+        BarSeriesSpec(name='T+15'),
+        BarSeriesSpec(name='T+20')
+    ])
+)(sn_m3, sn_m1, sn_0, sn_p1, sn_p3, sn_p5, sn_p10, sn_p15, sn_p20)
+
+# =============================================================================
+# REPORTS - CATEGORY 4: DISTRIBUTIONS
+# =============================================================================
+
+histogram(
+    title='Post-20d Return Distribution (Spike + Inverted)',
+    category='4. Distributions',
+    bins=15,
+    fill_color=Color.Red,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(si_post20)
+
+histogram(
+    title='Post-20d Return Distribution (Spike + Normal)',
+    category='4. Distributions',
+    bins=15,
+    fill_color=Color.Blue,
+    x_axis_label='Return',
+    x_axis_format=AxisValueFormat.PercentFormat
+)(sn_post20)
+
+# =============================================================================
+# REPORTS - CATEGORY 5: EVENT MARKERS
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Spike + Inverted Curve Events',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Claims', type=CardRenderType.IntegerFormat),
+            ColumnSpec(card_slot=CardSlot.Details, title='Yield Spread', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Event Day Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_spike_inverted, si_claims_val, si_spread_val, si_event, si_post20)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Spike + Normal Curve Events',
+        icon=Icon.AlertTriangleIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Claims', type=CardRenderType.IntegerFormat),
+            ColumnSpec(card_slot=CardSlot.Details, title='Yield Spread', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Event Day Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_spike_normal, sn_claims_val, sn_spread_val, sn_event, sn_post20)
+
+# =============================================================================
+# REPORTS - CATEGORY 6: WINDOW COMPARISON
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Spike + Inverted: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Pre-3d'),
+        BarSeriesSpec(name='Event Day'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d')
+    ])
+)(si_pre5, si_pre3, si_event, si_post5, si_post10, si_post20)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Spike + Normal: Mean Return by Window',
+    category='6. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Mean Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre-5d'),
+        BarSeriesSpec(name='Pre-3d'),
+        BarSeriesSpec(name='Event Day'),
+        BarSeriesSpec(name='Post-5d'),
+        BarSeriesSpec(name='Post-10d'),
+        BarSeriesSpec(name='Post-20d')
+    ])
+)(sn_pre5, sn_pre3, sn_event, sn_post5, sn_post10, sn_post20)

@@ -1,0 +1,354 @@
+# =============================================================================
+# CPI RELEASE INTRADAY IMPACT ON TREASURY FUTURES (ZB) (T1-02b)
+# =============================================================================
+# Intraday companion to T1-02 daily CPI/bonds study.
+# CPI releases at 8:30 AM ET. Hot CPI (accelerating inflation) typically
+# pressures bonds (ZB falls). Cool CPI supports bonds (ZB rises).
+# Uses 30-Year T-Bond futures for 24h electronic trading at release time.
+# =============================================================================
+
+# === DATA SOURCE (1Min bars) ===
+src = market_data_source(timeframe=1Min)()
+
+# === CONTINUOUS CONTRACT (NoAdjustment, LastTradingDay) ===
+cont = futures_continuation(timeframe=1Min, s_rollover_method=RolloverType.LastTradingDay, s_adjustment_method=AdjustmentType.NoAdjustment, i_offset=0)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+close = cont.c
+high = cont.h
+low = cont.l
+open_price = cont.o
+
+# === CPI DAY DETECTION ===
+cpi_data = common_economic_indicators(category=MacroEconomicsIndicator.CPI)()
+cpi_value = cpi_data.result
+cpi_filled = ffill_day()(cpi_value)
+is_cpi_day = is_valid(cpi_filled) and is_valid(close)
+
+# === CPI REGIME CLASSIFICATION (acceleration vs deceleration) ===
+had_cpi = is_valid(cpi_value)
+prior_cpi = valuewhen(occurrence=1)(had_cpi, cpi_value)
+cpi_change = cpi_value - prior_cpi
+prior2_cpi = valuewhen(occurrence=2)(had_cpi, cpi_value)
+prior_change = prior_cpi - prior2_cpi
+cpi_chg_filled = ffill_day()(cpi_change)
+
+# Forward-fill regime: 1.0 = hot (accelerating), 0.0 = cool (decelerating)
+cpi_hot_raw = 1.0 if (is_valid(cpi_value) and is_valid(prior_change) and (cpi_change > prior_change)) else (0.0 if (is_valid(cpi_value) and is_valid(prior_change)) else 0.0/0.0)
+cpi_regime = ffill(cpi_hot_raw)
+is_hot = is_cpi_day and is_valid(cpi_regime) and (cpi_regime > 0.5)
+is_cool = is_cpi_day and not is_hot and is_valid(cpi_regime)
+
+# === SESSION WINDOWS (CPI releases at 8:30 AM ET, ZB trades nearly 24h) ===
+
+# Pre-Release: 07:30-08:30 (1 hour before)
+w_pre = session_window(session=Session(start='07:30', end='08:30', tz='America/New_York'))(open_price, high, low, close)
+
+# Immediate: 08:30-08:31 (first 1 min spike)
+w_imm = session_window(session=Session(start='08:30', end='08:31', tz='America/New_York'))(open_price, high, low, close)
+
+# Short: 08:35-09:00 (digestion 25 min)
+w_short = session_window(session=Session(start='08:35', end='09:00', tz='America/New_York'))(open_price, high, low, close)
+
+# 1hr Post: 08:30-09:30 (full hour after release)
+w_1hr = session_window(session=Session(start='08:30', end='09:30', tz='America/New_York'))(open_price, high, low, close)
+
+# Full Day: 08:30-16:00 (release through near-close)
+w_full = session_window(session=Session(start='08:30', end='16:00', tz='America/New_York'))(open_price, high, low, close)
+
+# === WINDOW RETURNS ===
+r_pre = ((w_pre.close - w_pre.open) / w_pre.open) if w_pre.closed else 0
+r_imm = ((w_imm.close - w_imm.open) / w_imm.open) if w_imm.closed else 0
+r_short = ((w_short.close - w_short.open) / w_short.open) if w_short.closed else 0
+r_1hr = ((w_1hr.close - w_1hr.open) / w_1hr.open) if w_1hr.closed else 0
+r_full = ((w_full.close - w_full.open) / w_full.open) if w_full.closed else 0
+
+# === WINDOW RANGES ===
+tr_pre = ((w_pre.high - w_pre.low) / w_pre.open) if w_pre.closed else 0
+tr_imm = ((w_imm.high - w_imm.low) / w_imm.open) if w_imm.closed else 0
+tr_short = ((w_short.high - w_short.low) / w_short.open) if w_short.closed else 0
+tr_1hr = ((w_1hr.high - w_1hr.low) / w_1hr.open) if w_1hr.closed else 0
+tr_full = ((w_full.high - w_full.low) / w_full.open) if w_full.closed else 0
+
+# === COUNTERS (use w_1hr.closed — more reliable than w_full for futures) ===
+hot_count = where(w_1hr.closed and is_hot, 1.0)
+cool_count = where(w_1hr.closed and is_cool, 1.0)
+
+# === CUMULATIVE EVENT RETURNS ===
+hot_imm_daily = r_imm if (w_imm.closed and is_hot) else 0.0
+cool_imm_daily = r_imm if (w_imm.closed and is_cool) else 0.0
+cum_hot_imm = cumulative()(hot_imm_daily)
+cum_cool_imm = cumulative()(cool_imm_daily)
+
+# === EVENT MARKER HELPER SERIES (aligned to w_1hr.closed) ===
+imm_ret_latched = valuewhen(occurrence=0)(w_imm.closed, r_imm)
+hot_cpi_chg = where(w_1hr.closed and is_hot, cpi_chg_filled)
+hot_em_imm = where(w_1hr.closed and is_hot, imm_ret_latched)
+hot_em_1hr = where(w_1hr.closed and is_hot, r_1hr)
+cool_cpi_chg = where(w_1hr.closed and is_cool, cpi_chg_filled)
+cool_em_imm = where(w_1hr.closed and is_cool, imm_ret_latched)
+cool_em_1hr = where(w_1hr.closed and is_cool, r_1hr)
+
+# === ALIGNED SERIES FOR XY_BARS (all latched to w_1hr.closed trigger) ===
+# xy_bars requires all inputs non-null on same bar. Align pre/imm/short
+# returns to w_1hr.closed using valuewhen latches.
+pre_ret_latched = valuewhen(occurrence=0)(w_pre.closed, r_pre)
+short_ret_latched = valuewhen(occurrence=0)(w_short.closed, r_short)
+
+# Hot aligned (4 windows: pre, imm, short, 1hr)
+hot_bar_pre = where(w_1hr.closed and is_hot, pre_ret_latched)
+hot_bar_imm = where(w_1hr.closed and is_hot, imm_ret_latched)
+hot_bar_short = where(w_1hr.closed and is_hot, short_ret_latched)
+hot_bar_1hr = where(w_1hr.closed and is_hot, r_1hr)
+
+# Cool aligned
+cool_bar_pre = where(w_1hr.closed and is_cool, pre_ret_latched)
+cool_bar_imm = where(w_1hr.closed and is_cool, imm_ret_latched)
+cool_bar_short = where(w_1hr.closed and is_cool, short_ret_latched)
+cool_bar_1hr = where(w_1hr.closed and is_cool, r_1hr)
+
+# Range latches
+pre_tr_latched = valuewhen(occurrence=0)(w_pre.closed, tr_pre)
+imm_tr_latched = valuewhen(occurrence=0)(w_imm.closed, tr_imm)
+short_tr_latched = valuewhen(occurrence=0)(w_short.closed, tr_short)
+
+hot_vol_pre = where(w_1hr.closed and is_hot, pre_tr_latched)
+hot_vol_imm = where(w_1hr.closed and is_hot, imm_tr_latched)
+hot_vol_short = where(w_1hr.closed and is_hot, short_tr_latched)
+hot_vol_1hr = where(w_1hr.closed and is_hot, tr_1hr)
+
+cool_vol_pre = where(w_1hr.closed and is_cool, pre_tr_latched)
+cool_vol_imm = where(w_1hr.closed and is_cool, imm_tr_latched)
+cool_vol_short = where(w_1hr.closed and is_cool, short_tr_latched)
+cool_vol_1hr = where(w_1hr.closed and is_cool, tr_1hr)
+
+# =============================================================================
+# REPORTS - CATEGORY 1: OVERVIEW CARDS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='CPI Day Overview',
+        cells=[
+            ColumnSpec(title='Hot CPI Days', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Error),
+            ColumnSpec(title='Cool CPI Days', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_color=Color.Success)
+        ]
+    ),
+    category='1. Overview'
+)(hot_count, cool_count)
+
+# =============================================================================
+# REPORTS - CATEGORY 2: CUMULATIVE RETURNS
+# =============================================================================
+
+bar_idx = index()
+
+xy_lines(
+    title='Cumulative Immediate Return by Regime',
+    category='2. Cumulative Returns',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Hot CPI', color=Color.Red),
+        LineSeriesSpec(name='Cool CPI', color=Color.Green)
+    ])
+)(bar_idx, cum_hot_imm, cum_cool_imm)
+
+# =============================================================================
+# REPORTS - CATEGORY 3: WINDOW COMPARISON
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Hot CPI: Avg ZB Return by Window',
+    category='3. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Avg Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=4,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre 1hr'),
+        BarSeriesSpec(name='Imm 1min'),
+        BarSeriesSpec(name='Short 25min'),
+        BarSeriesSpec(name='1hr Post')
+    ])
+)(hot_bar_pre, hot_bar_imm, hot_bar_short, hot_bar_1hr)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Cool CPI: Avg ZB Return by Window',
+    category='3. Window Comparison',
+    x_axis_label='Window',
+    y_axis_label='Avg Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=4,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre 1hr'),
+        BarSeriesSpec(name='Imm 1min'),
+        BarSeriesSpec(name='Short 25min'),
+        BarSeriesSpec(name='1hr Post')
+    ])
+)(cool_bar_pre, cool_bar_imm, cool_bar_short, cool_bar_1hr)
+
+# =============================================================================
+# REPORTS - CATEGORY 4: VOLATILITY
+# =============================================================================
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Hot CPI: Avg ZB Range by Window',
+    category='4. Volatility',
+    x_axis_label='Window',
+    y_axis_label='Avg Range',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre 1hr'),
+        BarSeriesSpec(name='Imm 1min'),
+        BarSeriesSpec(name='Short 25min'),
+        BarSeriesSpec(name='1hr Post')
+    ])
+)(hot_vol_pre, hot_vol_imm, hot_vol_short, hot_vol_1hr)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Cool CPI: Avg ZB Range by Window',
+    category='4. Volatility',
+    x_axis_label='Window',
+    y_axis_label='Avg Range',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre 1hr'),
+        BarSeriesSpec(name='Imm 1min'),
+        BarSeriesSpec(name='Short 25min'),
+        BarSeriesSpec(name='1hr Post')
+    ])
+)(cool_vol_pre, cool_vol_imm, cool_vol_short, cool_vol_1hr)
+
+# === FULL DAY ALIGNED (separate trigger: w_full.closed, fewer events) ===
+full_ret_latched_pre = valuewhen(occurrence=0)(w_pre.closed, r_pre)
+full_ret_latched_imm = valuewhen(occurrence=0)(w_imm.closed, r_imm)
+full_ret_latched_short = valuewhen(occurrence=0)(w_short.closed, r_short)
+full_ret_latched_1hr = valuewhen(occurrence=0)(w_1hr.closed, r_1hr)
+
+hot_full_pre = where(w_full.closed and is_hot, full_ret_latched_pre)
+hot_full_imm = where(w_full.closed and is_hot, full_ret_latched_imm)
+hot_full_short = where(w_full.closed and is_hot, full_ret_latched_short)
+hot_full_1hr = where(w_full.closed and is_hot, full_ret_latched_1hr)
+hot_full_day = where(w_full.closed and is_hot, r_full)
+
+cool_full_pre = where(w_full.closed and is_cool, full_ret_latched_pre)
+cool_full_imm = where(w_full.closed and is_cool, full_ret_latched_imm)
+cool_full_short = where(w_full.closed and is_cool, full_ret_latched_short)
+cool_full_1hr = where(w_full.closed and is_cool, full_ret_latched_1hr)
+cool_full_day = where(w_full.closed and is_cool, r_full)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Hot CPI: Full Day Return Decomposition',
+    category='3b. Full Day',
+    x_axis_label='Window',
+    y_axis_label='Avg Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=4,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre 1hr'),
+        BarSeriesSpec(name='Imm 1min'),
+        BarSeriesSpec(name='Short 25min'),
+        BarSeriesSpec(name='1hr Post'),
+        BarSeriesSpec(name='Full Day')
+    ])
+)(hot_full_pre, hot_full_imm, hot_full_short, hot_full_1hr, hot_full_day)
+
+xy_bars(
+    agg=AggregationType.Mean,
+    title='Cool CPI: Full Day Return Decomposition',
+    category='3b. Full Day',
+    x_axis_label='Window',
+    y_axis_label='Avg Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=4,
+    data_labels=True,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Pre 1hr'),
+        BarSeriesSpec(name='Imm 1min'),
+        BarSeriesSpec(name='Short 25min'),
+        BarSeriesSpec(name='1hr Post'),
+        BarSeriesSpec(name='Full Day')
+    ])
+)(cool_full_pre, cool_full_imm, cool_full_short, cool_full_1hr, cool_full_day)
+
+# =============================================================================
+# REPORTS - CATEGORY 5: DISTRIBUTIONS (Scatter)
+# =============================================================================
+
+all_cpi_chg = where(w_1hr.closed and (is_hot or is_cool), cpi_chg_filled)
+
+xy_scatter(
+    title='CPI Change vs Immediate 1min ZB Return',
+    category='5. Distributions',
+    x_axis_label='CPI MoM Change',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='Immediate Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    series=ScatterSeriesSchema(series=[
+        ScatterSeriesSpec(name='Hot CPI', color=Color.Red),
+        ScatterSeriesSpec(name='Cool CPI', color=Color.Green)
+    ])
+)(all_cpi_chg, hot_em_imm, cool_em_imm)
+
+xy_scatter(
+    title='CPI Change vs 1hr Post ZB Return',
+    category='5. Distributions',
+    x_axis_label='CPI MoM Change',
+    x_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_label='1hr Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    series=ScatterSeriesSchema(series=[
+        ScatterSeriesSpec(name='Hot CPI', color=Color.Red),
+        ScatterSeriesSpec(name='Cool CPI', color=Color.Green)
+    ])
+)(all_cpi_chg, hot_em_1hr, cool_em_1hr)
+
+# =============================================================================
+# REPORTS - CATEGORY 6: EVENT MARKERS
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Hot CPI Events',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='CPI Change', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Imm 1min Return', type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='1hr Post Return', type=CardRenderType.PercentFormat, dp=3)
+        ]
+    )
+)(is_hot, hot_cpi_chg, hot_em_imm, hot_em_1hr)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Cool CPI Events',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='CPI Change', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Imm 1min Return', type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='1hr Post Return', type=CardRenderType.PercentFormat, dp=3)
+        ]
+    )
+)(is_cool, cool_cpi_chg, cool_em_imm, cool_em_1hr)
