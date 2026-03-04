@@ -1,0 +1,147 @@
+# =============================================================================
+# HOW DOES SPY REACT TO FED RATE HIKES VS CUTS?
+# =============================================================================
+# Event: Federal Funds rate announcements
+# Regimes: Hike (>=20bps), Cut (>=20bps), Hold
+# Chart 1: Day-of + post-20d return (hike vs cut)
+# Chart 2: Cumulative event returns
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+bar_idx = index()
+
+# =============================================================================
+# FED FUNDS DATA & REGIME CLASSIFICATION
+# =============================================================================
+
+fed_data = common_economic_indicators(category=MacroEconomicsIndicator.FedFunds)()
+fed_value = fed_data.result
+had_fed = is_valid(fed_value)
+
+# Prior rate
+prior_fed = valuewhen(occurrence=1)(had_fed, fed_value)
+fed_change = fed_value - prior_fed
+
+# Regime: >=20bps threshold filters daily noise from actual FOMC decisions
+is_hike = had_fed and is_valid(fed_change) and (fed_change >= 0.20)
+is_cut = had_fed and is_valid(fed_change) and (fed_change <= -0.20)
+is_hold = had_fed and is_valid(fed_change) and (fed_change > -0.20) and (fed_change < 0.20)
+
+# Counters
+hike_count = 1.0 if is_hike else 0.0
+cut_count = 1.0 if is_cut else 0.0
+hold_count = 1.0 if is_hold else 0.0
+hike_clean = hike_count if is_valid(hike_count) else 0.0
+cut_clean = cut_count if is_valid(cut_count) else 0.0
+hold_clean = hold_count if is_valid(hold_count) else 0.0
+
+# =============================================================================
+# RETURNS
+# =============================================================================
+
+fed_day = (close - (close >> 1)) / (close >> 1)
+post_20d = ((close << 20) - close) / close
+pre_5d = ((close >> 1) - (close >> 5)) / (close >> 5)
+
+# Regime-filtered for bar chart
+h_fed_day = where(is_hike, fed_day)
+h_post20 = where(is_hike, post_20d)
+c_fed_day = where(is_cut, fed_day)
+c_post20 = where(is_cut, post_20d)
+
+# =============================================================================
+# CUMULATIVE EVENT RETURNS (with NaN guard)
+# =============================================================================
+
+hike_raw = fed_day if is_hike else 0.0
+cut_raw = fed_day if is_cut else 0.0
+hike_ret = hike_raw if is_valid(hike_raw) else 0.0
+cut_ret = cut_raw if is_valid(cut_raw) else 0.0
+cum_hike = cumulative()(hike_ret)
+cum_cut = cumulative()(cut_ret)
+
+# Event marker helpers
+h_fed_chg = where(is_hike, fed_change)
+c_fed_chg = where(is_cut, fed_change)
+h_pre5 = where(is_hike, pre_5d)
+c_pre5 = where(is_cut, pre_5d)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- Cards: event counts ---
+cards(
+    layout=CardLayout(
+        title='FOMC Events',
+        cells=[
+            ColumnSpec(title='Rate Hikes', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Rate Cuts', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(title='Rate Cuts', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='Fed Impact'
+)(hike_clean, cut_clean)
+
+# --- Chart 1: Day-of + Post-20d Return Snapshot ---
+xy_bars(
+    title='Hikes Drag SPY Short-Term; Cuts Provide Relief',
+    category='Fed Impact',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    y_axis_label='Avg Return',
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Hike: Day-of', color=Color.Blue),
+        BarSeriesSpec(name='Hike: +20d', color=Color.Blue),
+        BarSeriesSpec(name='Cut: Day-of', color=Color.Gray),
+        BarSeriesSpec(name='Cut: +20d', color=Color.Gray)
+    ])
+)(h_fed_day, h_post20, c_fed_day, c_post20)
+
+# --- Chart 2: Cumulative Decision-Day Returns ---
+xy_lines(
+    title='Does the Fed Decision Effect Compound Across Meetings?',
+    category='Fed Impact',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Hike Days', color=Color.Blue),
+        LineSeriesSpec(name='Cut Days', color=Color.Gray)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title='Breakeven')
+    ])
+)(bar_idx, cum_hike, cum_cut)
+
+# --- Event Markers ---
+event_marker(
+    schema=EventMarkerSchema(
+        title='Rate Hike Events',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Rate Change (bps)', type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_hike, h_fed_chg, h_pre5, h_post20)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Rate Cut Events',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Rate Change (bps)', type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_cut, c_fed_chg, c_pre5, c_post20)

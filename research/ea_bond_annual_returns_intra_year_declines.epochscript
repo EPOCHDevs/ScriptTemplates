@@ -1,0 +1,45 @@
+# =============================================================================
+# VOLATILITY IN BONDS IS HISTORICALLY NORMAL IN ALL YEARS
+# =============================================================================
+# Question: How volatile are bonds within a given year, and do intra-year
+#   drawdowns in bonds typically recover by year-end?
+#
+# Chart: xy_bars
+#   - X-axis: Year (labeled by year number)
+#   - Y-axis: Annual return (blue bars) and largest intra-year drawdown (red bars)
+#   - Series: Two bar series per year - annual return and drawdown
+#   - Overlay: None
+#
+# Dataset:
+#   - common_reference_stocks (AGG)
+# =============================================================================
+
+# Volatility in Bonds is Historically Normal In All Years
+agg_o, agg_h, agg_l, agg_c, agg_v, agg_vw, agg_n = common_reference_stocks(ticker=ReferenceStock.AGG)()
+close = ffill(agg_c)
+
+# Rolling 252-day return as annual return proxy
+ret_1y = (close - (close >> 252)) / (close >> 252)
+
+# Intra-year drawdown: rolling 252-day max drawdown
+rolling_max = max(period=252)(close)
+intra_year_dd = (close - rolling_max) / rolling_max
+
+year_num = datetime_extract(component=DatetimeExtractionType.year)(index())
+
+xy_bars(
+    title='Volatility in Bonds is Historically Normal In All Years',
+    category='1. Annual Returns and Intra-Year Declines',
+    agg=AggregationType.Last,
+    y_axis_label='Annual Return and Largest Intra-Year Drawdown',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=0,
+    data_labels=True,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash, title='0%')
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Annual Return', color=Color.Blue),
+        BarSeriesSpec(name='Largest Intra-Year Drawdown', color=Color.Red)
+    ])
+)(ret_1y, intra_year_dd, label=year_num)

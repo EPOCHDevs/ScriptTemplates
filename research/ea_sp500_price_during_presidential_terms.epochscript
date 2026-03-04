@@ -1,0 +1,48 @@
+# =============================================================================
+# IGNORING POLITICS WHEN INVESTING
+# =============================================================================
+# Question: Does the political party of the president significantly impact
+#   long-term S&P 500 performance?
+#
+# Chart: xy_lines
+#   - X-axis: Date (timestamp index)
+#   - Y-axis: S&P 500 Index price (log scale)
+#   - Series: S&P 500 under Democrats (blue area), S&P 500 under Republicans (red area)
+#   - Overlay: None
+#
+# Dataset:
+#   - common_reference_stocks (SPY)
+# =============================================================================
+
+# Ignoring Politics When Investing
+spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
+
+year = datetime_extract(component=DatetimeExtractionType.year)(index())
+
+# Democrat years: Obama 2009-2016, Biden 2021-2024
+is_dem_obama_a = 1.0 if year >= 2009 else 0.0
+is_dem_obama = is_dem_obama_a if year <= 2016 else 0.0
+is_dem_biden_a = 1.0 if year >= 2021 else 0.0
+is_dem_biden = is_dem_biden_a if year <= 2024 else 0.0
+is_dem = is_dem_obama + is_dem_biden
+
+# Republican years: everything else
+is_rep = 1.0 if is_dem < 1 else 0.0
+
+# S&P price by party (NaN when not in power = proper gaps)
+dem_close = where(is_dem >= 1, spy_c)
+rep_close = where(is_rep >= 1, spy_c)
+
+bar_ts = index()
+
+xy_lines(
+    title='S&P 500 Under Democrats and Republicans',
+    category='1. S&P 500 By Party',
+    y_axis_label='S&P 500 Index (Log Scale)',
+    log_scale=True,
+    area=True,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='S&P 500 Under Democrats', color=Color.Blue),
+        LineSeriesSpec(name='S&P 500 Under Republicans', color=Color.Red)
+    ])
+)(bar_ts, dem_close, rep_close)

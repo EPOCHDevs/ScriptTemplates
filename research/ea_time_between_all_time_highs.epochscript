@@ -1,0 +1,39 @@
+# =============================================================================
+# TIME BETWEEN S&P 500 ALL TIME HIGHS
+# =============================================================================
+# Question: How long has it typically taken for the S&P 500 to recover and set
+#   a new all-time high after the previous one?
+#
+# Chart: xy_lines (area)
+#   - X-axis: Date (timestamp index)
+#   - Y-axis: Number of trading days between S&P 500 all-time highs
+#   - Series: Trading Days Between S&P 500 All Time Highs (area fill)
+#   - Overlay: None
+#
+# Dataset:
+#   - common_reference_stocks (SPY)
+# =============================================================================
+
+# Time Between S&P 500 All Time Highs
+spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
+close = ffill(spy_c)
+
+running_max = cumulative(agg=AggregationType.Max)(close)
+is_ath = close >= running_max
+
+# Days since last ATH (multiply by 1.0 to cast integer to decimal for chart)
+days_since_ath = barssince()(is_ath) * 1.0
+
+bar_ts = index()
+
+xy_lines(
+    title='Time Between S&P 500 All Time Highs',
+    category='1. All-Time High Gaps',
+    y_axis_label='# Trading Days Between S&P 500 All Time Highs',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=0,
+    area=True,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Trading Days Between S&P 500 All Time Highs', color=Color.Blue)
+    ])
+)(bar_ts, days_since_ath)

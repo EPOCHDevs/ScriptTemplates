@@ -1,0 +1,385 @@
+REPORT DESIGN GUIDE
+===================
+Rules for research and strategy report definitions.
+Derived from 99 Exhibit A reference charts and 53 EpochScript implementations.
+
+13 rules. 13 violations. 1:1 paired.
+
+
+================================================================================
+RULES
+================================================================================
+
+<rule id="1" name="One Chart, One Insight">
+  <summary>
+    Every chart answers exactly ONE question. If you can't state
+    the question in one sentence, the chart is doing too much.
+  </summary>
+  <rationale>
+    Readers extract one takeaway per visual. Multiple insights per
+    chart means none land clearly.
+  </rationale>
+  <example>
+    <bad>  "Here are all valuation metrics for 6 companies" (17 charts)</bad>
+    <good> "Is AAPL expensive relative to mega-cap tech peers?" (2 charts)</good>
+  </example>
+  <enforcement>
+    State the question before writing code. If the question has "and"
+    in it, split into two definitions.
+  </enforcement>
+</rule>
+
+
+<rule id="2" name="Blue Monochromatic Palette">
+  <summary>
+    Color.Blue is primary on every chart. Color.Gray is secondary.
+    Never more than 3 colors per definition.
+  </summary>
+  <rationale>
+    Color variety fights for attention. Monochromatic palettes let
+    the data speak.
+  </rationale>
+  <palette>
+    Primary   = Color.Blue   -- all main data series
+    Secondary = Color.Gray   -- comparison, reference, historical
+    Negative  = Color.Red    -- inversions, losses, bear markets ONLY
+  </palette>
+  <example>
+    <bad>  Blue, Purple, Teal, Indigo, Green, Emerald across 8 charts</bad>
+    <good> Color.Blue for all primary bars, Color.Gray for reference</good>
+  </example>
+  <enforcement>
+    Grep for Color.* -- if more than 3 distinct colors appear, simplify.
+  </enforcement>
+</rule>
+
+
+<rule id="3" name="Data Labels on All Bar Charts">
+  <summary>
+    Every bar chart sets data_labels=True. The reader should never
+    trace a bar back to the y-axis.
+  </summary>
+  <rationale>
+    Annotation-driven storytelling. The key number is always visible
+    on the chart itself.
+  </rationale>
+  <example>
+    <bad>  xy_bars(agg=Last)(pe)</bad>
+    <good> xy_bars(agg=Last, data_labels=True)(pe)</good>
+  </example>
+  <enforcement>
+    Every xy_bars call must include data_labels=True.
+  </enforcement>
+</rule>
+
+
+<rule id="4" name="Reference Lines for Context">
+  <summary>
+    Every chart has at least one contextual anchor: zero line,
+    average, median, or threshold.
+  </summary>
+  <rationale>
+    Without a reference point, the reader can't judge "is this
+    high or low?"
+  </rationale>
+  <which_line>
+    Return bars (pos/neg)        -> value=0.0 zero line
+    Cross-sectional comparison   -> Peer median or historical average
+    Z-score charts               -> value=0.0, optionally +1/-1
+    Spread / area charts         -> value=0.0 zero line
+  </which_line>
+  <example>
+    <bad>  xy_bars(agg=Last)(pe_by_company)</bad>
+    <good> xy_bars(agg=Last, reference_lines=ReferenceLineSchema(lines=[
+             ReferenceLine(value=25.0, color=Color.Gray,
+               dash_style=DashStyle.Dash, title='Peer Median')
+           ]))(pe_by_company)</good>
+  </example>
+  <enforcement>
+    Every chart transform must have a reference_lines= option.
+  </enforcement>
+</rule>
+
+
+<rule id="5" name="Titles Answer So-What">
+  <summary>
+    Titles state the insight or question, not the data type or
+    statistical method.
+  </summary>
+  <rationale>
+    "P/E Z-Score Over Time" describes the tool. "Is AAPL's
+    Valuation Stretched?" states the insight.
+  </rationale>
+  <translations>
+    "P/E Ratio (TTM) by Asset"          -> "NVDA Commands the Highest Valuation"
+    "Operating Margin Over Time"         -> "AAPL's Margins Have Remained Stable"
+    "Rolling 5Y Standard Deviation"      -> "How Volatile Has This Asset Been?"
+    "Cross-Sectional Correlation"        -> "Do These Assets Diversify Each Other?"
+    "Return Distribution Histogram"      -> "Most Years the S&P 500 Gains 10-20%"
+    "Drawdown Duration Analysis"         -> "How Long Do Recoveries Take?"
+    "Sharpe Ratio Comparison"            -> "Which Strategy Has Best Risk-Adjusted Returns?"
+    "Bollinger Band Width Over Time"     -> "Is Volatility Expanding or Contracting?"
+  </translations>
+  <enforcement>
+    If the title contains a statistical term (z-score, correlation,
+    distribution, rolling), rewrite as a question a non-statistician
+    would ask.
+  </enforcement>
+</rule>
+
+
+<rule id="6" name="Three Charts Maximum">
+  <summary>
+    A single definition produces 1-3 charts. The ideal pair:
+    bar (snapshot) + line (timing).
+  </summary>
+  <rationale>
+    More charts dilute focus. If you need 4+, split into separate
+    definitions.
+  </rationale>
+  <example>
+    <bad>  1 definition with 17 charts covering every angle of AAPL valuation</bad>
+    <good> Definition A: "Peer Snapshot" (2 bar charts)
+           Definition B: "Historical Context" (1 line chart)</good>
+  </example>
+  <enforcement>
+    Count chart transforms in source. If > 3, split or cut.
+  </enforcement>
+</rule>
+
+
+<rule id="7" name="Three Series Maximum Per Chart">
+  <summary>
+    No chart has more than 3 overlaid lines or bar groups.
+  </summary>
+  <rationale>
+    Beyond 3 series, labels overlap, colors blur, the chart becomes
+    unreadable.
+  </rationale>
+  <decision>
+    1-3 entities           -> xy_lines with distinct series
+    4+ at a point in time  -> xy_bars (one bar per entity)
+    4+ over time           -> split into 2 charts
+  </decision>
+  <enforcement>
+    Count LineSeriesSpec or BarSeriesSpec entries per chart.
+    If > 3, restructure.
+  </enforcement>
+</rule>
+
+
+<rule id="8" name="Cards Must Earn Their Space">
+  <summary>
+    Only add a card if it shows information no chart already
+    displays. If the chart has data_labels=True, the chart IS
+    the card.
+  </summary>
+  <rationale>
+    Cards occupy prime dashboard real estate. Redundant cards
+    add noise, not value.
+  </rationale>
+  <useful>
+    - Standalone metrics absent from any chart (e.g., "10Y Yield: 4.5%")
+    - Cross-domain context that frames the story
+    - Status / verdict indicators (e.g., "Signal: Overvalued")
+  </useful>
+  <not_useful>
+    - Restating what a labeled bar chart already shows
+    - Showing the endpoint of a line chart
+    - Summary stats that could be a reference line
+  </not_useful>
+  <example>
+    <bad>  cards(Earnings: +3.1%) + xy_bars(data_labels=True)(earnings=+3.1%)</bad>
+    <good> xy_bars(data_labels=True) alone -- the chart IS the summary</good>
+    <good> cards(10Y Yield: 4.5%) on equity definition -- yield not in any chart</good>
+  </example>
+  <enforcement>
+    For each card ask: "If I removed this card, would the reader
+    miss information?" If no, delete it.
+  </enforcement>
+</rule>
+
+
+<rule id="9" name="Cards Must Be Self-Qualifying">
+  <summary>
+    Every card title specifies what, when, and how. A bare number
+    with no context is meaningless.
+  </summary>
+  <rationale>
+    "P/E Ratio: 43.5" could be current, last quarter, 5-year
+    average, or study-window end. Cards using card_agg=Last show
+    the last value in the study period, not a live figure.
+  </rationale>
+  <example>
+    <bad>  "P/E Ratio: 43.5"</bad>
+    <bad>  "EPS Growth: 0.4%"</bad>
+    <good> "P/E (TTM, Dec '24): 43.5"</good>
+    <good> "EPS Growth YoY (Q4 '24): 0.4%"</good>
+    <good> "Signal: Overvalued"</good>
+  </example>
+  <enforcement>
+    Every card title must contain a time qualifier or be a
+    categorical verdict.
+  </enforcement>
+</rule>
+
+
+<rule id="10" name="Distributions Need Summary Stats">
+  <summary>
+    Every histogram or distribution chart has companion summary
+    numbers: median, percentiles, current value.
+  </summary>
+  <rationale>
+    The chart shows shape; the reader needs numbers. "What does
+    AMZN typically trade at?" requires "median 126x" -- a histogram
+    alone forces guessing.
+  </rationale>
+  <example>
+    <bad>  histogram(title='P/E Distribution')(pe)
+           -- reader sees shape, can't quote a number</bad>
+    <good> histogram(title='P/E Distribution',
+             reference_lines=[median, p25, p75])(pe)
+           + summary_table(Median, 25th, 75th, Current)
+           -- reader sees shape AND can quote "median 126x, currently 29x"</good>
+  </example>
+  <enforcement>
+    Every histogram must have reference lines for at least median
+    and current value.
+  </enforcement>
+</rule>
+
+
+<rule id="11" name="No Redundant Visualizations">
+  <summary>
+    Each metric appears in ONE format. Don't show the same number
+    as a bar chart AND a line chart AND a table.
+  </summary>
+  <rationale>
+    Pick the best format for the insight. Repetition wastes attention.
+  </rationale>
+  <format_selection>
+    Current snapshot comparison  -> xy_bars
+    Change over time            -> xy_lines
+    Exact numbers for reference -> summary_table (sparingly)
+  </format_selection>
+  <enforcement>
+    List every metric. If any appears in 2+ charts, keep the best one.
+  </enforcement>
+</rule>
+
+
+<rule id="12" name="Two Categories Maximum">
+  <summary>
+    Organize charts by narrative arc (setup -> evidence -> conclusion),
+    not by data type.
+  </summary>
+  <rationale>
+    7 categories by data type mirrors the analyst's brain, not the
+    reader's journey.
+  </rationale>
+  <example>
+    <bad>  7 categories: "Snapshot", "Valuation", "Profitability",
+           "Relative Value", "History", "Margins", "Z-Scores"</bad>
+    <good> 2 categories: "Valuation Snapshot" (1-2 charts),
+           "Historical Context" (1 chart)</good>
+  </example>
+  <enforcement>
+    Count categories. If > 2, consolidate by story, not data type.
+  </enforcement>
+</rule>
+
+
+<rule id="13" name="Guard NaN in Conditionals">
+  <summary>
+    EpochScript's X if cond else Y returns NaN when cond is NaN,
+    not Y. Always guard sparse conditionals with is_valid().
+  </summary>
+  <rationale>
+    Unguarded conditionals silently inject NaN into cumulative
+    series, breaking line charts.
+  </rationale>
+  <example>
+    <bad>  event_ret = nfp_day if is_strong else 0.0
+           -- NaN when is_strong is NaN</bad>
+    <good> raw = nfp_day if is_strong else 0.0
+           event_ret = raw if is_valid(raw) else 0.0
+           -- guaranteed dense</good>
+  </example>
+  <enforcement>
+    Every X if sparse_cond else Y feeding cumulative() or a line
+    chart needs an is_valid() wrapper.
+  </enforcement>
+</rule>
+
+
+================================================================================
+VIOLATIONS
+================================================================================
+
+Each violation maps 1:1 to its rule. Use as a review checklist.
+
+<violation id="1"  name="Dashboard Dump"            rule="1,6"  smell="Definition produces 4+ charts" />
+<violation id="2"  name="Rainbow Palette"            rule="2"    smell="More than 3 distinct Color.* values" />
+<violation id="3"  name="Missing Data Labels"        rule="3"    smell="xy_bars without data_labels=True" />
+<violation id="4"  name="No Framing Question"        rule="1,5"  smell="Description lists computations, not a question" />
+<violation id="5"  name="No Reference Lines"         rule="4"    smell="Chart transform has no reference_lines=" />
+<violation id="6"  name="Too Many Series"            rule="7"    smell="Chart has 4+ SeriesSpec entries" />
+<violation id="7"  name="Redundant Charts"           rule="11"   smell="Same metric in 2+ chart types" />
+<violation id="8"  name="Generic / Technical Title"  rule="5"    smell="Title contains Z-Score, Rolling, Distribution" />
+<violation id="9"  name="Category Sprawl"            rule="12"   smell="Definition has 3+ category sections" />
+<violation id="10" name="Reflexive Card Dump"        rule="8"    smell="Card value duplicates labeled bar or line endpoint" />
+<violation id="11" name="Unqualified Card Metric"    rule="9"    smell="Card title has no time qualifier or context" />
+<violation id="12" name="Stats-Free Distribution"    rule="10"   smell="Histogram with no median/percentile reference" />
+<violation id="13" name="NaN-Poisoned Conditional"   rule="13"   smell="X if sparse else Y without is_valid() guard" />
+
+
+================================================================================
+QUICK REFERENCE
+================================================================================
+
+CHART TYPES (only 5 used)
+  xy_bars                     ~50%  comparisons, distributions, counts
+  xy_lines                    ~40%  time series, economic indicators
+  xy_lines + area=True         ~7%  spread magnitude, streaks
+  labeled_lines                ~2%  term structure (yield curve)
+  event_marker                 ~1%  highlighting specific days
+
+COLORS
+  Color.Blue    primary (always first)
+  Color.Gray    secondary, reference lines
+  Color.Red     negative only: inversions, losses, bear
+  Color.Orange  tertiary: commodities, Bitcoin
+  Color.Cyan    NASDAQ, growth
+  Color.Sky     bonds, projections
+
+AXIS FORMATS
+  PercentFormat   returns, rates, spreads, YoY changes
+  DecimalFormat   yields, index levels, ratios
+  IntegerFormat   event counts, pullback counts
+  MonetaryFormat  growth of $1, GDP, dollar values
+
+AGGREGATIONS
+  Last   current / latest value
+  Mean   historical average
+  Sum    event count
+  Min    worst case / max drawdown
+  Max    best case / peak return
+
+
+================================================================================
+PRE-SUBMIT CHECKLIST
+================================================================================
+
+  [ ] Can you state the ONE question this answers?
+  [ ] 3 charts or fewer?
+  [ ] Color.Blue is primary on every chart?
+  [ ] data_labels=True on every bar chart?
+  [ ] Reference lines on every chart?
+  [ ] Title hints at the answer, not the data type?
+  [ ] No redundancy between charts and cards?
+  [ ] 3 series max per chart?
+  [ ] 2 categories max?
+  [ ] Cards show something charts don't already display?
+  [ ] Cards are qualified with time/context?
+  [ ] Distributions have median/percentile stats?
+  [ ] Sparse conditionals guarded with is_valid()?

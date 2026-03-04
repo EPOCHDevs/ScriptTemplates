@@ -1,0 +1,146 @@
+# =============================================================================
+# HOW DOES GOLD REACT TO STRONG VS WEAK NFP?
+# =============================================================================
+# Event: Non-Farm Payrolls release dates
+# Regimes: Strong (>200K change) vs Weak (<100K change)
+# Chart 1: Day-of + post-20d return snapshot (both regimes)
+# Chart 2: Cumulative event returns (does it compound?)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+bar_idx = index()
+
+# =============================================================================
+# NFP DATA & CLASSIFICATION
+# =============================================================================
+
+nfp_data = common_economic_indicators(category=MacroEconomicsIndicator.NonfarmPayrolls)()
+nfp_value = nfp_data.result
+had_nfp = is_valid(nfp_value)
+
+# NFP change from prior release
+prior_nfp = valuewhen(occurrence=1)(had_nfp, nfp_value)
+nfp_change = nfp_value - prior_nfp
+
+# Regime classification
+is_strong = had_nfp and is_valid(prior_nfp) and (nfp_change > 200.0)
+is_weak = had_nfp and is_valid(prior_nfp) and (nfp_change < 100.0)
+
+# Counters
+strong_count = 1.0 if is_strong else 0.0
+weak_count = 1.0 if is_weak else 0.0
+
+# =============================================================================
+# RETURNS
+# =============================================================================
+
+# NFP day return
+nfp_day = (close - (close >> 1)) / (close >> 1)
+
+# Post-20d return (from NFP day close)
+post_20d = ((close << 20) - close) / close
+
+# Pre-5d return (for event markers)
+pre_5d = ((close >> 1) - (close >> 5)) / (close >> 5)
+
+# Regime-filtered returns for bar chart
+s_nfp_day = where(is_strong, nfp_day)
+s_post20 = where(is_strong, post_20d)
+w_nfp_day = where(is_weak, nfp_day)
+w_post20 = where(is_weak, post_20d)
+
+# =============================================================================
+# CUMULATIVE EVENT RETURNS
+# =============================================================================
+
+strong_raw = nfp_day if is_strong else 0.0
+weak_raw = nfp_day if is_weak else 0.0
+strong_event_ret = strong_raw if is_valid(strong_raw) else 0.0
+weak_event_ret = weak_raw if is_valid(weak_raw) else 0.0
+cum_strong = cumulative()(strong_event_ret)
+cum_weak = cumulative()(weak_event_ret)
+
+# Event marker helpers
+s_nfp_change = where(is_strong, nfp_change)
+w_nfp_change = where(is_weak, nfp_change)
+w_pre5 = where(is_weak, pre_5d)
+s_pre5 = where(is_strong, pre_5d)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- Cards: event counts (not on any chart) ---
+cards(
+    layout=CardLayout(
+        title='NFP Events',
+        cells=[
+            ColumnSpec(title='Strong NFP Events (>200K)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Weak NFP Events (<100K)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='NFP Impact'
+)(strong_count, weak_count)
+
+# --- Chart 1: Day-of + Post-20d Return Snapshot ---
+xy_bars(
+    title='Strong NFP Pressures Gold; Weak NFP Lifts It',
+    category='NFP Impact',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    y_axis_label='Avg Return',
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Strong: Day-of', color=Color.Blue),
+        BarSeriesSpec(name='Strong: +20d', color=Color.Blue),
+        BarSeriesSpec(name='Weak: Day-of', color=Color.Gray),
+        BarSeriesSpec(name='Weak: +20d', color=Color.Gray)
+    ])
+)(s_nfp_day, s_post20, w_nfp_day, w_post20)
+
+# --- Chart 2: Cumulative NFP-Day Returns ---
+xy_lines(
+    title='Does the NFP Gold Effect Compound Across Events?',
+    category='NFP Impact',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Strong NFP (>200K)', color=Color.Blue),
+        LineSeriesSpec(name='Weak NFP (<100K)', color=Color.Gray)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title='Breakeven')
+    ])
+)(bar_idx, cum_strong, cum_weak)
+
+# --- Event Markers (diagnostic) ---
+event_marker(
+    schema=EventMarkerSchema(
+        title='Strong NFP Events (>200K)',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='NFP Change (K)', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_strong, s_nfp_change, s_pre5, s_post20)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Weak NFP Events (<100K)',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='NFP Change (K)', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_weak, w_nfp_change, w_pre5, w_post20)

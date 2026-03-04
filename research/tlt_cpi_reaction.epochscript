@@ -1,0 +1,152 @@
+# =============================================================================
+# HOW DO BONDS REACT TO HOT VS COOL CPI?
+# =============================================================================
+# Event: CPI release dates
+# Regimes: Hot (MoM change accelerating) vs Cool (decelerating)
+# Chart 1: Day-of + post-20d return snapshot (both regimes)
+# Chart 2: Cumulative event returns (does it compound?)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+bar_idx = index()
+
+# =============================================================================
+# CPI DATA & ACCELERATION LOGIC
+# =============================================================================
+
+cpi_data = common_economic_indicators(category=MacroEconomicsIndicator.CPI)()
+cpi_value = cpi_data.result
+had_cpi = is_valid(cpi_value)
+
+# CPI change from prior release
+prior_cpi = valuewhen(occurrence=1)(had_cpi, cpi_value)
+cpi_change = cpi_value - prior_cpi
+
+# Prior CPI change (for acceleration detection)
+prior2_cpi = valuewhen(occurrence=2)(had_cpi, cpi_value)
+prior_change = prior_cpi - prior2_cpi
+
+# Regime classification
+is_hot = had_cpi and is_valid(cpi_change) and is_valid(prior_change) and (cpi_change > prior_change)
+is_cool = had_cpi and is_valid(cpi_change) and is_valid(prior_change) and (cpi_change <= prior_change)
+
+# Counters
+hot_count = 1.0 if is_hot else 0.0
+cool_count = 1.0 if is_cool else 0.0
+hot_count_clean = hot_count if is_valid(hot_count) else 0.0
+cool_count_clean = cool_count if is_valid(cool_count) else 0.0
+
+# =============================================================================
+# RETURNS
+# =============================================================================
+
+# CPI day return
+cpi_day = (close - (close >> 1)) / (close >> 1)
+
+# Post-20d return
+post_20d = ((close << 20) - close) / close
+
+# Pre-5d return (for event markers)
+pre_5d = ((close >> 1) - (close >> 5)) / (close >> 5)
+
+# Regime-filtered returns for bar chart
+h_cpi_day = where(is_hot, cpi_day)
+h_post20 = where(is_hot, post_20d)
+c_cpi_day = where(is_cool, cpi_day)
+c_post20 = where(is_cool, post_20d)
+
+# =============================================================================
+# CUMULATIVE EVENT RETURNS (with NaN guard)
+# =============================================================================
+
+hot_raw = cpi_day if is_hot else 0.0
+cool_raw = cpi_day if is_cool else 0.0
+hot_event_ret = hot_raw if is_valid(hot_raw) else 0.0
+cool_event_ret = cool_raw if is_valid(cool_raw) else 0.0
+cum_hot = cumulative()(hot_event_ret)
+cum_cool = cumulative()(cool_event_ret)
+
+# Event marker helpers
+h_cpi_change = where(is_hot, cpi_change)
+c_cpi_change = where(is_cool, cpi_change)
+h_pre5 = where(is_hot, pre_5d)
+c_pre5 = where(is_cool, pre_5d)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- Cards: event counts ---
+cards(
+    layout=CardLayout(
+        title='CPI Events',
+        cells=[
+            ColumnSpec(title='Hot CPI Events (Accelerating)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Cool CPI Events (Decelerating)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='CPI Impact'
+)(hot_count_clean, cool_count_clean)
+
+# --- Chart 1: Day-of + Post-20d Return Snapshot ---
+xy_bars(
+    title='Hot CPI Pressures Bonds; Cool CPI Lifts Them',
+    category='CPI Impact',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    y_axis_label='Avg Return',
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Hot: Day-of', color=Color.Blue),
+        BarSeriesSpec(name='Hot: +20d', color=Color.Blue),
+        BarSeriesSpec(name='Cool: Day-of', color=Color.Gray),
+        BarSeriesSpec(name='Cool: +20d', color=Color.Gray)
+    ])
+)(h_cpi_day, h_post20, c_cpi_day, c_post20)
+
+# --- Chart 2: Cumulative CPI-Day Returns ---
+xy_lines(
+    title='Does the CPI Bond Effect Compound Across Events?',
+    category='CPI Impact',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Hot CPI (Accelerating)', color=Color.Blue),
+        LineSeriesSpec(name='Cool CPI (Decelerating)', color=Color.Gray)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title='Breakeven')
+    ])
+)(bar_idx, cum_hot, cum_cool)
+
+# --- Event Markers ---
+event_marker(
+    schema=EventMarkerSchema(
+        title='Hot CPI Events (Accelerating)',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='CPI Change', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_hot, h_cpi_change, h_pre5, h_post20)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Cool CPI Events (Decelerating)',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='CPI Change', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_cool, c_cpi_change, c_pre5, c_post20)

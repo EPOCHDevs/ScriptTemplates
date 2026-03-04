@@ -1,0 +1,46 @@
+# =============================================================================
+# CYCLES OF GOLD VS S&P 500 PERFORMANCE
+# =============================================================================
+# Question: How has the relative performance of gold versus the S&P 500 evolved
+#   over rolling 3-year periods, and where does it stand now?
+#
+# Chart: xy_lines
+#   - X-axis: Date (timestamp index)
+#   - Y-axis: 3-year rolling return spread (Gold minus S&P 500, percent)
+#   - Series: Single area series showing gold vs S&P 500 spread
+#   - Overlay: None
+#
+# Dataset:
+#   - common_reference_stocks (SPY, GLD)
+# =============================================================================
+
+# Gold vs S&P 500 Rolling 3Y Performance Difference
+spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
+close = ffill(spy_c)
+
+# Load gold via reference
+gld_o, gld_h, gld_l, gld_c, gld_v, gld_vw, gld_n = common_reference_stocks(ticker=ReferenceStock.GLD)()
+gld = ffill(gld_c)
+
+# 3-year (756 trading day) return
+spy_3y = (close - (close >> 756)) / (close >> 756)
+gld_3y = (gld - (gld >> 756)) / (gld >> 756)
+
+# Spread: positive = gold outperforming
+spread = gld_3y - spy_3y
+bar_ts = index()
+
+xy_lines(
+    title='Cycles of Gold vs S&P 500 Performance',
+    category='1. Rolling Performance',
+    area=True,
+    y_axis_label='3Y Rolling Return Spread (Gold - S&P 500)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title="0%")
+    ]),
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Gold vs S&P 500 (3Y Rolling)', color=Color.Blue)
+    ])
+)(bar_ts, spread)

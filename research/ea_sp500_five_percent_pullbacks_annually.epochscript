@@ -1,0 +1,49 @@
+# =============================================================================
+# 5% INTRA-YEAR PULLBACKS HAVE BEEN HISTORICALLY COMMON
+# =============================================================================
+# Question: How frequently do 5% pullbacks occur within a given year in the
+#   S&P 500?
+#
+# Chart: xy_bars
+#   - X-axis: Year
+#   - Y-axis: Number of 5%+ intra-year pullbacks (integer count)
+#   - Series: Count of 5%+ pullbacks per year (blue bars)
+#   - Overlay: None
+#
+# Dataset:
+#   - common_reference_stocks (SPY)
+# =============================================================================
+
+# 5% Intra-Year Pullbacks
+spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
+
+# Rolling 126-day (6-month) high as local peak reference
+rolling_high = max(period=126)(spy_c)
+
+# Drawdown from rolling peak
+dd = (spy_c - rolling_high) / rolling_high
+
+# Pullback detection with debouncing
+crossed_5 = crossunder(dd, -0.05)
+recovered = crossover(dd, -0.01)
+in_pullback = hold_until(crossed_5, recovered)
+in_pullback_num = 1.0 if in_pullback else 0.0
+
+# Rising edge = one count per distinct pullback episode
+pullback_entry = crossover(in_pullback_num, 0.5)
+pullback_flag = 1.0 if pullback_entry else 0.0
+
+# Year for annual grouping
+year_num = datetime_extract(component=DatetimeExtractionType.year)(index())
+
+xy_bars(
+    title='# of 5% Intra-Year Pullbacks in the S&P 500 Annually',
+    category='1. Pullback Frequency',
+    agg=AggregationType.Sum,
+    data_labels=True,
+    y_axis_label='# of 5%+ Intra-Year Pullbacks',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='# of 5%+ Pullbacks', color=Color.Blue)
+    ])
+)(pullback_flag, label=year_num)

@@ -1,0 +1,63 @@
+# =============================================================================
+# VOLATILITY IN A 60/40 IS HISTORICALLY NORMAL IN ALL YEARS
+# =============================================================================
+# Question: How common are intra-year drawdowns in a balanced 60/40 portfolio,
+#   and do they prevent positive annual returns?
+#
+# Chart: xy_bars
+#   - X-axis: Year (labeled by year number)
+#   - Y-axis: Annual return (blue bars, color_by_value) and intra-year drawdown (overlay diamonds)
+#   - Series: Annual return bars colored by positive/negative value
+#   - Overlay: Diamond markers showing largest intra-year drawdown per year
+#
+# Dataset:
+#   - common_reference_stocks (SPY, AGG)
+# =============================================================================
+
+# Volatility in a 60/40 is Historically Normal
+spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
+close = ffill(spy_c)
+
+agg_o, agg_h, agg_l, agg_c, agg_v, agg_vw, agg_n = common_reference_stocks(ticker=ReferenceStock.AGG)()
+agg = ffill(agg_c)
+
+# Daily returns
+spy_ret = (close - (close >> 1)) / (close >> 1)
+agg_ret = (agg - (agg >> 1)) / (agg >> 1)
+
+# 60/40 portfolio daily return
+port_ret = spy_ret * 0.6 + agg_ret * 0.4
+
+# Cumulative portfolio value (growth of $1)
+cum_port = cumulative(agg=AggregationType.Sum)(port_ret) + 1
+
+year_num = datetime_extract(component=DatetimeExtractionType.year)(index())
+
+# YTD return (resets at each year start)
+is_yr1 = year_num != (year_num >> 1)
+port_yr_open = ffill(cum_port if is_yr1 else 0.0 / 0.0)
+port_ytd = cum_port / port_yr_open - 1
+
+# All-time peak drawdown (for intra-year min)
+pk_port = cumulative(agg=AggregationType.Max)(cum_port)
+dd_port = (cum_port - pk_port) / pk_port
+
+xy_bars(
+    title='Volatility in a 60/40 is Historically Normal in All Years',
+    category='1. Annual Returns & Drawdowns',
+    agg=AggregationType.Last,
+    y_axis_label='Return / Drawdown',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=0,
+    data_labels=True,
+    color_by_value=True,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Annual Return', color=Color.Blue)
+    ]),
+    overlay_series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Largest Intra-Year Drawdown', color=Color.Gray, marker=MarkerSymbol.DiamondMarker, agg=AggregationType.Min, data_labels=True)
+    ])
+)(values=port_ytd, label=year_num, overlays=dd_port)

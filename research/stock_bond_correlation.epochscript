@@ -1,0 +1,45 @@
+# =============================================================================
+# DO STOCKS AND BONDS STILL DIVERSIFY EACH OTHER?
+# =============================================================================
+# 2-year rolling correlation between SPY and TLT weekly returns
+# Below zero = diversifying (blue), above zero = moving together (gray)
+# =============================================================================
+
+spy_src = market_data_source()()
+close_spy = spy_src.c
+
+tlt_src = reference_stocks(ticker='TLT')()
+close_tlt = tlt_src.c
+
+# Weekly returns
+ret_spy = returns(period=1)(close_spy)
+ret_tlt = returns(period=1)(close_tlt)
+
+# 2-year rolling correlation (104 weeks)
+sbc = rolling_corr(window=104, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_tlt)
+
+# Split into positive and negative for area fill
+corr_positive = where(sbc >= 0, sbc)
+corr_negative = where(sbc < 0, sbc)
+
+idx = index()
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+xy_lines(
+    title='Do Stocks and Bonds Still Diversify Each Other?',
+    category='Stock-Bond Correlation',
+    y_axis_label='Rolling 2Y Correlation',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=2,
+    area=True,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Moving Together', color=Color.Gray),
+        LineSeriesSpec(name='Diversifying', color=Color.Blue)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, title='Zero', color=Color.Slate, dash_style=DashStyle.Solid)
+    ])
+)(idx, corr_positive, corr_negative)

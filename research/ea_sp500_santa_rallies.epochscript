@@ -1,0 +1,72 @@
+# =============================================================================
+# PUTTING NUMBERS BEHIND THE SANTA CLAUS RALLY
+# =============================================================================
+# Question: Is the Santa Claus Rally a real seasonal pattern, and how
+#   significant are the returns during this period?
+#
+# Chart: xy_bars
+#   - X-axis: Trading day position (-5 to +2 around year-end, plus cumulative)
+#   - Y-axis: Average daily return (%) for each position in the 7-day window
+#   - Series: One bar per trading day plus average cumulative return
+#   - Overlay: Reference line at 0%
+#
+# Dataset:
+#   - market_data_source (SPY-Stocks, 1D)
+# =============================================================================
+
+# Putting Numbers Behind The Santa Claus Rally
+src = market_data_source(timeframe=1D)()
+close = src.c
+daily_ret = (close - (close >> 1)) / (close >> 1)
+
+year_num = datetime_extract(component=DatetimeExtractionType.year)(index())
+
+# Detect trading year boundaries (double: 1 or 0)
+is_last_td = 1 if year_num != (year_num << 1) else 0
+is_first_td = 1 if year_num != (year_num >> 1) else 0
+
+# Santa Claus Rally day flags (convert to boolean with > 0)
+d5 = (is_last_td << 4) > 0
+d4 = (is_last_td << 3) > 0
+d3 = (is_last_td << 2) > 0
+d2 = (is_last_td << 1) > 0
+d1 = is_last_td > 0
+p1 = is_first_td > 0
+p2 = (is_first_td >> 1) > 0
+
+# 7-day cumulative return: computed at p3 (3rd trading day of new year)
+# so it appears AFTER p2 in insertion order
+p3 = (is_first_td >> 2) > 0
+cum_7d = ((close >> 1) / (close >> 8) - 1) if p3 else 0.0 / 0.0
+
+# Per-position daily returns
+d5_ret = daily_ret if d5 else 0.0 / 0.0
+d4_ret = daily_ret if d4 else 0.0 / 0.0
+d3_ret = daily_ret if d3 else 0.0 / 0.0
+d2_ret = daily_ret if d2 else 0.0 / 0.0
+d1_ret = daily_ret if d1 else 0.0 / 0.0
+p1_ret = daily_ret if p1 else 0.0 / 0.0
+p2_ret = daily_ret if p2 else 0.0 / 0.0
+
+xy_bars(
+    title='Putting Numbers Behind The Santa Claus Rally',
+    category='1. Santa Claus Rally',
+    agg=AggregationType.Mean,
+    x_axis_label='Trading Day Before Year-End (-) and After Year-End (+)',
+    y_axis_label='Average Return (%)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='-5', color=Color.Blue),
+        BarSeriesSpec(name='-4', color=Color.Blue),
+        BarSeriesSpec(name='-3', color=Color.Blue),
+        BarSeriesSpec(name='-2', color=Color.Blue),
+        BarSeriesSpec(name='-1', color=Color.Blue),
+        BarSeriesSpec(name='+1', color=Color.Blue),
+        BarSeriesSpec(name='+2', color=Color.Blue),
+        BarSeriesSpec(name='Avg Cumulative Return', color=Color.Gray)
+    ])
+)(d5_ret, d4_ret, d3_ret, d2_ret, d1_ret, p1_ret, p2_ret, cum_7d)

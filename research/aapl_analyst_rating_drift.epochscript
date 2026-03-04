@@ -1,0 +1,136 @@
+# =============================================================================
+# IS THERE ASYMMETRY IN AAPL'S REACTION TO ANALYST UPGRADES VS DOWNGRADES?
+# =============================================================================
+# Event: Analyst rating changes (PT raised = upgrade, PT lowered = downgrade)
+# Chart 1 (bar): avg post-20d return by direction — the verdict
+# Chart 2 (table): detailed window breakdown — rating day through post-20d
+# Event marker: each rating change on the price chart
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# ANALYST RATINGS DATA & CLASSIFICATION
+# =============================================================================
+
+ratings = analyst_ratings()()
+pt = ratings.adjusted_price_target
+prev_pt = ratings.previous_adjusted_price_target
+has_rating = is_valid(pt) and is_valid(prev_pt)
+
+# PT change percentage
+pt_change_pct = (pt - prev_pt) / abs(prev_pt)
+
+# Regime classification
+is_upgrade = has_rating and (pt > prev_pt)
+is_downgrade = has_rating and (pt < prev_pt)
+
+# Counters
+upgrade_count = 1.0 if is_upgrade else 0.0
+downgrade_count = 1.0 if is_downgrade else 0.0
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+rating_day = (close - (close >> 1)) / (close >> 1)
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+
+# =============================================================================
+# REGIME-FILTERED SERIES
+# =============================================================================
+
+# Post-20d by regime — for bar chart
+u_post20 = where(is_upgrade, post_20d)
+d_post20 = where(is_downgrade, post_20d)
+
+# Rating day by regime — for summary table
+u_rating = where(is_upgrade, rating_day)
+d_rating = where(is_downgrade, rating_day)
+
+# Post-5d by regime
+u_post5 = where(is_upgrade, post_5d)
+d_post5 = where(is_downgrade, post_5d)
+
+# Post-10d by regime
+u_post10 = where(is_upgrade, post_10d)
+d_post10 = where(is_downgrade, post_10d)
+
+# Event marker helpers
+ev_pt_change = where(has_rating, pt_change_pct)
+ev_direction = conditional_select(is_upgrade, 1.0, is_downgrade, -1.0, 0.0 / 0.0)
+ev_post20 = where(has_rating, post_20d)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- Cards: sample size (not on any chart) ---
+cards(
+    layout=CardLayout(
+        title='AAPL Analyst Rating Drift',
+        cells=[
+            ColumnSpec(title='Upgrade Events (PT Raised)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Downgrade Events (PT Lowered)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='Analyst Rating Drift'
+)(upgrade_count, downgrade_count)
+
+# --- Chart 1: The Verdict — avg post-20d return by direction ---
+xy_bars(
+    title='Is There Asymmetry in Post-Rating Drift?',
+    category='Analyst Rating Drift',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    color_by_value=True,
+    y_axis_label='Avg Post-20d Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Upgrade (PT Raised)'),
+        BarSeriesSpec(name='Downgrade (PT Lowered)')
+    ])
+)(u_post20, d_post20)
+
+# --- Chart 2: Detailed window breakdown ---
+summary_table(
+    layout=SummaryTableLayout(
+        title='Return Profile by Direction and Window',
+        row_size=2,
+        col_size=4,
+        row_headers=['Upgrade (PT Raised)', 'Downgrade (PT Lowered)'],
+        col_headers=['Rating Day', 'Post-5d', 'Post-10d', 'Post-20d'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='Analyst Rating Drift'
+)(u_rating, u_post5, u_post10, u_post20, d_rating, d_post5, d_post10, d_post20)
+
+# --- Event Marker: each rating change on the price chart ---
+event_marker(
+    schema=EventMarkerSchema(
+        title='AAPL Analyst Rating Changes',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='PT Change %', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Direction (1=Up, -1=Down)', type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(has_rating, ev_pt_change, ev_direction, ev_post20)

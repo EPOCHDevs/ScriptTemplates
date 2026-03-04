@@ -1,0 +1,143 @@
+# =============================================================================
+# DOES AAPL STOCK DRIFT HIGHER WHEN GROSS MARGINS EXPAND?
+# =============================================================================
+# Event: Quarterly income statement filings
+# Condition: Gross margin (gross_profit/revenue) vs prior quarter
+# Chart 1 (bar): avg post-20d return by regime — the verdict
+# Chart 2 (table): detailed window breakdown
+# Event marker: each filing on the price chart
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# INCOME STATEMENT DATA & GROSS MARGIN
+# =============================================================================
+
+inc_data = income_statement(period=ReportingPeriod.quarterly)()
+revenue = inc_data.revenue
+gross_profit = inc_data.gross_profit
+gross_margin = gross_profit / revenue
+had_filing = is_valid(gross_margin)
+
+# Prior quarter's gross margin
+prior_margin = valuewhen(occurrence=1)(had_filing, gross_margin)
+
+# =============================================================================
+# REGIME CLASSIFICATION
+# =============================================================================
+
+is_expanding = had_filing and is_valid(prior_margin) and (gross_margin > prior_margin)
+is_contracting = had_filing and is_valid(prior_margin) and (gross_margin <= prior_margin)
+
+# Counters (is_valid guard for Antipattern #14)
+raw_exp = 1.0 if is_expanding else 0.0
+exp_count = raw_exp if is_valid(raw_exp) else 0.0
+raw_con = 1.0 if is_contracting else 0.0
+con_count = raw_con if is_valid(raw_con) else 0.0
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+filing_day = (close - (close >> 1)) / (close >> 1)
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+
+# =============================================================================
+# REGIME-FILTERED SERIES
+# =============================================================================
+
+# Post-20d by regime — for bar chart
+e_post20 = where(is_expanding, post_20d)
+c_post20 = where(is_contracting, post_20d)
+
+# Filing day by regime — for summary table
+e_filing = where(is_expanding, filing_day)
+c_filing = where(is_contracting, filing_day)
+
+# Post-5d by regime
+e_post5 = where(is_expanding, post_5d)
+c_post5 = where(is_contracting, post_5d)
+
+# Post-10d by regime
+e_post10 = where(is_expanding, post_10d)
+c_post10 = where(is_contracting, post_10d)
+
+# Event marker helpers
+ev_margin = where(had_filing, gross_margin)
+ev_direction = conditional_select(is_expanding, 1.0, is_contracting, -1.0, 0.0 / 0.0)
+ev_post20 = where(had_filing, post_20d)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- Cards: sample size (not on any chart) ---
+cards(
+    layout=CardLayout(
+        title='AAPL Gross Margin Drift',
+        cells=[
+            ColumnSpec(title='Expanding Quarters', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Contracting Quarters', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='Gross Margin Drift'
+)(exp_count, con_count)
+
+# --- Chart 1: The Verdict — avg post-20d return by regime ---
+xy_bars(
+    title='Does Margin Expansion Predict Stronger Post-Filing Drift?',
+    category='Gross Margin Drift',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    color_by_value=True,
+    y_axis_label='Avg Post-20d Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Margin Expanding'),
+        BarSeriesSpec(name='Margin Contracting')
+    ])
+)(e_post20, c_post20)
+
+# --- Chart 2: Detailed window breakdown ---
+summary_table(
+    layout=SummaryTableLayout(
+        title='Return Profile by Margin Regime and Window',
+        row_size=2,
+        col_size=4,
+        row_headers=['Margin Expanding', 'Margin Contracting'],
+        col_headers=['Filing Day', 'Post-5d', 'Post-10d', 'Post-20d'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='Gross Margin Drift'
+)(e_filing, e_post5, e_post10, e_post20, c_filing, c_post5, c_post10, c_post20)
+
+# --- Event Marker: each filing on the price chart ---
+event_marker(
+    schema=EventMarkerSchema(
+        title='AAPL Quarterly Filings',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Gross Margin', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Direction (1=Expand, -1=Contract)', type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(had_filing, ev_margin, ev_direction, ev_post20)

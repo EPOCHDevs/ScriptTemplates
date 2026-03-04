@@ -1,0 +1,56 @@
+# =============================================================================
+# WHAT P/E HAS AMZN TYPICALLY TRADED AT?
+# =============================================================================
+# Question: What is AMZN's typical P/E range, and where does it sit today?
+#
+# Chart 1: Histogram — P/E distribution (shape)
+# Chart 2: Summary table — key stats (median, current, min, max, mean)
+#
+# Dataset:
+#   - market_data_source (AMZN-Stocks, 1D)
+#   - income_statement (TTM)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+inc_data = income_statement(period=ReportingPeriod.trailing_twelve_months)()
+eps = ffill(inc_data.basic_eps)
+shares = ffill(inc_data.basic_shares)
+
+pe = finance_ratio(ratio_type=FinanceRatioType.price_to_earnings, period=ReportingPeriod.trailing_twelve_months)(
+    c=close, basic_eps=eps, basic_shares=shares
+).value
+
+# Clamp P/E to reasonable range for histogram (avoid extreme outliers)
+pe_clamped = where(is_valid(pe) and pe > 0 and pe < 200, pe)
+
+# --- Chart 1: P/E Distribution ---
+histogram(
+    title='AMZN Has Traded in a Wide P/E Range',
+    category='Valuation Range',
+    bins=30,
+    fill_color=Color.Blue,
+    show_analytics=True,
+    x_axis_label='P/E Ratio',
+    x_axis_format=AxisValueFormat.DecimalFormat
+)(pe_clamped)
+
+# --- Chart 2: Summary Stats ---
+summary_table(
+    layout=SummaryTableLayout(
+        title='P/E Distribution Stats',
+        row_size=5,
+        col_size=1,
+        row_headers=['Current P/E', 'Median P/E', 'Mean P/E', 'Min P/E', 'Max P/E'],
+        col_headers=['Value'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Min, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=4, grid_col=0, grid_agg=AggregationType.Max, type=CardRenderType.DecimalFormat, dp=1)
+        ]
+    ),
+    category='Valuation Range'
+)(pe_clamped, pe_clamped, pe_clamped, pe_clamped, pe_clamped)

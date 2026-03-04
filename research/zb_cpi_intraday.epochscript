@@ -1,0 +1,171 @@
+# =============================================================================
+# HOW FAST DO BONDS REACT TO CPI AND DOES IT PERSIST INTRADAY?
+# =============================================================================
+# CPI releases at 8:30 AM ET.
+# Regimes: Hot (MoM change accelerating) vs Cool (decelerating)
+# Chart 1: Avg return across 3 time windows (spike → digestion → persistence)
+# Chart 2: Cumulative immediate returns (does the spike compound?)
+# =============================================================================
+
+# === DATA SOURCE (1Min bars) ===
+src = market_data_source()()
+
+# === CONTINUOUS CONTRACT ===
+cont = futures_continuation(s_rollover_method=RolloverType.LastTradingDay, s_adjustment_method=AdjustmentType.NoAdjustment, i_offset=0)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+close = cont.c
+high = cont.h
+low = cont.l
+open_price = cont.o
+
+# === CPI DAY DETECTION ===
+cpi_data = common_economic_indicators(category=MacroEconomicsIndicator.CPI)()
+cpi_value = cpi_data.result
+cpi_filled = ffill_day(cpi_value)
+is_cpi_day = is_valid(cpi_filled)
+
+# === CPI REGIME CLASSIFICATION ===
+had_cpi = is_valid(cpi_value)
+prior_cpi = valuewhen(occurrence=1)(had_cpi, cpi_value)
+cpi_change = cpi_value - prior_cpi
+prior2_cpi = valuewhen(occurrence=2)(had_cpi, cpi_value)
+prior_change = prior_cpi - prior2_cpi
+cpi_chg_filled = ffill_day(cpi_change)
+prior_chg_filled = ffill_day(prior_change)
+
+is_hot = is_cpi_day and is_valid(cpi_chg_filled) and is_valid(prior_chg_filled) and (cpi_chg_filled > prior_chg_filled)
+is_cool = is_cpi_day and is_valid(cpi_chg_filled) and is_valid(prior_chg_filled) and (cpi_chg_filled <= prior_chg_filled)
+
+# === SESSION WINDOWS ===
+
+# Immediate: 08:30-08:31 (first 1 min spike)
+w_imm = session_window(session=Session(start='08:30', end='08:31', tz='America/New_York'))(open_price, high, low, close)
+
+# 1hr Post: 08:30-09:30 (full hour after release)
+w_1hr = session_window(session=Session(start='08:30', end='09:30', tz='America/New_York'))(open_price, high, low, close)
+
+# Full Day: 08:30-16:00 (release through near-close)
+w_full = session_window(session=Session(start='08:30', end='16:00', tz='America/New_York'))(open_price, high, low, close)
+
+# === WINDOW RETURNS ===
+r_imm = ((w_imm.close - w_imm.open) / w_imm.open) if w_imm.closed else 0
+r_1hr = ((w_1hr.close - w_1hr.open) / w_1hr.open) if w_1hr.closed else 0
+r_full = ((w_full.close - w_full.open) / w_full.open) if w_full.closed else 0
+
+# === ALIGNED SERIES FOR XY_BARS ===
+imm_ret_latched = valuewhen(occurrence=0)(w_imm.closed, r_imm)
+hr_ret_latched = valuewhen(occurrence=0)(w_1hr.closed, r_1hr)
+
+# Hot aligned
+hot_bar_imm = where(w_full.closed and is_hot, imm_ret_latched)
+hot_bar_1hr = where(w_full.closed and is_hot, hr_ret_latched)
+hot_bar_full = where(w_full.closed and is_hot, r_full)
+
+# Cool aligned
+cool_bar_imm = where(w_full.closed and is_cool, imm_ret_latched)
+cool_bar_1hr = where(w_full.closed and is_cool, hr_ret_latched)
+cool_bar_full = where(w_full.closed and is_cool, r_full)
+
+# === COUNTERS ===
+hot_count = where(w_1hr.closed and is_hot, 1.0)
+cool_count = where(w_1hr.closed and is_cool, 1.0)
+
+# === CUMULATIVE EVENT RETURNS (with NaN guard) ===
+bar_idx = index()
+hot_imm_raw = r_imm if (w_imm.closed and is_hot) else 0.0
+cool_imm_raw = r_imm if (w_imm.closed and is_cool) else 0.0
+hot_imm_daily = hot_imm_raw if is_valid(hot_imm_raw) else 0.0
+cool_imm_daily = cool_imm_raw if is_valid(cool_imm_raw) else 0.0
+cum_hot_imm = cumulative()(hot_imm_daily)
+cum_cool_imm = cumulative()(cool_imm_daily)
+
+# === EVENT MARKER HELPERS ===
+hot_cpi_chg = where(w_1hr.closed and is_hot, cpi_chg_filled)
+hot_em_imm = where(w_1hr.closed and is_hot, imm_ret_latched)
+hot_em_1hr = where(w_1hr.closed and is_hot, r_1hr)
+hot_em_full = where(w_full.closed and is_hot, r_full)
+cool_cpi_chg = where(w_1hr.closed and is_cool, cpi_chg_filled)
+cool_em_imm = where(w_1hr.closed and is_cool, imm_ret_latched)
+cool_em_1hr = where(w_1hr.closed and is_cool, r_1hr)
+cool_em_full = where(w_full.closed and is_cool, r_full)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- Cards: event counts ---
+cards(
+    layout=CardLayout(
+        title='CPI Intraday Events',
+        cells=[
+            ColumnSpec(title='Hot CPI Events (Accelerating)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Cool CPI Events (Decelerating)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='CPI Intraday'
+)(hot_count, cool_count)
+
+# --- Chart 1: Return by Window (Spike → Digestion → Persistence) ---
+xy_bars(
+    title='Hot CPI Hits Bonds Fast; Does Cool CPI Relief Persist?',
+    category='CPI Intraday',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    y_axis_label='Avg Return',
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Hot: 1min Spike', color=Color.Blue),
+        BarSeriesSpec(name='Hot: 1hr', color=Color.Blue),
+        BarSeriesSpec(name='Hot: Full Day', color=Color.Blue),
+        BarSeriesSpec(name='Cool: 1min Spike', color=Color.Gray),
+        BarSeriesSpec(name='Cool: 1hr', color=Color.Gray),
+        BarSeriesSpec(name='Cool: Full Day', color=Color.Gray)
+    ])
+)(hot_bar_imm, hot_bar_1hr, hot_bar_full, cool_bar_imm, cool_bar_1hr, cool_bar_full)
+
+# --- Chart 2: Cumulative Immediate Returns ---
+xy_lines(
+    title='Does the 1-Minute CPI Spike Compound Across Events?',
+    category='CPI Intraday',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Hot CPI (Accelerating)', color=Color.Blue),
+        LineSeriesSpec(name='Cool CPI (Decelerating)', color=Color.Gray)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title='Breakeven')
+    ])
+)(bar_idx, cum_hot_imm, cum_cool_imm)
+
+# --- Event Markers ---
+event_marker(
+    schema=EventMarkerSchema(
+        title='Hot CPI Events (Accelerating)',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='CPI Change', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Imm 1min Return', type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='1hr Post Return', type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='Full Day Return', type=CardRenderType.PercentFormat, dp=3)
+        ]
+    )
+)(is_hot, hot_cpi_chg, hot_em_imm, hot_em_1hr, hot_em_full)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Cool CPI Events (Decelerating)',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='CPI Change', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Imm 1min Return', type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='1hr Post Return', type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='Full Day Return', type=CardRenderType.PercentFormat, dp=3)
+        ]
+    )
+)(is_cool, cool_cpi_chg, cool_em_imm, cool_em_1hr, cool_em_full)

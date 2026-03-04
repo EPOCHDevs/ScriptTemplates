@@ -1,0 +1,108 @@
+# =============================================================================
+# IS THERE A RELIABLE SPY RETURN PATTERN AROUND QUARTERLY OPEX?
+# =============================================================================
+# Pure seasonality: measure 5-day returns on OPEX Fridays.
+# Chart 1: Avg return by quarter (where is the bias?)
+# Chart 2: Total return by year (is it consistent or outlier-driven?)
+# Cards: Win rate + sample size (not on any chart)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+bar_idx = index()
+
+# =============================================================================
+# 1. OPEX DETECTION
+# =============================================================================
+
+is_third_friday = is_period_boundary(period=PeriodType.month, ordinal=OrdinalType.third, day_anchor=DayAnchorType.friday)(bar_idx)
+current_month = datetime_extract(component=DatetimeExtractionType.month)(bar_idx)
+is_quarter_end_month = (current_month == 3) or (current_month == 6) or (current_month == 9) or (current_month == 12)
+is_opex = is_third_friday and is_quarter_end_month
+
+# =============================================================================
+# 2. OPEX WEEK RETURN
+# =============================================================================
+
+# 5-day return ending on OPEX Friday = that week's return
+ret_5d = roc(period=5)(close)
+
+# Filter to OPEX Fridays only (NaN elsewhere)
+opex_ret = ret_5d if is_opex else 0.0 / 0.0
+
+# NaN propagation for labels
+nan_flag = opex_ret / opex_ret
+
+# Quarter and year labels (NaN on non-OPEX days)
+quarter = datetime_extract(component=DatetimeExtractionType.quarter)(bar_idx)
+opex_quarter = quarter * nan_flag
+
+year = datetime_extract(component=DatetimeExtractionType.year)(bar_idx)
+opex_year = year * nan_flag
+
+# Win rate
+opex_win = 1.0 if (is_opex and ret_5d > 0) else 0.0
+opex_win_filtered = opex_win if is_opex else 0.0 / 0.0
+opex_count = 1.0 if is_opex else 0.0
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- Cards: stats not visible on charts ---
+cards(
+    layout=CardLayout(
+        title='OPEX Week Overview',
+        cells=[
+            ColumnSpec(title='Win Rate (% Positive Weeks)', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='OPEX Events Sampled', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='Seasonality'
+)(opex_win_filtered, opex_count)
+
+# --- Chart 1: Avg OPEX Week Return by Quarter ---
+xy_bars(
+    title='Which Quarter Has the Strongest OPEX Week Bias?',
+    category='Seasonality',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    color_by_value=True,
+    x_category_type=CategoryAxisType.Quarter,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    y_axis_label='Avg 5-Day Return',
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ])
+)(values=opex_ret, label=opex_quarter)
+
+# --- Chart 2: Total OPEX Week Return by Year ---
+xy_bars(
+    title='Does the OPEX Effect Show Up Every Year?',
+    category='Seasonality',
+    agg=AggregationType.Sum,
+    data_labels=True,
+    color_by_value=True,
+    x_category_type=CategoryAxisType.Exact,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    y_axis_label='Total OPEX Week Return',
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ])
+)(values=opex_ret, label=opex_year)
+
+# --- Chart 3: Quarter x Year Heatmap (every single event) ---
+heatmap(
+    title='OPEX Week Returns: Every Event at a Glance',
+    category='Seasonality',
+    x_axis_label='Quarter',
+    y_axis_label='Year',
+    min_color=Color.Blue,
+    max_color=Color.Sky,
+    show_data_labels=True,
+    data_label_format='{point.value:.2f}%',
+    value_format=AxisValueFormat.PercentFormat,
+    x_category_type=CategoryAxisType.Quarter
+)(x=opex_quarter, y=opex_year, value=opex_ret)

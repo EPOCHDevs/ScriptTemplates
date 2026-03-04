@@ -1,0 +1,68 @@
+# =============================================================================
+# HISTORICALLY, THE BEST AND WORST DAYS HAVE CLUSTERED
+# =============================================================================
+# Question: Do the best and worst days in the stock market occur randomly, or
+#   do they tend to cluster together?
+#
+# Chart: xy_lines + event_marker
+#   - X-axis: Date (timestamp index)
+#   - Y-axis: S&P 500 price level
+#   - Series: S&P 500 price (blue line), 25 Best Days (green dots),
+#     25 Worst Days (red dots)
+#   - Overlay: Event markers for big up days (>2%) and big down days (<-2%)
+#
+# Dataset:
+#   - market_data_source (SPY-Stocks, 1D)
+# =============================================================================
+
+# Historically, The Best and Worst Days Have Clustered
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+daily_ret = (close - (close >> 1)) / (close >> 1)
+
+# Identify extreme days: >2% = best, <-2% = worst
+is_big_up = daily_ret > 0.02
+is_big_down = daily_ret < -0.02
+
+# Price only on extreme days (NaN elsewhere) for dot overlay
+best_price = close if is_big_up else 0.0 / 0.0
+worst_price = close if is_big_down else 0.0 / 0.0
+
+up_ret = where(is_big_up, daily_ret)
+down_ret = where(is_big_down, daily_ret)
+
+bar_ts = index()
+
+xy_lines(
+    title='Historically, The Best and Worst Days Have Clustered',
+    category='1. Extreme Days',
+    y_axis_label='S&P 500',
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='S&P 500', color=Color.Blue),
+        LineSeriesSpec(name='25 Best Days', color=Color.Green, marker=MarkerSymbol.CircleMarker),
+        LineSeriesSpec(name='25 Worst Days', color=Color.Red, marker=MarkerSymbol.CircleMarker)
+    ])
+)(bar_ts, close, best_price, worst_price)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Big Up Days (>2%)',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Daily Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_big_up, up_ret)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Big Down Days (<-2%)',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Daily Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_big_down, down_ret)

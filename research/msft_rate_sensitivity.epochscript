@@ -1,0 +1,75 @@
+# =============================================================================
+# DOES MSFT SELL OFF WHEN REAL RATES RISE?
+# =============================================================================
+# Question: Does MSFT underperform when real rates rise?
+#
+# Regime: real yield above vs below its 60-day SMA
+# Chart 1: MSFT price path colored by regime
+# Chart 2: Total MSFT return during each regime
+#
+# Dataset:
+#   - market_data_source (MSFT-Stocks, 1D)
+#   - economic_indicators (DFII10 — 10Y TIPS real yield)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# 10Y TIPS Real Yield
+fred = economic_indicators(series_id='DFII10')()
+real_yield = ffill(fred.result)
+
+# Regime detection: yield vs its 60-day moving average
+yield_sma = sma(period=60)(real_yield)
+daily_ret = returns(period=1, type=ReturnsType.log)(close)
+
+# Price paths by regime
+# where() returns NaN for false — creates colored segments with gaps
+msft_rates_falling = where(real_yield <= yield_sma, close)
+msft_rates_rising = where(real_yield > yield_sma, close)
+
+# Cumulative return by regime
+# 0.0 fallback so non-regime days contribute nothing to cumulative sum
+ret_when_rising = where(real_yield > yield_sma, daily_ret, 0.0)
+ret_when_falling = where(real_yield <= yield_sma, daily_ret, 0.0)
+cum_when_rising = cumulative()(ret_when_rising)
+cum_when_falling = cumulative()(ret_when_falling)
+
+bar_ts = index()
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# Chart 1: MSFT price colored by rate regime
+xy_lines(
+    title='Does MSFT Perform Better When Rates Are Falling?',
+    category='Rate Sensitivity',
+    area=True,
+    y_axis_label='MSFT Price',
+    y_axis_format=AxisValueFormat.MonetaryFormat,
+    y_axis_dp=0,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Rates Falling', color=Color.Blue),
+        LineSeriesSpec(name='Rates Rising', color=Color.Gray)
+    ])
+)(bar_ts, msft_rates_falling, msft_rates_rising)
+
+# Chart 2: Total return accumulated in each regime
+xy_bars(
+    title='MSFT Total Return by Rate Regime',
+    category='Rate Sensitivity',
+    agg=AggregationType.Last,
+    data_labels=True,
+    color_by_value=True,
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Rates Rising'),
+        BarSeriesSpec(name='Rates Falling')
+    ])
+)(cum_when_rising, cum_when_falling)

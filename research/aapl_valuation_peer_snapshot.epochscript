@@ -1,0 +1,61 @@
+# =============================================================================
+# MEGA-CAP TECH VALUATION SNAPSHOT: WHO'S CHEAPEST?
+# =============================================================================
+# Question: Which mega-cap tech stock is cheapest on each valuation metric today?
+#
+# Charts:
+#   1. cs_bars — Grouped bars: P/E, P/S, EV/EBITDA per asset
+#
+# Note: P/B excluded — book value is unreliable for tech (intangibles),
+#   and mixing quarterly balance_sheet P/B with TTM income_statement
+#   ratios in cs_summary_table triggers a data pipeline bug.
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# Fundamental data
+inc_data = income_statement(period=ReportingPeriod.trailing_twelve_months)()
+bs_data = balance_sheet(period=ReportingPeriod.quarterly)()
+
+# Forward-fill to daily frequency
+eps = ffill(inc_data.basic_eps)
+shares = ffill(inc_data.basic_shares)
+revenue = ffill(inc_data.revenue)
+ebitda_val = ffill(inc_data.ebitda)
+lt_debt = ffill(bs_data.lt_debt)
+cash_val = ffill(bs_data.cash)
+
+# Valuation multiples
+pe = finance_ratio(ratio_type=FinanceRatioType.price_to_earnings, period=ReportingPeriod.trailing_twelve_months)(
+    c=close, basic_eps=eps, basic_shares=shares
+).value
+
+ps = finance_ratio(ratio_type=FinanceRatioType.price_to_sales, period=ReportingPeriod.trailing_twelve_months)(
+    c=close, revenue=revenue, basic_shares=shares
+).value
+
+ev_ebitda = finance_ratio(ratio_type=FinanceRatioType.ev_to_ebitda, period=ReportingPeriod.trailing_twelve_months)(
+    c=close, basic_shares=shares, ebitda=ebitda_val, lt_debt=lt_debt, cash=cash_val
+).value
+
+# Bar-safe values (0.0 when NaN — asset may lack sufficient fundamental data)
+pe_bar = pe if is_valid(pe) else 0.0
+ps_bar = ps if is_valid(ps) else 0.0
+eve_bar = ev_ebitda if is_valid(ev_ebitda) else 0.0
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+cs_bars(
+    title='Valuation Multiples at a Glance',
+    category='Valuation Snapshot',
+    agg=AggregationType.Last,
+    data_labels=True,
+    y_axis_label='Multiple',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=1,
+    colors=[Color.Blue, Color.Slate, Color.Cyan],
+    series_names=['P/E', 'P/S', 'EV/EBITDA']
+)(pe_bar, ps_bar, eve_bar)

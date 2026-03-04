@@ -1,0 +1,39 @@
+# =============================================================================
+# ALL TIME HIGHS IN THE S&P 500 ARE COMMON
+# =============================================================================
+# Question: How frequently does the S&P 500 reach new all-time highs, and
+#   should investors be concerned when the market hits a new peak?
+#
+# Chart: xy_lines
+#   - X-axis: Date (timestamp index)
+#   - Y-axis: S&P 500 price (log scale)
+#   - Series: S&P 500 price line (blue), ATH marker dots (gray circles)
+#   - Overlay: None
+#
+# Dataset:
+#   - common_reference_stocks (SPY)
+# =============================================================================
+
+# All Time Highs in the S&P 500 are Common
+spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
+close = ffill(spy_c)
+
+running_max = cumulative(agg=AggregationType.Max)(close)
+is_ath = close >= running_max
+ath_flag = 1.0 if is_ath else 0.0
+
+# Price only on ATH days (NaN elsewhere) for dot overlay
+ath_price = close if is_ath else 0.0 / 0.0
+
+bar_ts = index()
+
+xy_lines(
+    title='All Time Highs in the S&P 500 are Common',
+    category='1. All-Time Highs',
+    y_axis_label='S&P 500 (Log Scale)',
+    log_scale=True,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='S&P 500 Price', color=Color.Blue),
+        LineSeriesSpec(name='ATH', color=Color.Gray, marker=MarkerSymbol.CircleMarker)
+    ])
+)(bar_ts, close, ath_price)

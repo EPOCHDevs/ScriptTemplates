@@ -1,0 +1,128 @@
+# =============================================================================
+# HOW DOES SPY REACT WHEN THE YIELD CURVE INVERTS OR UN-INVERTS?
+# =============================================================================
+# Event: 10Y-2Y spread zero-crossings
+# Rare events — long post-event window (T+252)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# YIELD CURVE DATA
+# =============================================================================
+
+spread_date, spread_value, spread_rev = common_economic_indicators(category=MacroEconomicsIndicator.Spread10Y2Y)()
+spread_filled = ffill(spread_value)
+prev_spread = spread_filled >> 1
+
+# =============================================================================
+# ZERO-CROSSING DETECTION
+# =============================================================================
+
+is_new_inversion = (spread_filled < 0.0) and (prev_spread >= 0.0) and is_valid(prev_spread)
+is_un_inversion = (spread_filled >= 0.0) and (prev_spread < 0.0) and is_valid(prev_spread)
+
+# Counters
+raw_inv = 1.0 if is_new_inversion else 0.0
+inv_count = raw_inv if is_valid(raw_inv) else 0.0
+raw_uninv = 1.0 if is_un_inversion else 0.0
+uninv_count = raw_uninv if is_valid(raw_uninv) else 0.0
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+event_day = (close - (close >> 1)) / (close >> 1)
+post_20d = ((close << 20) - close) / close
+post_60d = ((close << 60) - close) / close
+post_126d = ((close << 126) - close) / close
+post_252d = ((close << 252) - close) / close
+
+# =============================================================================
+# REGIME-FILTERED SERIES
+# =============================================================================
+
+inv_post252 = where(is_new_inversion, post_252d)
+uninv_post252 = where(is_un_inversion, post_252d)
+
+inv_day = where(is_new_inversion, event_day)
+uninv_day = where(is_un_inversion, event_day)
+
+inv_post60 = where(is_new_inversion, post_60d)
+uninv_post60 = where(is_un_inversion, post_60d)
+
+inv_post126 = where(is_new_inversion, post_126d)
+uninv_post126 = where(is_un_inversion, post_126d)
+
+# Event marker helpers
+ev_spread = where(is_new_inversion or is_un_inversion, spread_filled)
+ev_direction = conditional_select(is_new_inversion, -1.0, is_un_inversion, 1.0, 0.0 / 0.0)
+ev_post252 = coalesce(where(is_new_inversion, post_252d), where(is_un_inversion, post_252d))
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='Yield Curve Crossings',
+        cells=[
+            ColumnSpec(title='New Inversions', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Un-Inversions', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='Yield Curve Inversion'
+)(inv_count, uninv_count)
+
+xy_bars(
+    title='How Does SPY Perform 1 Year After Yield Curve Crossings?',
+    category='Yield Curve Inversion',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    color_by_value=True,
+    y_axis_label='Avg Post-252d Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='New Inversion'),
+        BarSeriesSpec(name='Un-Inversion')
+    ])
+)(inv_post252, uninv_post252)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Return Profile by Crossing Type and Window',
+        row_size=2,
+        col_size=4,
+        row_headers=['New Inversion', 'Un-Inversion'],
+        col_headers=['Event Day', 'Post-60d', 'Post-126d', 'Post-252d'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='Yield Curve Inversion'
+)(inv_day, inv_post60, inv_post126, inv_post252, uninv_day, uninv_post60, uninv_post126, uninv_post252)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Yield Curve Crossings',
+        icon=Icon.AlertTriangleIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='10Y-2Y Spread', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Direction (-1=Inversion, 1=Un-inv)', type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-252d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_new_inversion or is_un_inversion, ev_spread, ev_direction, ev_post252)

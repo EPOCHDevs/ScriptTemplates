@@ -1,0 +1,44 @@
+# =============================================================================
+# RETAIL SALES
+# =============================================================================
+# Question: How have monthly retail sales been trending, and what does the
+#   recent data suggest about consumer spending strength?
+#
+# Chart: xy_bars
+#   - X-axis: Month (CategoryAxisType.Month)
+#   - Y-axis: Month-over-month percentage change in retail sales
+#   - Series: Month-Over-Month % (Blue bars, color by value)
+#   - Overlay: Reference line at 0%
+#
+# Dataset:
+#   - common_economic_indicators (RetailSales)
+# =============================================================================
+
+# Retail Sales - MoM % Change
+rs_obs, rs_val, rs_rev = common_economic_indicators(category=MacroEconomicsIndicator.RetailSales)()
+had_rs = is_valid(rs_val)
+
+# MoM change (only valid on release dates)
+prior_rs = valuewhen(occurrence=1)(had_rs, rs_val)
+rs_mom = (rs_val - prior_rs) / prior_rs
+
+# Data month from observation date (only valid on release dates, not forward-filled)
+data_month = datetime_extract(component=DatetimeExtractionType.month, timezone='America/New_York')(rs_obs)
+
+xy_bars(
+    title='Retail Sales Advance Month-Over-Month (%)',
+    category='1. Consumer',
+    agg=AggregationType.Last,
+    data_labels=True,
+    color_by_value=True,
+    y_axis_label='Month-Over-Month (%)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    x_category_type=CategoryAxisType.Month,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title='Zero')
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Month-Over-Month (%)', color=Color.Blue)
+    ])
+)(rs_mom, label=data_month)

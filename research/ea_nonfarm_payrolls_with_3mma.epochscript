@@ -1,0 +1,62 @@
+# =============================================================================
+# A LOOK AT MONTHLY JOB GROWTH
+# =============================================================================
+# Question: How has monthly U.S. job growth trended recently, and what does the
+#   3-month moving average reveal about the labor market's trajectory?
+#
+# Chart: xy_bars (with line overlay)
+#   - X-axis: Month-Year (YYYYMM encoded labels)
+#   - Y-axis: Thousands of Persons (monthly change in nonfarm payrolls)
+#   - Series: Monthly Change (bars, color by value)
+#   - Overlay: 3-Month Moving Average (dashed gray line)
+#
+# Dataset: economic_indicators
+#   - economic_indicators(series_id='PAYEMS') - Total Nonfarm Payrolls from FRED
+# =============================================================================
+
+# Monthly Job Growth - Nonfarm Payrolls with 3-Month MA
+# Use regular FRED (not ALFRED) so levels are consistently revised
+nfp_obs, nfp_val, nfp_rev = economic_indicators(series_id='PAYEMS', use_alfred=False)()
+
+had_nfp = is_valid(nfp_val)
+
+# NFP is a level (total employees). Monthly change = current - prior
+prior_nfp = valuewhen(occurrence=1)(had_nfp, nfp_val)
+nfp_change = nfp_val - prior_nfp
+nfp_change_filled = ffill(nfp_change)
+
+# 3-month MA of the change
+prior2_nfp = valuewhen(occurrence=2)(had_nfp, nfp_val)
+change_1 = nfp_val - prior_nfp
+change_2 = prior_nfp - prior2_nfp
+prior3_nfp = valuewhen(occurrence=3)(had_nfp, nfp_val)
+change_3 = prior2_nfp - prior3_nfp
+nfp_3mma = (change_1 + change_2 + change_3) / 3
+nfp_3mma_filled = ffill(nfp_3mma)
+
+# Format labels: YYYYMM encoding
+# With regular FRED, observation_date is null so extract from index
+nfp_idx = index()
+nfp_month = datetime_extract(component=DatetimeExtractionType.month)(nfp_idx)
+nfp_year = datetime_extract(component=DatetimeExtractionType.year)(nfp_idx)
+nfp_label = nfp_year * 100 + nfp_month
+
+xy_bars(
+    title='A Look at Monthly Job Growth',
+    category='1. Employment',
+    agg=AggregationType.Last,
+    y_axis_label='Thousands of Persons',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=0,
+    color_by_value=True,
+    x_category_type=CategoryAxisType.MonthYear,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Monthly Change', color=Color.Blue)
+    ]),
+    overlay_series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='3-Month Moving Average', color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ])
+)(values=nfp_change_filled, label=nfp_label, overlays=nfp_3mma_filled)

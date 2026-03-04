@@ -1,0 +1,61 @@
+# =============================================================================
+# HOW HAS THE S&P 500 PERFORMED DURING GOVERNMENT SHUTDOWNS?
+# =============================================================================
+# Question: Do government shutdowns historically lead to negative stock market
+#   returns?
+#
+# Chart: xy_bars
+#   - X-axis: Government shutdown events (labeled by date)
+#   - Y-axis: S&P 500 return during each shutdown period (percent)
+#   - Series: 5 bars for each shutdown (Sep 2013, Jan 2018, Dec 2018, Oct 2023, Oct 2025)
+#   - Overlay: Reference line at 0%
+#
+# Dataset:
+#   - market_data_source (SPY-Stocks, 1D)
+# =============================================================================
+
+# S&P 500 Returns During Government Shutdowns
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# Date detection
+yy = datetime_extract(component=DatetimeExtractionType.year)(index())
+mm = datetime_extract(component=DatetimeExtractionType.month)(index())
+dd = datetime_extract(component=DatetimeExtractionType.day)(index())
+date_num = yy * 10000 + mm * 100 + dd
+
+# Sep 2013 (9/30-10/16): 14 trading day lag
+sd_2013 = ((close / (close >> 14)) - 1) if date_num == 20131017 else 0.0 / 0.0
+
+# Jan 2018 (1/20-1/22): 2 trading day lag
+sd_2018a = ((close / (close >> 2)) - 1) if date_num == 20180122 else 0.0 / 0.0
+
+# Dec 2018 (12/22-1/25): 23 trading day lag
+sd_2018b = ((close / (close >> 23)) - 1) if date_num == 20190125 else 0.0 / 0.0
+
+# Oct 2023 (10/1-11/17): 34 trading day lag
+sd_2023 = ((close / (close >> 34)) - 1) if date_num == 20231117 else 0.0 / 0.0
+
+# Oct 2025 (9/30-11/12): 31 trading day lag (latest)
+sd_2025 = ((close / (close >> 31)) - 1) if date_num == 20251112 else 0.0 / 0.0
+
+xy_bars(
+    title='S&P 500 Returns During Government Shutdowns',
+    category='1. Shutdown Returns',
+    agg=AggregationType.Sum,
+    x_axis_label='Start of Government Shutdowns',
+    y_axis_label='S&P 500 Return During Government Shutdown',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    data_labels=True,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Sep 2013', color=Color.Blue),
+        BarSeriesSpec(name='Jan 2018', color=Color.Blue),
+        BarSeriesSpec(name='Dec 2018', color=Color.Blue),
+        BarSeriesSpec(name='Oct 2023', color=Color.Blue),
+        BarSeriesSpec(name='Oct 2025', color=Color.Gray)
+    ])
+)(sd_2013, sd_2018a, sd_2018b, sd_2023, sd_2025)

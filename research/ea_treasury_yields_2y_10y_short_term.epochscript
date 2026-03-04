@@ -1,0 +1,36 @@
+# =============================================================================
+# A SHORT-TERM VIEW OF U.S. TREASURY YIELDS
+# =============================================================================
+# Question: How have 2-year and 10-year U.S. Treasury yields moved over the
+#   past two years, and what is the current relationship between them?
+#
+# Chart: xy_lines
+#   - X-axis: Date (timestamp index)
+#   - Y-axis: Treasury Yield (%)
+#   - Series: 10-Year Treasury Yield, 2-Year Treasury Yield
+#   - Overlay: None
+#
+# Dataset:
+#   - common_economic_indicators (Treasury2Y, Treasury10Y)
+# =============================================================================
+
+# A Short-Term View Of U.S. Treasury Yields
+y2_obs, y2_val, y2_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury2Y)()
+y10_obs, y10_val, y10_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury10Y)()
+
+y2_filled = ffill(y2_val)
+y10_filled = ffill(y10_val)
+
+bar_ts = index()
+
+xy_lines(
+    title='2-Year and 10-Year U.S. Treasury Yields Over The Short-Term',
+    category='1. Treasury Yields',
+    y_axis_label='Treasury Yield (%)',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='10-Year Treasury Yield (%)', color=Color.Blue),
+        LineSeriesSpec(name='2-Year Treasury Yield (%)', color=Color.Gray)
+    ])
+)(bar_ts, y10_filled, y2_filled)

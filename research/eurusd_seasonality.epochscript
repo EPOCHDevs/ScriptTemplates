@@ -1,0 +1,100 @@
+# =============================================================================
+# DOES EUR/USD HAVE EXPLOITABLE MONTHLY OR DAY-OF-WEEK SEASONALITY?
+# =============================================================================
+# Two time dimensions: monthly (12 buckets) and day-of-week (5 buckets).
+# Chart 1: Avg return by month (where is the bias?)
+# Chart 2: Month x Year heatmap (is it consistent?)
+# Chart 3: Avg return by day-of-week (intraweek pattern?)
+# Cards: Win rate + sample size (not on any chart)
+# =============================================================================
+
+src_daily = market_data_source()()
+close_daily = src_daily.c
+
+src_monthly = market_data_source(timeframe=1M)()
+close_monthly = src_monthly.c
+
+# =============================================================================
+# RETURNS
+# =============================================================================
+
+daily_ret = returns(period=1)(close_daily)
+monthly_ret = returns(period=1, timeframe=1M)(close_monthly)
+
+# Win/loss on monthly returns
+is_positive = 1 if monthly_ret > 0 else 0
+
+# =============================================================================
+# DATE COMPONENTS
+# =============================================================================
+
+daily_index = index()
+daily_month = datetime_extract(component=DatetimeExtractionType.month)(daily_index)
+daily_dow = datetime_extract(component=DatetimeExtractionType.day_of_week)(daily_index)
+
+monthly_index = index(timeframe=1M)
+month_num = datetime_extract(component=DatetimeExtractionType.month)(monthly_index)
+monthly_year = datetime_extract(component=DatetimeExtractionType.year)(monthly_index)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- Cards: stats not on any chart ---
+cards(
+    layout=CardLayout(
+        title='EUR/USD Seasonality',
+        cells=[
+            ColumnSpec(title='Monthly Win Rate', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Months Sampled', card_agg=AggregationType.Count, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='Seasonality'
+)(is_positive, monthly_ret)
+
+# --- Chart 1: Avg Monthly Return by Calendar Month ---
+xy_bars(
+    title='Which Months Favor EUR/USD Bulls or Bears?',
+    category='Seasonality',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    color_by_value=True,
+    x_category_type=CategoryAxisType.Month,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    y_axis_label='Avg Monthly Return',
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ])
+)(values=daily_ret, label=daily_month)
+
+# --- Chart 2: Month x Year Heatmap ---
+heatmap(
+    title='EUR/USD Monthly Returns: Every Data Point',
+    category='Seasonality',
+    x_axis_label='Month',
+    y_axis_label='Year',
+    min_color=Color.Blue,
+    max_color=Color.Sky,
+    show_data_labels=True,
+    data_label_format='{point.value:.2f}%',
+    value_format=AxisValueFormat.PercentFormat,
+    x_category_type=CategoryAxisType.Month,
+    timeframe=1M
+)(x=month_num, y=monthly_year, value=monthly_ret)
+
+# --- Chart 3: Avg Return by Day of Week ---
+xy_bars(
+    title='Is There an Intraweek Pattern in EUR/USD?',
+    category='Seasonality',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    color_by_value=True,
+    x_category_type=CategoryAxisType.DayOfWeek,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    y_axis_label='Avg Daily Return',
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ])
+)(values=daily_ret, label=daily_dow)

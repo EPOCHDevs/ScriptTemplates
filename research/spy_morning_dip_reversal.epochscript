@@ -1,0 +1,161 @@
+# =============================================================================
+# DOES SPY MEAN-REVERT WHEN IT DIPS AT THE OPEN?
+# =============================================================================
+# Buy at 9:45 if price < day open, sell at 10:30
+# Equity curve = does it compound? Histogram = what's the shape?
+# Day-of-week bars = when is the effect strongest?
+# =============================================================================
+
+src = market_data_source(timeframe=5Min)()
+
+# Day's open price (first bar of RTH)
+rth_sw = session_window(session=SessionType.EquityRTHSession)(src.o, src.h, src.l, src.c)
+day_open = rth_sw.open
+
+# 9:45-10:30 trading window
+trade_session = session_window(session=Session(start='09:45', end='10:30', tz='America/New_York'))(src.o, src.h, src.l, src.c)
+
+# Condition: price at 9:45 is below the 9:30 open
+down_from_open = trade_session.open < day_open
+
+# Session return (9:45 to 10:30)
+raw_return = (trade_session.close - trade_session.open) / trade_session.open
+
+# Triggered flag (session closed AND was down from open)
+triggered_raw = trade_session.closed and down_from_open
+triggered = triggered_raw if is_valid(triggered_raw) else False
+
+# Dense session return (NaN-guarded for cumulative product)
+session_return_raw = raw_return if triggered else 0
+session_return = session_return_raw if is_valid(session_return_raw) else 0
+
+# Sparse triggered-only return (NaN when not triggered, for histogram)
+triggered_return = raw_return if triggered else 0.0 / 0.0
+
+# Win/loss flags (NaN-guarded)
+is_win_raw = triggered and raw_return > 0
+is_win = is_win_raw if is_valid(is_win_raw) else False
+is_loss_raw = triggered and raw_return < 0
+is_loss = is_loss_raw if is_valid(is_loss_raw) else False
+
+# Counts for cards (NaN-guarded)
+win_count_raw = 1 if is_win else 0
+win_count = win_count_raw if is_valid(win_count_raw) else 0
+triggered_count_raw = 1 if triggered else 0
+triggered_count = triggered_count_raw if is_valid(triggered_count_raw) else 0
+
+# Win rate series (running)
+cum_wins = cumulative(agg=AggregationType.Sum)(win_count)
+cum_triggered = cumulative(agg=AggregationType.Sum)(triggered_count)
+win_rate_raw = cum_wins / cum_triggered if cum_triggered > 0 else 0.0 / 0.0
+win_rate = win_rate_raw if is_valid(win_rate_raw) else 0.0 / 0.0
+
+# Cumulative compounded return (dense, NaN-safe)
+cum_return = cumulative(agg=AggregationType.Product)(1 + session_return) - 1
+
+# Day-of-week split: triggered return per day (NaN when not that day or not triggered)
+bar_idx = index()
+day_of_week = datetime_extract(component=DatetimeExtractionType.day_of_week)(bar_idx)
+mon_ret = triggered_return if day_of_week == 0 else 0.0 / 0.0
+tue_ret = triggered_return if day_of_week == 1 else 0.0 / 0.0
+wed_ret = triggered_return if day_of_week == 2 else 0.0 / 0.0
+thu_ret = triggered_return if day_of_week == 3 else 0.0 / 0.0
+fri_ret = triggered_return if day_of_week == 4 else 0.0 / 0.0
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- Cards: stats not shown on any chart ---
+cards(
+    layout=CardLayout(
+        title='Morning Dip Reversal',
+        cells=[
+            ColumnSpec(title='Win Rate', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Triggered Days', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(title='Avg Return per Trade', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=3)
+        ]
+    ),
+    category='Morning Dip'
+)(win_rate, triggered_count, triggered_return)
+
+# --- Chart 1: Equity Curve ---
+xy_lines(
+    title='The Morning Dip Edge Compounds Slowly but Steadily',
+    category='Morning Dip',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Cumulative Return', color=Color.Blue)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title='Breakeven')
+    ])
+)(x_values=bar_idx, y_values=cum_return)
+
+# --- Chart 2: Return Distribution ---
+histogram(
+    title='Most Trades Cluster Near Zero with a Slight Positive Skew',
+    category='Morning Dip',
+    x_axis_label='Trade Return',
+    y_axis_label='Frequency',
+    bins=30,
+    x_axis_format=AxisValueFormat.PercentFormat,
+    fill_color=Color.Blue,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title='Zero')
+    ])
+)(value=triggered_return)
+
+# --- Chart 3: Day-of-Week Bars (named series, Mean skips NaN) ---
+xy_bars(
+    title='Which Days Show the Strongest Morning Dip Reversal?',
+    category='Morning Dip',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    color_by_value=True,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    y_axis_label='Avg Trade Return',
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Monday'),
+        BarSeriesSpec(name='Tuesday'),
+        BarSeriesSpec(name='Wednesday'),
+        BarSeriesSpec(name='Thursday'),
+        BarSeriesSpec(name='Friday')
+    ])
+)(mon_ret, tue_ret, wed_ret, thu_ret, fri_ret)
+
+# --- Event Markers: Win/Loss trades on price chart ---
+event_marker(
+    schema=EventMarkerSchema(
+        title='Winning Trades',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Day Open', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Entry (9:45)', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Exit (10:30)', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='Gap from Open', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_win, raw_return, day_open, trade_session.open, trade_session.close, (trade_session.open - day_open) / day_open)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Losing Trades',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Day Open', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Entry (9:45)', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Exit (10:30)', type=CardRenderType.MonetaryFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Subtitle, title='Gap from Open', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_loss, raw_return, day_open, trade_session.open, trade_session.close, (trade_session.open - day_open) / day_open)

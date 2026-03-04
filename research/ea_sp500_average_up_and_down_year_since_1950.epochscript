@@ -1,0 +1,48 @@
+# =============================================================================
+# MOST YEARS SEE BIG GAINS OR BIG LOSSES
+# =============================================================================
+# Question: How do average gains in up years compare to average losses in down
+#   years for the S&P 500?
+#
+# Chart: xy_bars
+#   - X-axis: Up Year vs Down Year categories
+#   - Y-axis: Average annual return (percent)
+#   - Series: Average Up Year (blue), Average Down Year (white)
+#   - Overlay: Reference line at 0%
+#
+# Dataset:
+#   - market_data_source (SPY-Stocks, 1D)
+# =============================================================================
+
+# Most Years See Big Gains or Big Losses
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# Detect last trading day of each year
+year_num = datetime_extract(component=DatetimeExtractionType.year)(index())
+is_last_td = year_num != (year_num << 1)
+
+# Annual return (approx calendar year via 252-day lag)
+ret_1y = (close - (close >> 252)) / (close >> 252)
+
+# Only emit at year-end
+yr_ret = ret_1y if is_last_td else 0.0 / 0.0
+up_ret = yr_ret if yr_ret > 0 else 0.0 / 0.0
+down_ret = yr_ret if yr_ret < 0 else 0.0 / 0.0
+
+xy_bars(
+    title='Most Years See Big Gains or Big Losses',
+    category='1. Average Up and Down Year',
+    agg=AggregationType.Mean,
+    y_axis_label='S&P 500 Average Return in Up or Down Years',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    data_labels=True,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Average Up Year', color=Color.Blue),
+        BarSeriesSpec(name='Average Down Year', color=Color.White)
+    ])
+)(up_ret, down_ret)

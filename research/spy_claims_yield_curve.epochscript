@@ -1,0 +1,162 @@
+# =============================================================================
+# DO CLAIMS SPIKES HURT MORE WHEN THE YIELD CURVE IS INVERTED?
+# =============================================================================
+# Event: Initial claims spike (>10% above prior 3-reading average)
+# Condition: 10Y-2Y yield spread regime (positive vs inverted)
+# Chart 1: Day-of + post-20d return (both regimes)
+# Chart 2: Cumulative event returns (does it compound?)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+bar_idx = index()
+
+# =============================================================================
+# INITIAL CLAIMS DATA & SPIKE DETECTION
+# =============================================================================
+
+claims_data = common_economic_indicators(category=MacroEconomicsIndicator.InitialClaims)()
+claims = claims_data.result
+had_claims = is_valid(claims)
+prior_claims = valuewhen(occurrence=1)(had_claims, claims)
+prior2_claims = valuewhen(occurrence=2)(had_claims, claims)
+prior3_claims = valuewhen(occurrence=3)(had_claims, claims)
+
+# Spike = current claims > 1.1 * avg of prior 3 readings
+prior_avg = (prior_claims + prior2_claims + prior3_claims) / 3.0
+is_spike = had_claims and is_valid(prior_avg) and (claims > prior_avg * 1.1)
+
+# =============================================================================
+# YIELD CURVE REGIME (FORWARD-FILLED)
+# =============================================================================
+
+spread_data = common_economic_indicators(category=MacroEconomicsIndicator.Spread10Y2Y)()
+spread = spread_data.result
+spread_filled = ffill(spread)
+is_curve_inverted = is_valid(spread_filled) and (spread_filled < 0.0)
+
+# =============================================================================
+# COMBINED REGIME CLASSIFICATION
+# =============================================================================
+
+is_spike_inverted = is_spike and is_curve_inverted
+is_spike_normal = is_spike and not is_curve_inverted
+
+# Counters
+si_count = 1.0 if is_spike_inverted else 0.0
+sn_count = 1.0 if is_spike_normal else 0.0
+si_clean = si_count if is_valid(si_count) else 0.0
+sn_clean = sn_count if is_valid(sn_count) else 0.0
+
+# =============================================================================
+# RETURNS
+# =============================================================================
+
+event_day = (close - (close >> 1)) / (close >> 1)
+post_20d = ((close << 20) - close) / close
+pre_5d = ((close >> 1) - (close >> 5)) / (close >> 5)
+
+# Regime-filtered for bar chart
+si_day = where(is_spike_inverted, event_day)
+si_post20 = where(is_spike_inverted, post_20d)
+sn_day = where(is_spike_normal, event_day)
+sn_post20 = where(is_spike_normal, post_20d)
+
+# =============================================================================
+# CUMULATIVE EVENT RETURNS (with NaN guard)
+# =============================================================================
+
+si_raw = event_day if is_spike_inverted else 0.0
+sn_raw = event_day if is_spike_normal else 0.0
+si_ret = si_raw if is_valid(si_raw) else 0.0
+sn_ret = sn_raw if is_valid(sn_raw) else 0.0
+cum_si = cumulative()(si_ret)
+cum_sn = cumulative()(sn_ret)
+
+# Event marker helpers
+si_claims_val = where(is_spike_inverted, claims)
+si_spread_val = where(is_spike_inverted, spread_filled)
+sn_claims_val = where(is_spike_normal, claims)
+sn_spread_val = where(is_spike_normal, spread_filled)
+si_pre5 = where(is_spike_inverted, pre_5d)
+sn_pre5 = where(is_spike_normal, pre_5d)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- Cards: event counts ---
+cards(
+    layout=CardLayout(
+        title='Claims Spike Events',
+        cells=[
+            ColumnSpec(title='Spike + Inverted Curve', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Spike + Normal Curve', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='Claims + Yield Curve'
+)(si_clean, sn_clean)
+
+# --- Chart 1: Day-of + Post-20d Return Snapshot ---
+xy_bars(
+    title='Claims Spikes Hit Harder When the Curve Is Inverted',
+    category='Claims + Yield Curve',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    y_axis_label='Avg Return',
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Inverted: Day-of', color=Color.Blue),
+        BarSeriesSpec(name='Inverted: +20d', color=Color.Blue),
+        BarSeriesSpec(name='Normal: Day-of', color=Color.Gray),
+        BarSeriesSpec(name='Normal: +20d', color=Color.Gray)
+    ])
+)(si_day, si_post20, sn_day, sn_post20)
+
+# --- Chart 2: Cumulative Event-Day Returns ---
+xy_lines(
+    title='Does the Claims Spike Effect Compound Across Events?',
+    category='Claims + Yield Curve',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Spike + Inverted', color=Color.Blue),
+        LineSeriesSpec(name='Spike + Normal', color=Color.Gray)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title='Breakeven')
+    ])
+)(bar_idx, cum_si, cum_sn)
+
+# --- Event Markers ---
+event_marker(
+    schema=EventMarkerSchema(
+        title='Spike + Inverted Curve Events',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Claims', type=CardRenderType.IntegerFormat),
+            ColumnSpec(card_slot=CardSlot.Details, title='Yield Spread', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_spike_inverted, si_claims_val, si_spread_val, si_pre5, si_post20)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Spike + Normal Curve Events',
+        icon=Icon.AlertTriangleIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Claims', type=CardRenderType.IntegerFormat),
+            ColumnSpec(card_slot=CardSlot.Details, title='Yield Spread', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Pre-5d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_spike_normal, sn_claims_val, sn_spread_val, sn_pre5, sn_post20)

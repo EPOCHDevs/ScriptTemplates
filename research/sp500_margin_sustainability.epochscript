@@ -1,0 +1,97 @@
+# =============================================================================
+# WHEN MARGINS ARE ELEVATED, HOW OFTEN DO THEY PERSIST?
+# =============================================================================
+# Cross-sectional margin sustainability across 30 mega-cap S&P 500 stocks.
+# Tests academic finding that elevated margins mean-revert (Fama & French 1999).
+#
+# Charts:
+#   1. cs_cards — P(Decline | Elevated) hero card
+#   2. cs_bars — P(Decline) ranked by stock
+#   3. cs_summary_table — Sustainability Dashboard (30 stocks)
+#
+# Dataset:
+#   - market_data_source (30 mega-cap stocks, 1D)
+#   - income_statement (TTM)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+
+# --- Fundamental Data ---
+inc_data = income_statement(period=ReportingPeriod.trailing_twelve_months)()
+revenue = ffill(inc_data.revenue)
+operating_income = ffill(inc_data.operating_income)
+
+# Operating margin (TTM)
+op_margin = finance_ratio(ratio_type=FinanceRatioType.operating_margin, period=ReportingPeriod.trailing_twelve_months)(
+    operating_income=operating_income, revenue=revenue
+).value
+
+# 1Y average margin (reference level)
+margin_avg = sma(period=252)(op_margin)
+
+# Margin z-score vs own 1Y history
+margin_std = stddev(period=252)(op_margin)
+margin_z = where(is_valid(margin_std) and margin_std > 0, (op_margin - margin_avg) / margin_std)
+
+# QoQ margin change (63 bars ≈ 1 quarter)
+margin_prev = op_margin >> 63
+margin_change = op_margin - margin_prev
+
+# Decline detection: margin fell vs 1 quarter ago
+declined = 1.0 if is_valid(margin_prev) and op_margin < margin_prev else 0.0
+
+# Elevated detection: z-score was > 1.0 one quarter ago
+lagged_z = margin_z >> 63
+was_elevated = 1.0 if is_valid(lagged_z) and lagged_z > 1.0 else 0.0
+
+# Elevated AND declined
+elevated_declined = 1.0 if was_elevated > 0.5 and declined > 0.5 else 0.0
+
+# Running probability: P(decline | was elevated)
+cum_elevated = cumulative(agg=AggregationType.Sum)(was_elevated)
+cum_elev_declined = cumulative(agg=AggregationType.Sum)(elevated_declined)
+prob_decline = cum_elev_declined / cum_elevated if cum_elevated > 0 else 0.0
+
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- 1. Card: The punchline ---
+cs_cards(
+    layout=CardLayout(
+        title='Margin Sustainability',
+        cells=[
+            ColumnSpec(title='P(Decline | Elevated)', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero)
+        ]
+    ),
+    category='1. Sustainability'
+)(prob_decline)
+
+# --- 2. Bar Chart: Which stocks revert most? ---
+cs_bars(
+    title='Whose Elevated Margins Revert Most Often?',
+    category='1. Sustainability',
+    agg=AggregationType.Last,
+    max_assets=30,
+    data_labels=True,
+    y_axis_label='P(Decline | Elevated)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    colors=[Color.Blue]
+)(prob_decline)
+
+# --- 3. Summary Table: Full sustainability dashboard ---
+cs_summary_table(
+    title='Margin Sustainability Dashboard',
+    category='2. Detail',
+    agg=AggregationType.Last,
+    max_assets=30,
+    schema=TableReportSchema(columns=[
+        ColumnSpec(title='Op Margin (%)', type=CardRenderType.PercentFormat, dp=1),
+        ColumnSpec(title='1Y Avg (%)', type=CardRenderType.PercentFormat, dp=1),
+        ColumnSpec(title='Z-Score', type=CardRenderType.DecimalFormat, dp=2),
+        ColumnSpec(title='QoQ Δ (pp)', type=CardRenderType.PercentFormat, dp=1),
+        ColumnSpec(title='P(Decline)', type=CardRenderType.PercentFormat, dp=1)
+    ])
+)(op_margin, margin_avg, margin_z, margin_change, prob_decline)

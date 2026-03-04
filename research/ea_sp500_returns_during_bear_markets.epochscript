@@ -1,0 +1,61 @@
+# =============================================================================
+# A MANUAL FOR BEAR MARKETS
+# =============================================================================
+# Question: How severe have past bear markets been, and what is the average
+#   decline investors should expect?
+#
+# Chart: xy_bars
+#   - X-axis: Previous bear market periods (2007-09, 2011, 2018, 2020, 2022)
+#   - Y-axis: S&P 500 return (%) during each bear market
+#   - Series: One bar per bear market showing max drawdown
+#   - Overlay: Reference line at -35% average
+#
+# Dataset:
+#   - common_reference_stocks (SPY)
+# =============================================================================
+
+# A Manual for Bear Markets
+spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
+
+# Drawdown from all-time high
+running_max = cumulative(agg=AggregationType.Max)(spy_c)
+drawdown = (spy_c - running_max) / running_max
+
+# Dynamic bear detection: enter at -20% drawdown, exit at +20% rally from trough
+bear_entry = crossunder(drawdown, -0.20)
+trough = cumulative(agg=AggregationType.Min)(spy_c, bear_entry)
+rally = (spy_c - trough) / trough
+bear_exit = crossover(rally, 0.20)
+in_bear = hold_until(bear_entry, bear_exit)
+
+# Count TRUE bear periods via rising edge of in_bear
+in_bear_num = 1.0 if in_bear else 0.0
+bear_start = crossover(in_bear_num, 0.5)
+bear_period = cumulative(agg=AggregationType.Sum)(1.0 if bear_start else 0.0)
+
+# Isolate each bear's drawdown (5 detected: GFC, 2011, 2018, COVID, 2022)
+dd_bear1 = where(in_bear and bear_period >= 1.0 and bear_period < 2.0, drawdown, 0.0)
+dd_bear2 = where(in_bear and bear_period >= 2.0 and bear_period < 3.0, drawdown, 0.0)
+dd_bear3 = where(in_bear and bear_period >= 3.0 and bear_period < 4.0, drawdown, 0.0)
+dd_bear4 = where(in_bear and bear_period >= 4.0 and bear_period < 5.0, drawdown, 0.0)
+dd_bear5 = where(in_bear and bear_period >= 5.0 and bear_period < 6.0, drawdown, 0.0)
+
+xy_bars(
+    title='A Manual for Bear Markets',
+    category='1. Bear Market Returns',
+    agg=AggregationType.Min,
+    x_axis_label='Previous bear markets',
+    y_axis_label='S&P 500 Return (%)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=0,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=-0.35, color=Color.Gray, dash_style=DashStyle.Dash, title='Average (-35%)')
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='2007-09', color=Color.Blue),
+        BarSeriesSpec(name='2011', color=Color.Blue),
+        BarSeriesSpec(name='2018', color=Color.Blue),
+        BarSeriesSpec(name='2020', color=Color.Blue),
+        BarSeriesSpec(name='2022', color=Color.Blue)
+    ])
+)(dd_bear1, dd_bear2, dd_bear3, dd_bear4, dd_bear5)

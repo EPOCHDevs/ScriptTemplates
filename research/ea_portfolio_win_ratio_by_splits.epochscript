@@ -1,0 +1,86 @@
+# =============================================================================
+# WIN RATIO BY DIFFERENT STOCK / BOND SPLITS
+# =============================================================================
+# Question: How does the stock-to-bond allocation ratio impact the win ratio
+#   (percentage of positive yearly returns)?
+#
+# Chart: xy_bars
+#   - X-axis: Portfolio allocation split (100/0 to 0/100 stocks/bonds)
+#   - Y-axis: Win ratio (percentage of positive rolling 1-year returns)
+#   - Series: 11 bars for each allocation split (100/0 through 0/100)
+#   - Overlay: None
+#
+# Dataset:
+#   - common_reference_stocks (SPY, AGG)
+# =============================================================================
+
+# Win Ratio by Different Stock/Bond Splits
+spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
+close = ffill(spy_c)
+
+agg_o, agg_h, agg_l, agg_c, agg_v, agg_vw, agg_n = common_reference_stocks(ticker=ReferenceStock.AGG)()
+agg = ffill(agg_c)
+
+# Daily returns
+spy_ret = (close - (close >> 1)) / (close >> 1)
+agg_ret = (agg - (agg >> 1)) / (agg >> 1)
+
+# Weighted portfolio daily returns for each split
+port_100 = spy_ret
+port_90 = spy_ret * 0.9 + agg_ret * 0.1
+port_80 = spy_ret * 0.8 + agg_ret * 0.2
+port_70 = spy_ret * 0.7 + agg_ret * 0.3
+port_60 = spy_ret * 0.6 + agg_ret * 0.4
+port_50 = spy_ret * 0.5 + agg_ret * 0.5
+port_40 = spy_ret * 0.4 + agg_ret * 0.6
+port_30 = spy_ret * 0.3 + agg_ret * 0.7
+port_20 = spy_ret * 0.2 + agg_ret * 0.8
+port_10 = spy_ret * 0.1 + agg_ret * 0.9
+port_00 = agg_ret
+
+# Rolling 252-day (1-year) cumulative return for each portfolio
+roll_100 = sma(period=252)(port_100) * 252
+roll_90 = sma(period=252)(port_90) * 252
+roll_80 = sma(period=252)(port_80) * 252
+roll_70 = sma(period=252)(port_70) * 252
+roll_60 = sma(period=252)(port_60) * 252
+roll_50 = sma(period=252)(port_50) * 252
+roll_40 = sma(period=252)(port_40) * 252
+roll_30 = sma(period=252)(port_30) * 252
+roll_20 = sma(period=252)(port_20) * 252
+roll_10 = sma(period=252)(port_10) * 252
+roll_00 = sma(period=252)(port_00) * 252
+
+# Win indicator: 1 if rolling 1-year return > 0, else 0
+w_100 = 1.0 if roll_100 > 0 else 0.0
+w_90 = 1.0 if roll_90 > 0 else 0.0
+w_80 = 1.0 if roll_80 > 0 else 0.0
+w_70 = 1.0 if roll_70 > 0 else 0.0
+w_60 = 1.0 if roll_60 > 0 else 0.0
+w_50 = 1.0 if roll_50 > 0 else 0.0
+w_40 = 1.0 if roll_40 > 0 else 0.0
+w_30 = 1.0 if roll_30 > 0 else 0.0
+w_20 = 1.0 if roll_20 > 0 else 0.0
+w_10 = 1.0 if roll_10 > 0 else 0.0
+w_00 = 1.0 if roll_00 > 0 else 0.0
+
+xy_bars(
+    title='Win Ratio by Different Stock / Bond Splits (More Stocks <- % Stocks / % Bonds -> More Bonds)',
+    category='1. Win Ratio',
+    agg=AggregationType.Mean,
+    y_axis_label='Win Ratio (%)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='100/0', color=Color.Blue),
+        BarSeriesSpec(name='90/10', color=Color.Blue),
+        BarSeriesSpec(name='80/20', color=Color.Blue),
+        BarSeriesSpec(name='70/30', color=Color.Blue),
+        BarSeriesSpec(name='60/40', color=Color.Blue),
+        BarSeriesSpec(name='50/50', color=Color.Blue),
+        BarSeriesSpec(name='40/60', color=Color.Blue),
+        BarSeriesSpec(name='30/70', color=Color.Blue),
+        BarSeriesSpec(name='20/80', color=Color.Blue),
+        BarSeriesSpec(name='10/90', color=Color.Blue),
+        BarSeriesSpec(name='0/100', color=Color.Blue)
+    ])
+)(w_100, w_90, w_80, w_70, w_60, w_50, w_40, w_30, w_20, w_10, w_00)

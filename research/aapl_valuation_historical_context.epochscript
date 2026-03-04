@@ -1,0 +1,66 @@
+# =============================================================================
+# IS MEGA-CAP TECH VALUATION STRETCHED VS ITS OWN HISTORY?
+# =============================================================================
+# Question: Are current mega-cap tech valuations high or low relative to each
+#   company's own 1-year trading range?
+#
+# Chart: Grouped cs_bars — P/E and EV/EBITDA z-scores per asset
+#   Reference lines at 0 (average), +1/-1 (one std dev)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# Fundamental data
+inc_data = income_statement(period=ReportingPeriod.trailing_twelve_months)()
+bs_data = balance_sheet(period=ReportingPeriod.quarterly)()
+
+# Forward-fill to daily frequency
+eps = ffill(inc_data.basic_eps)
+shares = ffill(inc_data.basic_shares)
+ebitda_val = ffill(inc_data.ebitda)
+lt_debt = ffill(bs_data.lt_debt)
+cash_val = ffill(bs_data.cash)
+
+# Valuation multiples
+pe = finance_ratio(ratio_type=FinanceRatioType.price_to_earnings, period=ReportingPeriod.trailing_twelve_months)(
+    c=close, basic_eps=eps, basic_shares=shares
+).value
+
+ev_ebitda = finance_ratio(ratio_type=FinanceRatioType.ev_to_ebitda, period=ReportingPeriod.trailing_twelve_months)(
+    c=close, basic_shares=shares, ebitda=ebitda_val, lt_debt=lt_debt, cash=cash_val
+).value
+
+# Rolling 1-year z-scores (756 trading days)
+pe_mean = sma(period=252)(pe)
+pe_std = stddev(period=252)(pe)
+pe_zscore = where(is_valid(pe_std) and pe_std > 0, (pe - pe_mean) / pe_std)
+
+eve_mean = sma(period=252)(ev_ebitda)
+eve_std = stddev(period=252)(ev_ebitda)
+eve_zscore = where(is_valid(eve_std) and eve_std > 0, (ev_ebitda - eve_mean) / eve_std)
+
+# Bar-safe z-scores (0.0 = 'at average' when insufficient history)
+pe_z = pe_zscore if is_valid(pe_zscore) else 0.0
+eve_z = eve_zscore if is_valid(eve_zscore) else 0.0
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+cs_bars(
+    title='How Stretched Are Mega-Cap Tech Valuations vs Their Own History?',
+    category='Relative Value',
+    agg=AggregationType.Last,
+    data_labels=True,
+    y_axis_label='Cheap vs Expensive (relative to own 1Y history)',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=2,
+    colors=[Color.Blue, Color.Cyan],
+    series_names=['P/E', 'EV/EBITDA'],
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, title='1Y Avg', color=Color.Gray, dash_style=DashStyle.Dash),
+        ReferenceLine(value=1.0, title='+1 Std Dev', color=Color.Slate, dash_style=DashStyle.Dot),
+        ReferenceLine(value=-1.0, title='-1 Std Dev', color=Color.Slate, dash_style=DashStyle.Dot)
+    ])
+)(pe_z, eve_z)

@@ -1,0 +1,35 @@
+# =============================================================================
+# A SHORT-TERM VIEW OF STOCKS
+# =============================================================================
+# Question: How has the S&P 500 performed over the short term, and what does
+#   its recent price action look like?
+#
+# Chart: xy_lines
+#   - X-axis: Date (timestamp index)
+#   - Y-axis: S&P 500 index level (approximate, SPY * 10)
+#   - Series: S&P 500 price line (blue)
+#   - Overlay: None
+#
+# Dataset:
+#   - market_data_source (SPY-Stocks, 1D)
+# =============================================================================
+
+# A Short-Term View Of Stocks
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# Approximate S&P 500 index level (SPY ~ 1/10th of index)
+sp500 = close * 10
+
+bar_ts = index()
+
+xy_lines(
+    title='A Short-Term View Of Stocks',
+    category='1. Short-Term View',
+    y_axis_label='S&P 500 Index',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=0,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='S&P 500', color=Color.Blue)
+    ])
+)(bar_ts, sp500)

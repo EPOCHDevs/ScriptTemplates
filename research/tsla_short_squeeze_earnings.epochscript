@@ -1,0 +1,166 @@
+# =============================================================================
+# DOES HIGH SHORT INTEREST AMPLIFY TSLA'S POST-EARNINGS DRIFT?
+# =============================================================================
+# Cross: (High/Low SI) x (Beat/Miss) → 4 regimes, but bar chart shows
+# the key comparison: High SI Beat vs Low SI Beat, High SI Miss vs Low SI Miss
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# EARNINGS DATA
+# =============================================================================
+
+earnings_data = earnings()()
+surprise_pct = earnings_data.eps_surprise_percent
+had_earnings = is_valid(surprise_pct)
+is_positive = surprise_pct > 0.0
+
+# =============================================================================
+# SHORT INTEREST DATA
+# =============================================================================
+
+si_data = short_interest()()
+dtc = si_data.days_to_cover
+dtc_filled = ffill(dtc)
+is_high_si = is_valid(dtc_filled) and (dtc_filled > 3.0)
+
+# NaN-safe SI flag
+dtc_safe = coalesce(dtc_filled, 0.0)
+is_high_si_safe = dtc_safe > 3.0
+
+# =============================================================================
+# 4-WAY REGIME CLASSIFICATION
+# =============================================================================
+
+is_high_si_beat = had_earnings and is_positive and is_high_si_safe
+is_high_si_miss = had_earnings and not is_positive and is_high_si_safe
+is_low_si_beat = had_earnings and is_positive and not is_high_si_safe
+is_low_si_miss = had_earnings and not is_positive and not is_high_si_safe
+
+# Counters
+raw_hsb = 1.0 if is_high_si_beat else 0.0
+hsb_count = raw_hsb if is_valid(raw_hsb) else 0.0
+raw_hsm = 1.0 if is_high_si_miss else 0.0
+hsm_count = raw_hsm if is_valid(raw_hsm) else 0.0
+raw_lsb = 1.0 if is_low_si_beat else 0.0
+lsb_count = raw_lsb if is_valid(raw_lsb) else 0.0
+raw_lsm = 1.0 if is_low_si_miss else 0.0
+lsm_count = raw_lsm if is_valid(raw_lsm) else 0.0
+earnings_count = 1.0 if had_earnings else 0.0
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+earn_day = (close - (close >> 1)) / (close >> 1)
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+
+# =============================================================================
+# REGIME-FILTERED SERIES
+# =============================================================================
+
+hsb_post20 = where(is_high_si_beat, post_20d)
+hsm_post20 = where(is_high_si_miss, post_20d)
+lsb_post20 = where(is_low_si_beat, post_20d)
+lsm_post20 = where(is_low_si_miss, post_20d)
+
+hsb_earn = where(is_high_si_beat, earn_day)
+hsm_earn = where(is_high_si_miss, earn_day)
+lsb_earn = where(is_low_si_beat, earn_day)
+lsm_earn = where(is_low_si_miss, earn_day)
+
+hsb_post5 = where(is_high_si_beat, post_5d)
+hsm_post5 = where(is_high_si_miss, post_5d)
+lsb_post5 = where(is_low_si_beat, post_5d)
+lsm_post5 = where(is_low_si_miss, post_5d)
+
+hsb_post10 = where(is_high_si_beat, post_10d)
+hsm_post10 = where(is_high_si_miss, post_10d)
+lsb_post10 = where(is_low_si_beat, post_10d)
+lsm_post10 = where(is_low_si_miss, post_10d)
+
+# Event marker helpers
+ev_surprise = where(had_earnings, surprise_pct)
+ev_dtc = where(had_earnings, dtc_safe)
+ev_post20 = where(had_earnings, post_20d)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='TSLA Short Squeeze Setup',
+        cells=[
+            ColumnSpec(title='Total Earnings Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='High SI Events (DTC>3)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='Short Squeeze'
+)(earnings_count, hsb_count)
+
+xy_bars(
+    title='Does High Short Interest Amplify Post-Earnings Drift?',
+    category='Short Squeeze',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    color_by_value=True,
+    y_axis_label='Avg Post-20d Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='High SI + Beat'),
+        BarSeriesSpec(name='Low SI + Beat'),
+        BarSeriesSpec(name='High SI + Miss'),
+        BarSeriesSpec(name='Low SI + Miss')
+    ])
+)(hsb_post20, lsb_post20, hsm_post20, lsm_post20)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Return Profile by SI Regime and Window',
+        row_size=4,
+        col_size=4,
+        row_headers=['High SI + Beat', 'Low SI + Beat', 'High SI + Miss', 'Low SI + Miss'],
+        col_headers=['Earn Day', 'Post-5d', 'Post-10d', 'Post-20d'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=3, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='Short Squeeze'
+)(hsb_earn, hsb_post5, hsb_post10, hsb_post20, lsb_earn, lsb_post5, lsb_post10, lsb_post20, hsm_earn, hsm_post5, hsm_post10, hsm_post20, lsm_earn, lsm_post5, lsm_post10, lsm_post20)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='TSLA Earnings Events',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='EPS Surprise %', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Days to Cover', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(had_earnings, ev_surprise, ev_dtc, ev_post20)

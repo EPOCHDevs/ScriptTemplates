@@ -1,0 +1,49 @@
+# =============================================================================
+# AVERAGE RETURN BY MONTH IN THE S&P 500
+# =============================================================================
+# Question: Which months have historically been the strongest and weakest for
+#   the S&P 500, and what seasonal patterns exist?
+#
+# Chart: xy_bars
+#   - X-axis: Calendar month (1-12)
+#   - Y-axis: Average monthly return (percent)
+#   - Series: Average S&P 500 Return per month (color by value)
+#   - Overlay: Reference line at 0%
+#
+# Dataset:
+#   - common_reference_stocks (SPY)
+# =============================================================================
+
+# Average Return by Month
+spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
+
+# Detect month-end boundaries
+month_end = is_period_boundary(period=PeriodType.month, boundary=BoundaryType.end)(index())
+
+# Calendar month return: close-to-close between consecutive month-ends
+prev_month_end_close = valuewhen(occurrence=1)(month_end, spy_c)
+monthly_ret = ((spy_c - prev_month_end_close) / prev_month_end_close) if month_end else 0.0 / 0.0
+
+# NaN-propagate label so only month-end bars have valid entries
+month_num = datetime_extract(component=DatetimeExtractionType.month)(index())
+nan_flag = monthly_ret / monthly_ret
+month_label = month_num * nan_flag
+
+xy_bars(
+    title='Average Return by Month in the S&P 500',
+    category='1. Seasonal Patterns',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    color_by_value=True,
+    y_axis_label='Average S&P 500 Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    x_axis_label='Month',
+    x_category_type=CategoryAxisType.Month,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash, title='0%')
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Average S&P 500 Return', color=Color.Blue)
+    ])
+)(monthly_ret, label=month_label)

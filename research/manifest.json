@@ -1,12 +1,129 @@
 [
   {
+    "id": "aapl_analyst_rating_drift",
+    "name": "AAPL Analyst Rating Asymmetry",
+    "description": "LOAD AAPL daily bars and analyst ratings data\nDETECT price target raises (upgrades) and cuts (downgrades) via adjusted_pt_current > adjusted_pt_prior\nCLASSIFY as Upgrade vs Downgrade\nCOMPUTE day-of and post-5/10/20d returns by direction\nDASHBOARD shows event counts (cards), asymmetry bar chart, window breakdown table, and event markers with PT change details",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "analyst_ratings"
+      ],
+      "event_type": "corporate_event",
+      "methodology": [
+        "event_study"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "aapl_gross_margin_drift",
+    "name": "AAPL Gross Margin Expansion vs Contraction Drift",
+    "description": "LOAD AAPL daily bars and quarterly income_statement data\nDETECT quarterly filings via is_valid(gross_profit)\nCLASSIFY as Expanding (current gross margin > prior quarter) vs Contracting\nCOMPUTE day-of and post-5/10/20d returns by regime\nDASHBOARD shows event counts (cards), expansion vs contraction bar chart, window breakdown table, and event markers with margin details",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "earnings"
+      ],
+      "event_type": "corporate_event",
+      "methodology": [
+        "event_study"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "aapl_post_earnings_drift",
+    "name": "AAPL Post-Earnings Drift with Analyst Confirmation",
+    "description": "LOAD AAPL daily bars, quarterly earnings, and analyst ratings\nDETECT earnings events via eps_surprise_percent\nCLASSIFY as Confirmed Beat (surprise > 0 + PT raise within 5 days), Confirmed Miss (surprise < 0 + PT cut), or Unconfirmed\nCOMPUTE day-of and post-5/10/20d returns by regime\nDASHBOARD shows event counts (cards), regime comparison bar chart, window breakdown table, and event markers",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "earnings",
+        "analyst_ratings"
+      ],
+      "event_type": "corporate_event",
+      "methodology": [
+        "event_study"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "aapl_valuation_historical_context",
+    "name": "Mega-Cap Tech Valuation: Historical Z-Scores",
+    "description": "QUESTION Is mega-cap tech valuation stretched vs its own history?\nLOAD 6 mega-cap tech stocks (AAPL, MSFT, GOOGL, AMZN, META, NVDA) with income_statement and balance_sheet data\nCOMPUTE P/E and EV/EBITDA rolling 1-year z-scores (252-day window) for each stock\nDASHBOARD shows cross-sectional z-score bar chart ranked by stretch, summary table with current P/E, mean, and z-score per stock",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "earnings"
+      ],
+      "methodology": [
+        "cross_sectional",
+        "distribution"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "aapl_valuation_peer_snapshot",
+    "name": "Mega-Cap Tech Valuation Snapshot",
+    "description": "QUESTION Who's cheapest among mega-cap tech?\nLOAD 6 mega-cap tech stocks with income_statement and balance_sheet data\nCOMPUTE P/E, P/S, and EV/EBITDA at latest date for each stock\nRANK stocks by each multiple\nDASHBOARD shows cross-sectional bars for P/E, P/S, and EV/EBITDA ranked by value, plus summary table",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "earnings"
+      ],
+      "methodology": [
+        "cross_sectional",
+        "screening"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "amzn_valuation_range",
+    "name": "What P/E Has AMZN Typically Traded At?",
+    "description": "QUESTION What is AMZN's typical P/E range, and where does it sit today?\nCHART histogram showing P/E distribution (clamped 0-200x) with show_analytics=True\nTABLE summary_table with Current, Median, Mean, Min, Max P/E using built-in aggregations\nDATASET market_data_source (AMZN-Stocks, 1D) + income_statement (TTM)\nKEY INSIGHT AMZN's median P/E is ~126x with wide historical range (28-183x), revealing how far current valuation sits from typical levels",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "earnings"
+      ],
+      "methodology": [
+        "distribution"
+      ],
+      "intraday": false,
+      "theme": [
+        "valuation"
+      ]
+    }
+  },
+  {
     "id": "ct_es_overnight_ib_close",
     "name": "CT Market Stats: Overnight, IB & Close -- ES Futures",
     "description": "LOAD ES-Futures 1Min continuous contract via Polygon\nCOMPUTE session windows for RTH (09:30-16:00), ETH overnight (18:00-09:30), and IB (09:30-10:30)\nCALCULATE overnight high/low/mid and volume profile (VPOC, VAH, VAL) touch rates during RTH\nCALCULATE IB break probabilities: single/both/neither, within prior IB, opens-in-prior-IB breakout rates\nCALCULATE close location after single IB break (above IBH, above MID, below IBL, below MID)\nCALCULATE close stats: bearish/bullish engulfing, closes within IB on neutral day, within prior IB/range\nDASHBOARD shows four summary tables: Overnight Session Levels, Initial Balance, Close After Single IB Break, Close",
     "tags": {
-      "asset_class": ["futures"],
-      "data_source": ["volume_profile"],
-      "methodology": ["market_microstructure"],
+      "asset_class": [
+        "futures"
+      ],
+      "data_source": [
+        "volume_profile"
+      ],
+      "methodology": [
+        "market_microstructure"
+      ],
       "intraday": true
     }
   },
@@ -15,8 +132,12 @@
     "name": "CT Market Stats: Auction & Opening Location -- ES Futures",
     "description": "LOAD ES-Futures 1Min continuous contract via Polygon with RTH and IB session windows\nCOMPUTE 20-session harmonic rotations using zigzag swing detection (swing_length=2)\nCALCULATE neutral day rate (both IB extremes broken), consecutive neutral day probability, and neutral extreme day rate\nCALCULATE opening location rates: opens above/below pClose, above pHOD, below pLOD, within pIB, within pValue\nDASHBOARD shows Auction summary table, Opening Location summary table, and Up/Down rotation histograms",
     "tags": {
-      "asset_class": ["futures"],
-      "methodology": ["market_microstructure"],
+      "asset_class": [
+        "futures"
+      ],
+      "methodology": [
+        "market_microstructure"
+      ],
       "intraday": true
     }
   },
@@ -25,9 +146,15 @@
     "name": "CT Market Stats: Open vs Previous Range -- ES Futures",
     "description": "LOAD ES-Futures 1Min continuous contract with RTH volume profile (VPOC, VAH, VAL)\nCLASSIFY each session open as above, within, or below previous day RTH range\nCALCULATE touch probabilities for 11 prior-session levels (pClose, pHOD, pLOD, pIBH, pIBL, pMID, pOpen, pVAH, pVAL, pVPOC, half-gap)\nCONDITION touch rates on opening classification (above/within/below previous range)\nDASHBOARD shows three summary tables: Opens Above, Opens Within, and Opens Below Previous Range with per-level touch rates",
     "tags": {
-      "asset_class": ["futures"],
-      "data_source": ["volume_profile"],
-      "methodology": ["market_microstructure"],
+      "asset_class": [
+        "futures"
+      ],
+      "data_source": [
+        "volume_profile"
+      ],
+      "methodology": [
+        "market_microstructure"
+      ],
       "intraday": true
     }
   },
@@ -36,8 +163,13 @@
     "name": "CT Market Stats: Volume & Range Distributions -- ES Futures",
     "description": "LOAD ES-Futures 1Min continuous contract with RTH, ETH, and IB session windows aggregating volume\nCALCULATE session-level volume (RTH and ETH) and range (RTH, ETH, IB) per day\nCOMPUTE mean, median, and standard deviation for each range distribution\nDASHBOARD shows sample/range statistics cards, RTH and ETH volume histograms, RTH and ETH range histograms, and IB range histogram",
     "tags": {
-      "asset_class": ["futures"],
-      "methodology": ["distribution", "market_microstructure"],
+      "asset_class": [
+        "futures"
+      ],
+      "methodology": [
+        "distribution",
+        "market_microstructure"
+      ],
       "intraday": true
     }
   },
@@ -46,8 +178,12 @@
     "name": "CT IB & Close Analysis",
     "description": "LOAD SPY-Stocks 5Min bars as ES futures proxy with RTH and 30-min IB session windows\nCALCULATE IB break probabilities: at-least-one, both, neither, only-IBH, only-IBL, IB-within-prior-IB\nCALCULATE conditional close location after single IBH or IBL break (closes above/below IBH/IBL/MID)\nCALCULATE close stats: bearish/bullish engulfing, closes within IB on neutral day, within prior IB/range\nDASHBOARD shows overview cards, IB Break Probabilities table, Close After Single IB Break table, and Close Statistics table",
     "tags": {
-      "asset_class": ["equities"],
-      "methodology": ["market_microstructure"],
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "market_microstructure"
+      ],
       "intraday": true
     }
   },
@@ -56,9 +192,15 @@
     "name": "CT Opening & Level Touch",
     "description": "LOAD SPY-Stocks 5Min bars with RTH, 30-min IB, and pre-market (04:00-09:30) session windows plus volume profile\nCALCULATE opening location rates: above/below pClose, above pHOD, below pLOD, within pIB, within pValue\nCLASSIFY opens as above/within/below prior range and compute conditional touch rates for 10+ prior levels\nCALCULATE overnight session level touch rates: ONH, ONL, ONMID, ONVAH, ONVAL, ONVPOC\nDASHBOARD shows Opening Location table, three conditional touch-rate tables (Above/Within/Below), and Overnight Level touch table",
     "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["volume_profile"],
-      "methodology": ["market_microstructure"],
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "volume_profile"
+      ],
+      "methodology": [
+        "market_microstructure"
+      ],
       "intraday": true
     }
   },
@@ -67,9 +209,922 @@
     "name": "CT Session Structure",
     "description": "LOAD SPY-Stocks 5Min extended-hours bars with RTH, pre-market, and IB session windows\nCOMPUTE harmonic rotations via zigzag swing detection: up/down rotation sizes, counts per session, session efficiency\nCALCULATE auction day type: neutral day rate, neutral-follows-neutral probability, neutral extreme day rate\nCALCULATE RTH and pre-market volume/range distributions plus IB range distributions\nDASHBOARD shows summary cards, rotation histograms (up/down/efficiency/count), auction cards, volume histograms and stats, range histograms with boxplot comparison",
     "tags": {
-      "asset_class": ["equities"],
-      "methodology": ["market_microstructure", "distribution"],
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "market_microstructure",
+        "distribution"
+      ],
       "intraday": true
+    }
+  },
+  {
+    "id": "ea_avoid_waiting_for_the_dip",
+    "name": "Avoid Waiting for \"the Dip\"",
+    "description": "QUESTION How long do investors typically have to wait between 5% pullbacks in the S&P 500, and is waiting for a dip a reliable strategy?\nCHART xy_lines (area) showing trading days since last 5% pullback over time\nDATASET market_data_source (SPY-Stocks)\nKEY INSIGHT The time between 5% pullbacks is highly variable (days to 400+ trading days), making market timing impractical",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "behavioral"
+      ]
+    }
+  },
+  {
+    "id": "ea_bitcoin_vs_asset_classes",
+    "name": "Historically, Bitcoin Returns Have Come With Volatility",
+    "description": "QUESTION How does Bitcoin's return and volatility profile compare to traditional asset classes like stocks, bonds, and gold?\nCHART xy_bars showing annualized returns per asset class with diamond overlay for average drawdowns\nDATASET common_reference_stocks (SPY, GLD, AGG), common_crypto_pairs (BTCUSD)\nKEY INSIGHT Bitcoin leads with 20.9% annualized return but suffers 50%+ average drawdowns, far exceeding traditional assets",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "cross_sectional"
+      ],
+      "intraday": false,
+      "theme": [
+        "asset_comparison"
+      ]
+    }
+  },
+  {
+    "id": "ea_bond_annual_returns_intra_year_declines",
+    "name": "Volatility in Bonds is Historically Normal In All Years",
+    "description": "QUESTION How volatile are bonds within a given year, and do intra-year drawdowns in bonds typically recover by year-end?\nCHART xy_bars showing annual return (blue) and largest intra-year drawdown (red) per year labeled by year\nDATASET common_reference_stocks (AGG)\nKEY INSIGHT Bonds averaged 5.21% annual return with -3.53% average intra-year drawdown from 1990-2025, showing temporary declines are normal",
+    "tags": {
+      "asset_class": [
+        "bonds"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "portfolio_construction"
+      ]
+    }
+  },
+  {
+    "id": "ea_difference_between_10y_2y",
+    "name": "Is the Yield Curve Inverted or Uninverted?",
+    "description": "QUESTION Is the U.S. Treasury yield curve currently inverted, and what does the 10-year minus 2-year spread tell us about recession risk?\nCHART xy_lines (area) showing yield spread split into positive (uninverted, blue) and negative (inverted, red) regions\nDATASET common_economic_indicators (Spread10Y2Y)\nKEY INSIGHT The yield curve was inverted from mid-2022 through late 2024, one of the longest inversions in modern history, before normalizing",
+    "tags": {
+      "asset_class": [
+        "bonds"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "interest_rates"
+      ]
+    }
+  },
+  {
+    "id": "ea_effective_fed_funds_rate",
+    "name": "Federal Funds Rate and FOMC Projection",
+    "description": "QUESTION Where is the federal funds rate currently, and what does the FOMC project for future rate levels?\nCHART xy_lines showing actual effective fed funds rate (solid) and FOMC median projection (dashed) over time\nDATASET common_economic_indicators (FedFunds), economic_indicators (FEDTARMD)\nKEY INSIGHT The dramatic hiking cycle from near-zero to above 5% in 2022-2023 is followed by projected gradual rate reductions through 2028",
+    "tags": {
+      "asset_class": [
+        "bonds"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "interest_rates"
+      ]
+    }
+  },
+  {
+    "id": "ea_equity_performance_by_country_2025",
+    "name": "Major Country Equity Performance in 2025",
+    "description": "QUESTION How did major country equity markets perform in 2025, and which countries delivered the strongest and weakest returns?\nCHART xy_bars showing YTD total return for 10 countries via ETF proxies (anchored to specific year)\nDATASET market_data_source (SPY), reference_stocks (EWZ, EWA, EWJ, EWU, EWC, EWQ, EWG, FXI, INDA)\nKEY INSIGHT International markets broadly outperformed the U.S. in 2025, with Brazil leading at 48.5% and India lagging at 2.7%",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "cross_sectional"
+      ],
+      "intraday": false,
+      "theme": [
+        "asset_comparison"
+      ]
+    }
+  },
+  {
+    "id": "ea_equity_performance_by_country_this_year",
+    "name": "Major Country Equity Performance This Year",
+    "description": "QUESTION How are major country equity markets performing year-to-date, and which countries are leading or lagging?\nCHART xy_bars showing YTD total return for 10 countries via ETF proxies (rolling current year)\nDATASET common_reference_stocks (SPY), reference_stocks (EWZ, EWA, EWJ, EWU, EWC, EWQ, EWG, FXI, INDA)\nKEY INSIGHT International diversification continues to show value as non-U.S. markets frequently outperform U.S. equities in individual years",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "cross_sectional"
+      ],
+      "intraday": false,
+      "theme": [
+        "asset_comparison"
+      ]
+    }
+  },
+  {
+    "id": "ea_gold_vs_sp500_difference_rolling_3y",
+    "name": "Cycles of Gold vs S&P 500 Performance",
+    "description": "QUESTION How has the relative performance of gold versus the S&P 500 evolved over rolling 3-year periods, and where does it stand now?\nCHART xy_lines (area) showing rolling 3-year return spread (Gold minus S&P 500) over time\nDATASET common_reference_stocks (SPY, GLD)\nKEY INSIGHT Relative performance between gold and equities is cyclical, with gold currently outperforming the S&P 500 by over 100% on a 3-year rolling basis",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "asset_comparison"
+      ]
+    }
+  },
+  {
+    "id": "ea_hypothetical_6040_returns_with_drawdowns",
+    "name": "Volatility in a 60/40 is Historically Normal in All Years",
+    "description": "QUESTION How common are intra-year drawdowns in a balanced 60/40 portfolio, and do they prevent positive annual returns?\nCHART xy_bars showing annual return (color_by_value bars) with diamond overlay for largest intra-year drawdown, labeled by year\nDATASET common_reference_stocks (SPY, AGG)\nKEY INSIGHT The 60/40 portfolio averaged 9.3% annual return with -9.9% average intra-year drawdown from 1990-2024, showing temporary pullbacks are normal",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "portfolio_construction"
+      ]
+    }
+  },
+  {
+    "id": "ea_initial_claims",
+    "name": "Job Loss in the United States",
+    "description": "QUESTION What do initial unemployment claims tell us about the current state of the U.S. labor market, and how do they compare historically?\nCHART xy_lines showing weekly initial unemployment claims (ICSA) in thousands of persons over time\nDATASET economic_indicators(series_id='ICSA')\nKEY INSIGHT Current claims at ~212k remain at historically low levels, suggesting a stable labor market despite the massive COVID-era spike that dwarfed all prior recessions",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "economic_indicators"
+      ]
+    }
+  },
+  {
+    "id": "ea_major_us_index_performance_2025",
+    "name": "Major U.S. Index Performance in 2025",
+    "description": "QUESTION What were the total returns for the S&P 500, Dow, and NASDAQ Composite for the full year 2025?\nCHART xy_bars showing full-year 2025 total return for SPY, DIA, QQQ\nDATASET market_data_source (SPY), common_reference_stocks (DIA, QQQ)\nKEY INSIGHT NASDAQ led at 21.1%, followed by S&P 500 at 17.9% and Dow at 14.9%, with all three posting strong double-digit gains",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "cross_sectional"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_major_us_index_performance_this_year",
+    "name": "Major U.S. Index Performance This Year",
+    "description": "QUESTION What are the year-to-date returns for the major U.S. stock indices, and how do they compare?\nCHART xy_bars showing YTD total return for SPY, DIA, QQQ\nDATASET common_reference_stocks (SPY, DIA, QQQ)\nKEY INSIGHT Dow leads YTD at 2.1% while NASDAQ lags at -2.4%, signaling potential rotation away from growth toward value",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "cross_sectional"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_major_us_index_performance_ytd_path",
+    "name": "Major U.S. Index Performance Path This Year",
+    "description": "QUESTION How are the major U.S. stock indices performing so far this year, and which index is leading or lagging?\nCHART xy_lines showing YTD cumulative return path for SPY, DIA, QQQ\nDATASET common_reference_stocks (SPY, DIA, QQQ)\nKEY INSIGHT All three indices show choppy range-bound trading with no clear sustained uptrend, and NASDAQ underperforms reflecting tech weakness",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_major_us_index_performance_ytd_path_2025",
+    "name": "Major U.S. Index Performance Path In 2025",
+    "description": "QUESTION How did the major U.S. stock indices perform over the course of 2025, and what was the trajectory of their returns?\nCHART xy_lines showing daily cumulative return path for SPY, DIA, QQQ during 2025\nDATASET market_data_source (SPY), common_reference_stocks (DIA, QQQ)\nKEY INSIGHT All three indices experienced notable mid-year drawdowns of 10-20% before recovering strongly, with NASDAQ pulling ahead in the final months",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_nonfarm_payrolls_with_3mma",
+    "name": "A Look at Monthly Job Growth",
+    "description": "QUESTION How has monthly U.S. job growth trended recently, and what does the 3-month moving average reveal about the labor market's trajectory?\nCHART xy_bars with line overlay showing monthly nonfarm payroll changes (bars) and 3-month moving average (dashed line)\nDATASET economic_indicators(series_id='PAYEMS')\nKEY INSIGHT The 3-month moving average shows a downward trend from mid-2024 levels, suggesting the labor market is gradually cooling",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "economic_indicators"
+      ]
+    }
+  },
+  {
+    "id": "ea_pce_headline_core_inflation_trends",
+    "name": "Trends in Consumption",
+    "description": "QUESTION What do the headline and core PCE inflation measures indicate about current consumer-level inflationary pressures?\nCHART xy_lines showing year-over-year change in Headline PCE and Core PCE\nDATASET common_economic_indicators (PCE, CorePCE)\nKEY INSIGHT Both Headline PCE (2.9%) and Core PCE (3.0%) remain above the Fed's 2% target despite declining substantially from 2021-2022 peaks",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "economic_indicators"
+      ]
+    }
+  },
+  {
+    "id": "ea_portfolio_10pct_pullbacks_by_splits",
+    "name": "# of 10% Pullbacks by Different Stock / Bond Splits",
+    "description": "QUESTION How does the stock/bond allocation mix in a portfolio affect the frequency of 10% or greater pullbacks?\nCHART xy_bars showing count of 10% pullbacks for 11 stock/bond allocations from 100/0 to 0/100\nDATASET common_reference_stocks (SPY, AGG)\nKEY INSIGHT A 100% stock portfolio experienced 14 pullbacks of 10%+ since 1990 versus only 1 for a 10/90 or 0/100 bond-heavy portfolio, demonstrating the risk-dampening effect of bonds",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "distribution"
+      ],
+      "intraday": false,
+      "theme": [
+        "portfolio_construction"
+      ]
+    }
+  },
+  {
+    "id": "ea_portfolio_5pct_pullbacks_by_splits",
+    "name": "# of 5% Pullbacks by Different Stock / Bond Splits",
+    "description": "QUESTION How does the stock-to-bond allocation in a portfolio affect the frequency of 5% pullbacks?\nCHART xy_bars showing count of 5% pullbacks for 11 stock/bond allocations from 100/0 to 0/100\nDATASET common_reference_stocks (SPY, AGG)\nKEY INSIGHT A roughly linear decline in pullback frequency as bond allocation increases, from 42 pullbacks at 100/0 to just 4 at 10/90, illustrating the risk-reward tradeoff",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "distribution"
+      ],
+      "intraday": false,
+      "theme": [
+        "portfolio_construction"
+      ]
+    }
+  },
+  {
+    "id": "ea_portfolio_win_ratio_by_splits",
+    "name": "Win Ratio by Different Stock / Bond Splits",
+    "description": "QUESTION How does the stock-to-bond allocation ratio impact the win ratio (percentage of positive yearly returns)?\nCHART xy_bars showing win ratio for 11 stock/bond allocation splits from 100/0 to 0/100\nDATASET common_reference_stocks (SPY, AGG)\nKEY INSIGHT Moderate bond allocations (20-80% bonds) historically increase the frequency of positive return years, with the 20/80 split achieving the highest win ratio at ~91.8%",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "cross_sectional"
+      ],
+      "intraday": false,
+      "theme": [
+        "portfolio_construction"
+      ]
+    }
+  },
+  {
+    "id": "ea_ppi_headline_core_trends",
+    "name": "Trends in Producer Prices",
+    "description": "QUESTION What are the recent trends in producer-level inflation, and how do headline and core PPI compare?\nCHART xy_lines showing year-over-year change in Headline PPI vs Core PPI as area chart\nDATASET common_economic_indicators (PPI, CorePPI)\nKEY INSIGHT Producer prices spiked above 12% YoY in 2021-2022 before normalizing, and core PPI has recently exceeded headline PPI indicating persistent underlying price pressures",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "economic_indicators"
+      ]
+    }
+  },
+  {
+    "id": "ea_quits_vs_hires_us_economy",
+    "name": "Quits vs Hires in the U.S. Economy",
+    "description": "QUESTION How do voluntary quits compare to total hires in the U.S. labor market, and what does this ratio signal about worker confidence and labor demand?\nCHART xy_lines showing quit rate and hire rate over time\nDATASET common_economic_indicators (QuitRate, HireRate)\nKEY INSIGHT Hires consistently outpace quits, and the spread between them normalized to pre-pandemic levels after the dramatic COVID-19 disruption",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "economic_indicators"
+      ]
+    }
+  },
+  {
+    "id": "ea_real_gdp",
+    "name": "Historical Growth of the U.S. Economy",
+    "description": "QUESTION How has the overall size of the U.S. economy grown over the past seven decades in real (inflation-adjusted) terms?\nCHART xy_lines area chart showing U.S. Real GDP in trillions of dollars\nDATASET common_economic_indicators (RealGDP)\nKEY INSIGHT U.S. Real GDP has grown to over $24 trillion following an exponential growth curve, with a brief but visible contraction during the 2020 pandemic",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "economic_indicators"
+      ]
+    }
+  },
+  {
+    "id": "ea_real_gdp_with_gdpnow",
+    "name": "How is the U.S. Economy Performing?",
+    "description": "QUESTION What has the recent trajectory of U.S. GDP growth looked like, and what does the Atlanta Fed's GDPNow model forecast for upcoming quarters?\nCHART xy_bars showing quarterly Real GDP annualized growth rates with QuarterYear labels\nDATASET economic_indicators (A191RL1Q225SBEA - BEA GDP growth rate)\nKEY INSIGHT Growth has been uneven, ranging from 4.7% (Q2 2023) to a contraction of -0.6% in Q1 2025, reflecting shifting conditions from interest rate impacts and consumer spending patterns",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "economic_indicators"
+      ]
+    }
+  },
+  {
+    "id": "ea_retail_sales_month_over_month",
+    "name": "Retail Sales",
+    "description": "QUESTION How have monthly retail sales been trending, and what does the recent data suggest about consumer spending strength?\nCHART xy_bars showing month-over-month percentage change in retail sales by month with color by value\nDATASET common_economic_indicators (RetailSales)\nKEY INSIGHT Retail sales showed notable variability throughout 2025, with consistent growth suggesting economic strength while prolonged weakness may signal consumer hesitation",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "seasonality"
+      ],
+      "intraday": false,
+      "theme": [
+        "economic_indicators"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_after_government_shutdowns",
+    "name": "How Has The S&P 500 Performed During Government Shutdowns?",
+    "description": "QUESTION Do government shutdowns historically lead to negative stock market returns?\nCHART xy_bars showing S&P 500 return during each government shutdown period since 2013\nDATASET market_data_source (SPY-Stocks)\nKEY INSIGHT In 8 of 11 past shutdowns since 1980, the S&P 500 generated positive returns, showing markets have often looked past the political noise",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "event_study"
+      ],
+      "intraday": false,
+      "theme": [
+        "market_history"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_all_time_highs_cluster",
+    "name": "Historically, All-Time Highs Tend to Cluster",
+    "description": "QUESTION How frequently does the S&P 500 reach new all-time highs, and do they tend to cluster together?\nCHART xy_bars showing number of new all-time highs per year with average reference line at 24\nDATASET common_reference_stocks (SPY)\nKEY INSIGHT All-time highs cluster together during strong market periods, with years like 1995, 2014, 2017, and 2021 seeing especially high concentrations, reinforcing that new highs are a normal feature of long-term growth",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "distribution"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_average_calendar_year_path",
+    "name": "Average Calendar-Year Path of the S&P 500",
+    "description": "QUESTION How does the S&P 500's performance in 2026 compare to the average calendar-year path since 1950?\nCHART xy_lines showing 2026 YTD path vs historical average calendar-year return path by day of year\nDATASET market_data_source (SPY-Stocks)\nKEY INSIGHT The historical average path shows a general upward trend through the year ending around 9-10%, with the bulk of gains typically accruing in the second half",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "seasonality",
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_average_calendar_year_path_post_election",
+    "name": "Average Post-Election Year Path of the S&P 500",
+    "description": "QUESTION How does the S&P 500 typically perform during post-election years, and how is 2026 tracking against that historical pattern?\nCHART xy_lines showing 2026 YTD path vs historical average post-election year path by day of year\nDATASET market_data_source (SPY-Stocks)\nKEY INSIGHT Post-election years follow a distinct seasonal pattern with heightened uncertainty early and improving momentum later, though individual years often deviate meaningfully from the average",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "seasonality"
+      ],
+      "intraday": false,
+      "theme": [
+        "market_history"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_average_return_by_month",
+    "name": "Average Return by Month in the S&P 500",
+    "description": "QUESTION Which months have historically been the strongest and weakest for the S&P 500, and what seasonal patterns exist?\nCHART xy_bars showing average monthly return for each calendar month\nDATASET common_reference_stocks (SPY)\nKEY INSIGHT November (1.85%), April (1.43%), and December (1.39%) are historically the strongest months while September (-0.62%) is the only month with a negative average return",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "seasonality",
+        "distribution"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_average_returns_over_holding_periods",
+    "name": "Gains Increase with Holding Period",
+    "description": "QUESTION How do average S&P 500 returns change as the investment holding period increases?\nCHART xy_bars showing average returns across 9 holding periods from 1 day to 20 years\nDATASET market_data_source (SPY-Stocks)\nKEY INSIGHT Average returns increase dramatically with longer holding periods from 0.04% (1 day) to 322.66% (20 years), demonstrating the critical importance of time in the market",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "distribution",
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_average_up_and_down_year_since_1950",
+    "name": "Most Years See Big Gains or Big Losses",
+    "description": "QUESTION How do average gains in up years compare to average losses in down years for the S&P 500?\nCHART xy_bars showing average up-year return (+17.7%) vs average down-year return (-11.8%)\nDATASET market_data_source (SPY-Stocks)\nKEY INSIGHT Big swings in either direction are normal market behavior, with average up years returning +17.7% and average down years declining -11.8%",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "distribution"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_best_and_worst_days_cluster",
+    "name": "Historically, The Best and Worst Days Have Clustered",
+    "description": "QUESTION Do the best and worst days in the stock market occur randomly, or do they tend to cluster together?\nCHART xy_lines with event_marker overlays showing S&P 500 price with best/worst daily returns highlighted as dots\nDATASET market_data_source (SPY-Stocks)\nKEY INSIGHT The 25 best and 25 worst daily performances cluster around periods of heightened volatility, and many best days occur shortly after the worst ones",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "event_study",
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_drawdowns_vs_bonds_drawdowns",
+    "name": "Bond vs Stock Historical Drawdowns",
+    "description": "QUESTION How do the worst drawdowns in bonds compare to the worst drawdowns in stocks over the same time period?\nCHART xy_lines showing drawdown time series for bonds (AGG) vs stocks (SPY)\nDATASET market_data_source (SPY-Stocks), common_reference_stocks (AGG)\nKEY INSIGHT Stock drawdowns have exceeded -50% while bond drawdowns have generally stayed above -20%, illustrating bonds' relative stability as a portfolio diversifier",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "time_series",
+        "correlation"
+      ],
+      "intraday": false,
+      "theme": [
+        "portfolio_construction"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_five_percent_pullbacks_annually",
+    "name": "5% Intra-Year Pullbacks Have Been Historically Common",
+    "description": "QUESTION How frequently do 5% pullbacks occur within a given year in the S&P 500?\nCHART xy_bars showing annual count of 5%+ intra-year pullback episodes\nDATASET common_reference_stocks (SPY)\nKEY INSIGHT 5% pullbacks are a normal part of market behavior with most years experiencing at least one, ranging from 0 to 5 pullbacks per year since 1990",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "event_study",
+        "distribution"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_index_short_term",
+    "name": "A Short-Term View Of Stocks",
+    "description": "QUESTION How has the S&P 500 performed over the short term, and what does its recent price action look like?\nCHART xy_lines showing S&P 500 index level over the past two years\nDATASET market_data_source (SPY-Stocks)\nKEY INSIGHT The S&P 500 rose from approximately 4,800 in early 2024 to over 6,000 by early 2026 despite multiple significant pullbacks, underscoring that short-term volatility is normal",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_one_percent_days_by_decade",
+    "name": "A Decade's Worth of Volatility In The 2020s",
+    "description": "QUESTION How does the frequency of large daily moves in the S&P 500 during the 2020s compare to prior decades?\nCHART xy_bars showing total count of 1%+ up and down days by decade\nDATASET common_reference_stocks (SPY)\nKEY INSIGHT The 2020s have already logged 840 days with 1%+ moves, surpassing the entire decades of the 1950s (227) and 1960s (315) and exceeding the long-term average of 493",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "distribution",
+        "cross_sectional"
+      ],
+      "intraday": false,
+      "theme": [
+        "market_history"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_price_during_presidential_terms",
+    "name": "Ignoring Politics When Investing",
+    "description": "QUESTION Does the political party of the president significantly impact long-term S&P 500 performance?\nCHART xy_lines showing S&P 500 price on log scale colored by presidential party (Democrats blue, Republicans red)\nDATASET common_reference_stocks (SPY)\nKEY INSIGHT The S&P 500 has grown substantially under both Democratic and Republican administrations, making politics more of a distraction than a signal for long-term investors",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "market_history"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_returns_during_bear_markets",
+    "name": "A Manual for Bear Markets",
+    "description": "QUESTION How severe have past bear markets been, and what is the average decline investors should expect?\nCHART xy_bars showing max drawdown for each dynamically detected bear market with -35% average reference line\nDATASET common_reference_stocks (SPY)\nKEY INSIGHT Bear market declines have ranged from -22% to -57%, averaging approximately -35%, reinforcing the importance of staying disciplined during downturns",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "distribution"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_returns_during_bull_markets",
+    "name": "A Manual for Bull Markets",
+    "description": "QUESTION How do S&P 500 returns during historical bull markets compare to each other and to the current bull market?\nCHART xy_bars showing max return from trough for each dynamically detected bull market with 192% average reference line\nDATASET common_reference_stocks (SPY)\nKEY INSIGHT Bull markets have averaged 192% returns, and the current bull since October 2022 at ~92% suggests potential room for further growth",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "distribution"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_santa_rallies",
+    "name": "Putting Numbers Behind The Santa Claus Rally",
+    "description": "QUESTION Is the Santa Claus Rally a real seasonal pattern, and how significant are the returns during this period?\nCHART xy_bars showing average daily returns for each of the 7 trading days in the Santa Claus Rally window plus cumulative return\nDATASET market_data_source (SPY-Stocks)\nKEY INSIGHT The S&P 500 has posted positive average returns across all 7 days of the Santa Claus Rally window since 1950, with an average cumulative return of approximately +1.27%",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "seasonality"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_showing_all_time_highs",
+    "name": "All Time Highs in the S&P 500 are Common",
+    "description": "QUESTION How frequently does the S&P 500 reach new all-time highs, and should investors be concerned when the market hits a new peak?\nCHART xy_lines showing S&P 500 price on log scale with circle markers on all-time high days\nDATASET common_reference_stocks (SPY)\nKEY INSIGHT New all-time highs are a regular and frequent occurrence across every decade, and reaching an ATH is not a reason to sell",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_since_1990_with_and_without_dividends",
+    "name": "The Importance of Dividends",
+    "description": "QUESTION How much of an impact do reinvested dividends have on long-term S&P 500 investment returns?\nCHART xy_lines showing growth of $1 with dividends reinvested vs price-only since 1990\nDATASET market_data_source (SPY-Stocks), dividends\nKEY INSIGHT Reinvesting dividends roughly doubled the total return over this period, with $1 growing to ~$40 vs ~$19 price-only",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "behavioral"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_vs_international",
+    "name": "Cycles of International vs U.S. Performance",
+    "description": "QUESTION Do international stocks and U.S. stocks take turns outperforming each other, and what is the current trend?\nCHART xy_lines showing rolling 1-year return spread (EFA minus SPY) with dual-color area fill\nDATASET market_data_source (SPY-Stocks), reference_stocks (EFA)\nKEY INSIGHT The performance spread is highly cyclical, swinging from +25% international outperformance to -30% U.S. outperformance, supporting geographic diversification",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "correlation"
+      ],
+      "intraday": false,
+      "theme": [
+        "asset_comparison"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_with_recessions",
+    "name": "S&P 500 with Recession Periods",
+    "description": "QUESTION How has the S&P 500 performed through recessions over the long term?\nCHART xy_lines showing S&P 500 on log scale with gray recession period band shading\nDATASET common_reference_stocks (SPY), common_economic_indicators (RecessionProb)\nKEY INSIGHT Despite recurring recessions, the S&P 500 long-term trajectory has been decisively upward, with the market historically bouncing back and surpassing previous highs",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "market_history"
+      ]
+    }
+  },
+  {
+    "id": "ea_sp500_ytd_vs_april_8_lows",
+    "name": "Staying The Course Worked In 2025",
+    "description": "QUESTION What was the cost of selling at the April 2025 lows versus staying invested across different equity categories?\nCHART xy_bars showing paired held-vs-sold returns across 5 equity categories (Emerging Markets, Developed Markets, U.S. Large Cap, Mid Cap, Small Cap)\nDATASET market_data_source (SPY-Stocks), reference_stocks (EEM, EFA, MDY, IWM)\nKEY INSIGHT Investors who stayed invested were rewarded across all equity categories in 2025, while panic sellers locked in -10% to -30% losses",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "cross_sectional"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_tactical_approaches_significant_gains",
+    "name": "A Tactical Approach Can Lead To Significant Gains",
+    "description": "QUESTION How much could investment returns improve if the worst market days were avoided?\nCHART xy_lines showing growth of $1 in the S&P 500 under three scenarios: all days, missing worst 50, missing worst 100\nDATASET common_reference_stocks (SPY)\nKEY INSIGHT Missing the worst 100 days since 1950 would have turned $1 into ~$66,168 vs $413 staying invested, highlighting the theoretical power of tactical loss avoidance",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "behavioral"
+      ]
+    }
+  },
+  {
+    "id": "ea_time_between_all_time_highs",
+    "name": "Time Between S&P 500 All Time Highs",
+    "description": "QUESTION How long has it typically taken for the S&P 500 to recover and set a new all-time high after the previous one?\nCHART xy_lines (area) showing trading days between each new S&P 500 all-time high\nDATASET common_reference_stocks (SPY)\nKEY INSIGHT Post-2000 and post-2007, investors waited over 1,500 trading days (~6 years) for new highs, reinforcing long-term patience",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_time_within_three_percent_of_all_time_highs",
+    "name": "How Often The S&P 500 Has Stayed Near Record Highs",
+    "description": "QUESTION How often and for how long has the S&P 500 remained close to its all-time highs throughout history?\nCHART xy_lines (area) showing consecutive trading days the S&P 500 stays within 3% of its all-time high\nDATASET common_reference_stocks (SPY)\nKEY INSIGHT The late 1990s saw the longest streak of 350+ consecutive days near ATH; current streaks are modest by comparison",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "sp500_performance"
+      ]
+    }
+  },
+  {
+    "id": "ea_treasury_yields_2y_10y_long_term",
+    "name": "A Long-Term View Of U.S. Treasury Yields",
+    "description": "QUESTION How have the 2-year and 10-year U.S. Treasury yields behaved over the past several decades, and where do they stand now?\nCHART xy_lines showing 10-Year and 2-Year Treasury yields over the long term since 1988\nDATASET common_economic_indicators (Treasury2Y, Treasury10Y)\nKEY INSIGHT A secular decline in yields from late 1980s through 2020 reversed sharply in 2022-2023 as the Fed raised rates to combat inflation",
+    "tags": {
+      "asset_class": [
+        "bonds"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "interest_rates"
+      ]
+    }
+  },
+  {
+    "id": "ea_treasury_yields_2y_10y_short_term",
+    "name": "A Short-Term View Of U.S. Treasury Yields",
+    "description": "QUESTION How have 2-year and 10-year U.S. Treasury yields moved over the past two years, and what is the current relationship between them?\nCHART xy_lines showing 10-Year and 2-Year Treasury yields over the short term (past 2 years)\nDATASET common_economic_indicators (Treasury2Y, Treasury10Y)\nKEY INSIGHT The yield curve uninverted as the 2-year yield fell from above 5% to ~3.39% while the 10-year remained anchored around 3.5-4.8%",
+    "tags": {
+      "asset_class": [
+        "bonds"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "interest_rates"
+      ]
+    }
+  },
+  {
+    "id": "ea_us_treasury_yield_curve",
+    "name": "A Look at the U.S. Treasury Yield Curve",
+    "description": "QUESTION What does the current shape of the U.S. Treasury yield curve look like, and how has it changed from a year ago?\nCHART labeled_lines showing yield curve (Current vs 1 Year Ago) across 11 maturities from 1M to 30Y, plus xy_lines showing 5 key yields over time\nDATASET common_economic_indicators (Treasury1M through Treasury30Y, 11 maturities)\nKEY INSIGHT The curve shifted from inverted to positively sloped, historically associated with improving economic outlooks and reduced recession risk",
+    "tags": {
+      "asset_class": [
+        "bonds"
+      ],
+      "methodology": [
+        "cross_sectional"
+      ],
+      "intraday": false,
+      "theme": [
+        "interest_rates"
+      ]
+    }
+  },
+  {
+    "id": "ea_ytd_asset_class_returns",
+    "name": "Asset Class Returns In 2026",
+    "description": "QUESTION How are different asset classes performing year-to-date in 2026, and which are leading or lagging?\nCHART xy_bars showing YTD total returns for 12 asset classes (Gold, EM, Intl, S&P 500, Commodities, Mid Cap, Real Estate, Small Cap, Bonds, Growth, T-Bills, Bitcoin)\nDATASET common_reference_stocks (SPY, GLD, IWM, AGG) + reference_stocks (EEM, EFA, DBC, MDY, VNQ, IVW, BIL, IBIT)\nKEY INSIGHT Gold continues to lead YTD 2026 at 22.1% while Bitcoin lags at -25.0%, with international and commodity investments outperforming US equities",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "cross_sectional"
+      ],
+      "intraday": false,
+      "theme": [
+        "asset_comparison"
+      ]
+    }
+  },
+  {
+    "id": "ea_ytd_asset_class_returns_2025",
+    "name": "Asset Class Returns In 2025",
+    "description": "QUESTION How did different asset classes perform in 2025, and which were the best and worst performers?\nCHART xy_bars showing full-year 2025 total returns for 11 asset classes (Gold, EM, Intl, S&P 500, Commodities, Mid Cap, Small Cap, Bonds, Growth, T-Bills, Bitcoin)\nDATASET common_reference_stocks (SPY, GLD, IWM, AGG) + reference_stocks (EEM, EFA, DBC, MDY, IVW, BIL, IBIT)\nKEY INSIGHT Gold led all asset classes in 2025 at 63.7% while Bitcoin was the worst at -6.6%, highlighting diversification value",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "methodology": [
+        "cross_sectional"
+      ],
+      "intraday": false,
+      "theme": [
+        "asset_comparison"
+      ]
     }
   },
   {
@@ -77,8 +1132,12 @@
     "name": "Commodity Correlations (12M Weekly Returns)",
     "description": "LOAD 20 commodity price series from FRED (metals, energy, grains, softs, meats, lumber) plus USD Index and SPY\nCOMPUTE weekly returns for all assets on a 1W timeframe\nCALCULATE 52-week rolling Pearson correlations of each commodity to USD Index and to S&P 500\nGENERATE 20-week rolling USD-Lumber correlation time series chart\nDASHBOARD shows a labeled scatter plot with all 20 commodities positioned by USD correlation (X) vs S&P 500 correlation (Y)",
     "tags": {
-      "asset_class": ["commodities"],
-      "methodology": ["correlation"],
+      "asset_class": [
+        "commodities"
+      ],
+      "methodology": [
+        "correlation"
+      ],
       "intraday": false
     }
   },
@@ -87,8 +1146,13 @@
     "name": "Currency-Commodity Correlations Analysis",
     "description": "LOAD FX pair (AUDUSD/USDCAD/USDCHF/USDJPY) daily data plus Gold (GLD), Oil (WTI), Iron Ore, and Silver reference series\nCALCULATE 20-day rolling Pearson correlations between the FX pair and each commodity\nVALIDATE reported correlations (e.g., AUDUSD/Gold ~0.80, CAD/Oil ~-0.87) against computed values\nDASHBOARD shows four time-series charts (Gold, Oil, Iron Ore, Silver rolling correlations) with reference lines at reported values, plus summary cards with mean/min/max correlation stats",
     "tags": {
-      "asset_class": ["fx", "commodities"],
-      "methodology": ["correlation"],
+      "asset_class": [
+        "fx",
+        "commodities"
+      ],
+      "methodology": [
+        "correlation"
+      ],
       "intraday": false
     }
   },
@@ -97,557 +1161,545 @@
     "name": "Stock-Bond Correlation Regime Shifts",
     "description": "LOAD SPY weekly returns and TLT (long-term Treasury) weekly returns via Polygon\nCALCULATE 1-year, 2-year, and 3-year rolling Pearson stock-bond correlations\nCOMPUTE CPI and Industrial Production year-over-year changes, 2-year rolling volatility, and growth-inflation correlation\nCLASSIFY macroeconomic regimes (growth up/down, inflation up/down) using expanding median thresholds\nDASHBOARD shows SBC regime shift time series, inflation/growth uncertainty chart, growth-inflation correlation chart, and average stock/bond returns by growth and inflation regime bar charts",
     "tags": {
-      "asset_class": ["equities", "bonds"],
-      "data_source": ["economic_indicators"],
-      "indicator": ["CPI"],
-      "methodology": ["correlation"],
+      "asset_class": [
+        "equities",
+        "bonds"
+      ],
+      "data_source": [
+        "economic_indicators"
+      ],
+      "indicator": [
+        "CPI"
+      ],
+      "methodology": [
+        "correlation"
+      ],
       "intraday": false
     }
   },
   {
-    "id": "es_continuation_analysis",
-    "name": "ES Futures Continuation Analysis",
-    "description": "LOAD ES-Futures daily OHLCV from Polygon\nBUILD continuous contracts for 4 adjustment methods (BackwardPanama, BackwardRatio, ForwardPanama, ForwardRatio) x 3 rollover strategies (FirstOfMonth, LastTradingDay, LiquidityBased)\nCOMPUTE daily returns (roc), cumulative product returns, and 21-day rolling volatility (stddev) for each combination\nPLOT overlaid cumulative return curves for adjustment methods and rollover methods\nSCATTER daily returns of each method vs BackwardPanama baseline to assess correlation\nSHOW return distribution histograms (50 bins) per adjustment method and per rollover method",
+    "id": "eurusd_seasonality",
+    "name": "EUR/USD Monthly and Day-of-Week Seasonality",
+    "description": "QUESTION Does EUR/USD have exploitable monthly or day-of-week seasonality?\nLOAD EUR/USD daily and monthly bars\nCOMPUTE monthly returns and intraweek returns\nAGGREGATE average return by month, year-by-year heatmap, and day-of-week breakdown\nDASHBOARD shows monthly seasonality bars, year\u00d7month heatmap, day-of-week bars, and win rate cards",
     "tags": {
-      "asset_class": ["futures"],
-      "methodology": ["distribution"],
+      "asset_class": [
+        "fx"
+      ],
+      "data_source": [
+        "technicals"
+      ],
+      "methodology": [
+        "seasonality"
+      ],
       "intraday": false
     }
   },
   {
-    "id": "es_nfp_intraday_reaction",
-    "name": "ES Futures NFP Intraday Reaction",
-    "description": "LOAD ES-Futures 5Min bars with NoAdjustment continuous contract (LastTradingDay roll)\nDETECT NFP release days using PAYEMS economic indicator via ffill_day + Friday filter\nDEFINE session windows around 8:30 AM ET: pre (7:30-8:30), immediate (8:30-8:35), short (8:35-9:00), 1hr post, RTH, and full day\nCOMPUTE window returns and ranges for all days and NFP-Friday-only days using where() filters\nPLOT average return and range bar charts comparing NFP Fridays vs all-day baselines\nSHOW NFP return/range distributions, day-of-week breakdowns, cumulative window equity curves, and summary statistics table",
+    "id": "gc_nfp_intraday",
+    "name": "Gold Intraday Reaction to NFP Releases",
+    "description": "LOAD GC futures 1Min bars via futures_continuation and NFP data from common_economic_indicators\nDETECT NFP release near 8:30 AM ET\nCLASSIFY as Strong (change > 200K) vs Weak (< 100K)\nCOMPUTE 1-minute spike, 1-hour digestion, and full-day persistence returns by regime\nDASHBOARD shows regime comparison bars, intraday window breakdown, cumulative return paths, and event markers",
     "tags": {
-      "asset_class": ["futures"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["NFP"],
-      "methodology": ["event_study"],
+      "asset_class": [
+        "futures",
+        "commodities"
+      ],
+      "data_source": [
+        "economic_indicators"
+      ],
+      "event_type": "macro_event",
+      "indicator": [
+        "NFP"
+      ],
+      "methodology": [
+        "event_study",
+        "market_microstructure"
+      ],
       "intraday": true
     }
   },
   {
-    "id": "eurusd_nfp_reaction",
-    "name": "EUR/USD Post-NFP Reaction Analysis",
-    "description": "LOAD EUR/USD 5Min spot FX data from Polygon\nDEFINE session windows around 8:30 AM ET: pre (8:00-8:30), immediate (8:30-8:35), narrow (8:35-9:00), hourly (9:00-9:30), full 2hr (8:30-10:30)\nCOMPUTE window returns and true range (high-low)/open for each window on all trading days\nPLOT average return and range comparison bar charts across windows\nBREAK DOWN immediate and narrow returns by day of week\nSHOW cumulative return equity curves per window, return and range histograms, and summary statistics table (mean, stddev, range)",
+    "id": "gc_nfp_reaction",
+    "name": "Gold Daily Reaction to Strong vs Weak NFP",
+    "description": "LOAD GC futures daily bars and NFP data from common_economic_indicators\nDETECT NFP releases via valuewhen for prior reading\nCLASSIFY as Strong (change > 200K) vs Weak (< 100K)\nCOMPUTE day-of and post-20d returns by regime with cumulative event returns\nDASHBOARD shows event counts (cards), regime comparison bars, window breakdown table, and event markers",
     "tags": {
-      "asset_class": ["fx"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["NFP"],
-      "methodology": ["event_study"],
+      "asset_class": [
+        "futures",
+        "commodities"
+      ],
+      "data_source": [
+        "economic_indicators"
+      ],
+      "event_type": "macro_event",
+      "indicator": [
+        "NFP"
+      ],
+      "methodology": [
+        "event_study"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "msft_earnings_trajectory",
+    "name": "Is MSFT's Earnings Growth Accelerating or Decelerating?",
+    "description": "QUESTION Is MSFT's earnings growth accelerating or decelerating?\nCARD Last P/E Ratio \u2014 valuation context\nCHART xy_bars showing quarterly YoY EPS growth rate with color_by_value and zero reference line\nDATASET market_data_source (MSFT-Stocks, 1D) + income_statement (TTM diluted EPS)\nKEY INSIGHT Rising bars = growth accelerating, shrinking bars = growth decelerating \u2014 tracks earnings momentum over time",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "earnings"
+      ],
+      "methodology": [
+        "time_series"
+      ],
+      "intraday": false,
+      "theme": [
+        "earnings"
+      ]
+    }
+  },
+  {
+    "id": "msft_rate_sensitivity",
+    "name": "Does MSFT Sell Off When Real Rates Rise?",
+    "description": "QUESTION Does MSFT underperform when real rates rise?\nCHART 1 xy_lines showing MSFT price path colored by rate regime (rates falling = Blue, rates rising = Gray)\nCHART 2 xy_bars showing cumulative MSFT return during each regime\nDATASET market_data_source (MSFT-Stocks, 1D) + economic_indicators (DFII10 \u2014 10Y TIPS real yield)\nKEY INSIGHT Segments MSFT returns by whether 10Y TIPS real yield is above or below its 60-day SMA, capturing the full 2020-2024 rate cycle",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "earnings",
+        "economic_indicators"
+      ],
+      "methodology": [
+        "regime_analysis"
+      ],
+      "intraday": false,
+      "theme": [
+        "rates"
+      ]
+    }
+  },
+  {
+    "id": "msft_return_drivers",
+    "name": "What's Driving MSFT's Returns \u2014 Earnings, Rates, or Sentiment?",
+    "description": "QUESTION What's driving MSFT's returns \u2014 earnings growth, rate changes, or sentiment?\nCHART 1 xy_bars showing cumulative contribution from each driver (Earnings Growth, Rate Impact, Sentiment)\nCHART 2 xy_lines showing cumulative attribution over time\nDATASET market_data_source (MSFT-Stocks, 1D) + income_statement (TTM) + economic_indicators (DFII10)\nKEY INSIGHT Decomposes returns using Price = EPS \u00d7 P/E identity with rolling 60-day beta to real yield changes",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "earnings",
+        "economic_indicators"
+      ],
+      "methodology": [
+        "return_attribution"
+      ],
+      "intraday": false,
+      "theme": [
+        "return_drivers"
+      ]
+    }
+  },
+  {
+    "id": "qqq_ib_low_reversal_probability",
+    "name": "QQQ Failed IB Low Break Reversal Probability",
+    "description": "LOAD QQQ 5Min bars with session_window for IB (9:30-10:30) and RTH\nDETECT failed downside breaks: price broke IB low AND prior day low\nDEFINE win as close above IB midpoint\nCOMPUTE cumulative win rate line showing edge evolution over time\nDASHBOARD shows win rate (cards), cumulative win rate line, return distribution histogram, and event markers on reversals",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "technicals"
+      ],
+      "event_type": "technical_signal",
+      "methodology": [
+        "market_microstructure",
+        "mean_reversion"
+      ],
       "intraday": true
     }
   },
   {
-    "id": "eurusd_nfp_volatility_decay",
-    "name": "EUR/USD NFP Volatility Decay Analysis",
-    "description": "LOAD EUR/USD 5Min bars and detect NFP Fridays via PAYEMS economic indicator + Friday filter\nDEFINE twelve consecutive 5-minute session windows from 8:30 to 9:30 AM ET (60 minutes total)\nCOMPUTE range volatility in basis points ((high-low)/open * 10000) for each 5-minute bucket\nFILTER to NFP Friday observations only using where() conditional\nSHOW summary table replicating Rezania (2010) Table 7 with mean range per 5-minute interval\nMODEL expected exponential decay: sigma(t) = sigma_0 * exp(-alpha * t), target alpha = 0.049",
+    "id": "qqq_ib_low_reversal_timing",
+    "name": "QQQ IB Low Reversal Timing by Day-of-Week",
+    "description": "LOAD QQQ 5Min bars with session_window for IB and RTH\nDETECT same failed IB low break trigger as reversal_probability study\nSEGMENT by day-of-week\nCOMPUTE win/loss counts and win rate per weekday\nDASHBOARD shows stacked win/loss bars per day, win rate bars by weekday, and day-of-week distribution",
     "tags": {
-      "asset_class": ["fx"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["NFP"],
-      "methodology": ["event_study", "distribution"],
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "technicals"
+      ],
+      "event_type": "technical_signal",
+      "methodology": [
+        "market_microstructure",
+        "seasonality"
+      ],
       "intraday": true
     }
   },
   {
-    "id": "eurusd_nfp_volatility_figure1",
-    "name": "EUR/USD NFP Volatility Figure 1 Replication",
-    "description": "LOAD EUR/USD 1-minute bars and detect NFP Fridays via PAYEMS + day_of_week filter\nDEFINE 6-hour analysis window (5:30-11:30 AM ET, 360 minutes, NFP release at minute 180)\nCOMPUTE per-minute range volatility in basis points for each bar\nPLOT multi-line chart with one line per NFP release day (split_by_label on date) showing minute-by-minute range\nSHOW aggregated mean range bar chart per minute bucket for NFP Fridays vs other Fridays (control)\nDISPLAY summary cards comparing NFP vs non-NFP Friday mean/max range and sample counts",
+    "id": "sp500_margin_sustainability",
+    "name": "When Margins Are Elevated, How Often Do They Persist?",
+    "description": "QUESTION When margins are elevated (z>1 vs own 1Y history), how often do they decline the next quarter?\nCARD P(Decline | Elevated) \u2014 cross-sectional mean across 30 mega-cap stocks\nCHART cs_bars showing P(Decline) ranked by stock\nTABLE cs_summary_table with Op Margin, 1Y Avg, Z-Score, QoQ change, P(Decline) for 30 stocks\nDATASET market_data_source (30 mega-cap S&P 500 stocks, 1D) + income_statement (TTM)\nKEY INSIGHT Tests Fama & French (1999) finding on margin mean reversion across sector-diverse mega-caps",
     "tags": {
-      "asset_class": ["fx"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["NFP"],
-      "methodology": ["event_study", "distribution"],
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "earnings"
+      ],
+      "methodology": [
+        "cross_sectional"
+      ],
+      "intraday": false,
+      "theme": [
+        "profitability"
+      ]
+    }
+  },
+  {
+    "id": "spy_claims_yield_curve",
+    "name": "SPY Reaction to Claims Spikes Conditioned on Yield Curve",
+    "description": "LOAD SPY daily bars, InitialClaims and Spread10Y2Y from common_economic_indicators\nDETECT claims spikes (> 10% above 3-reading average)\nCLASSIFY as Spike + Inverted Curve vs Spike + Normal Curve\nCOMPUTE day-of and post-20d returns by regime with cumulative compounding\nDASHBOARD shows event counts (cards), regime comparison bars, window breakdown table, and event markers",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "economic_indicators"
+      ],
+      "event_type": "macro_event",
+      "indicator": [
+        "yield_curve"
+      ],
+      "methodology": [
+        "event_study"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "spy_dividend_exdate",
+    "name": "SPY Dividend Ex-Date Drop and Recovery",
+    "description": "LOAD SPY daily bars and dividend data via dividends(dividend_type=CD)\nDETECT cash dividend ex-dates\nCLASSIFY by yield tier: High (> 0.4%) vs Low\nCOMPUTE drop ratio (actual drop / expected dividend), ex-date day and post-5/10d returns\nDASHBOARD shows yield tier counts (cards), recovery bars by tier, window breakdown table, and event markers with drop ratio",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "dividends"
+      ],
+      "event_type": "corporate_event",
+      "methodology": [
+        "event_study"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "spy_fed_rate_reaction",
+    "name": "SPY Reaction to Fed Rate Hikes vs Cuts",
+    "description": "LOAD SPY daily bars and FedFunds from common_economic_indicators\nDETECT FOMC decisions via rate changes (valuewhen for prior rate)\nCLASSIFY as Hike (>= 20bps), Cut (>= 20bps), or Hold\nCOMPUTE day-of and post-20d returns by regime with cumulative compounding\nDASHBOARD shows event counts (cards), regime comparison bars, window breakdown table, and event markers",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "economic_indicators"
+      ],
+      "event_type": "macro_event",
+      "indicator": [
+        "Fed_Funds"
+      ],
+      "methodology": [
+        "event_study"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "spy_ism_intraday",
+    "name": "SPY Intraday Reaction to ISM Manufacturing",
+    "description": "LOAD SPY 1Min bars and ISM Manufacturing from common_economic_indicators\nDETECT ISM release near 10:00 AM ET\nCLASSIFY as Improving (current > prior) vs Deteriorating\nCOMPUTE 1-minute spike, 1-hour digestion, and full-day persistence returns\nDASHBOARD shows regime comparison bars, intraday window breakdown, cumulative return paths, and event markers",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "economic_indicators"
+      ],
+      "event_type": "macro_event",
+      "indicator": [
+        "ISM"
+      ],
+      "methodology": [
+        "event_study",
+        "market_microstructure"
+      ],
       "intraday": true
     }
   },
   {
-    "id": "fc_multi_timeframe_test",
-    "name": "FC Multi-Timeframe Cloning Test",
-    "description": "LOAD ES-Futures with futures_continuation at global 1D timeframe (FirstOfMonth, BackwardPanamaCanal)\nADD a second market_data_source at 5Min timeframe to introduce multi-timeframe scenario\nCOMPUTE 20-period SMA on both daily and 5Min close prices\nVERIFY compiler auto-clones the futures_continuation node to the 5Min timeframe\nSHOW daily SMA and 5Min SMA as hero cards in separate dashboard categories",
+    "id": "spy_ism_reaction",
+    "name": "SPY Daily Reaction to Improving vs Deteriorating ISM",
+    "description": "LOAD SPY daily bars and ISM Manufacturing from common_economic_indicators\nDETECT ISM releases via valuewhen for prior reading\nCLASSIFY as Improving (current > prior) vs Deteriorating\nCOMPUTE day-of and post-20d returns by regime with cumulative event returns\nDASHBOARD shows event counts (cards), regime comparison bars, window breakdown table, and event markers",
     "tags": {
-      "asset_class": ["futures"],
-      "data_source": ["technicals"],
-      "methodology": ["distribution"],
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "economic_indicators"
+      ],
+      "event_type": "macro_event",
+      "indicator": [
+        "ISM"
+      ],
+      "methodology": [
+        "event_study"
+      ],
       "intraday": false
     }
   },
   {
-    "id": "ib_20_session_analysis",
-    "name": "IB 20-Session Analysis",
-    "description": "LOAD SPY 5Min bars with volume profile (78-bar window) and equity RTH session windows\nCOMPUTE Initial Balance (9:30-10:00 ET) high/low/width, IB breakout flags, extension ratios, and Dalton 6-type day classification\nCALCULATE rolling 20-session statistics: IB width z-score, percentile rank, breakout rates, and average extensions\nCLASSIFY sessions as Narrow IB (<=30th pctile) vs Wide IB (>=70th pctile) and compare ranges, extensions, and day types\nPLOT IB width trends with 20-session average, cumulative breakout rates, z-score over time, and narrow vs wide day type distributions\nSHOW summary tables (last session vs 20-session avg), boxplots, histograms, extension targets, prior VA context, and event markers for narrow/wide/both-broken days",
+    "id": "spy_morning_dip_reversal",
+    "name": "SPY Morning Dip Mean-Reversion Strategy",
+    "description": "LOAD SPY 5Min bars with session_window for RTH and 9:45-10:30 trade window\nDETECT morning dip: price at 9:45 < 9:30 open\nTRADE entry at 9:45, exit at 10:30 when triggered\nCOMPUTE cumulative equity curve, return distribution, and day-of-week breakdown\nDASHBOARD shows win rate (cards), equity curve line, return histogram, and day-of-week performance bars",
     "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["volume_profile"],
-      "methodology": ["market_microstructure", "distribution"],
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "technicals"
+      ],
+      "event_type": "technical_signal",
+      "methodology": [
+        "market_microstructure",
+        "mean_reversion"
+      ],
       "intraday": true
     }
   },
   {
-    "id": "nasdaq_ib_low_break_reversal",
-    "name": "NASDAQ IB Low Break + Prior Day Low Reversal Probability",
-    "description": "LOAD QQQ 5Min bars with Initial Balance (9:30-10:30 ET) session window and prior day high/low levels\nDETECT trigger days where session low broke both IB low and prior day's low (EOD evaluation)\nCOMPUTE win rate: probability of session close finishing above IB midpoint on triggered days\nTRACK cumulative win rate over time and cumulative return from IB low to close on triggered days\nPLOT probability trend, return distributions, extension below IB/prior-day-low histograms, and win rate by day-of-week/month\nSHOW summary cards (win rate, trigger count, best/worst return), IB reference levels chart, and win/loss event markers",
+    "id": "spy_opening_range_extension",
+    "name": "SPY Opening Range Extension Analysis",
+    "description": "LOAD SPY 1Min bars with session_window for OR (9:30-9:45), RTH, and EOD\nCOMPUTE opening range high/low, then measure upside and downside extension beyond OR boundaries\nANALYZE distribution of extension distances via boxplot and histogram\nDASHBOARD shows median extension (cards), upside vs downside boxplots, extension distance histogram with analytics",
     "tags": {
-      "asset_class": ["equities"],
-      "event_type": ["technical_signal"],
-      "methodology": ["mean_reversion", "market_microstructure"],
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "technicals"
+      ],
+      "event_type": "technical_signal",
+      "methodology": [
+        "market_microstructure",
+        "distribution"
+      ],
       "intraday": true
     }
   },
   {
-    "id": "quarterly_opex_momentum_reversal",
-    "name": "Quarterly OPEX Momentum Reversal",
-    "description": "LOAD SPY daily bars and detect quarterly OPEX dates (3rd Friday of Mar/Jun/Sep/Dec) using is_period_boundary\nCOMPUTE 10-day rate of change as momentum signal; enter long if momentum < 0 or short if > 0 on OPEX Monday\nHOLD positions with hold_until() and exit 10 trading days after OPEX Friday\nCALCULATE strategy daily returns, cumulative equity curve, and active-only return series\nPLOT cumulative P&L, return distribution histogram, total/avg return by quarter, quarterly heatmap, and boxplots by quarter/year\nSHOW summary cards (cumulative return, trade counts, long/short entries) and event markers for long and short entries",
+    "id": "spy_opex_reversal_backtest",
+    "name": "SPY Quarterly OPEX Momentum Reversal Backtest",
+    "description": "LOAD SPY daily bars\nDETECT quarterly OPEX Fridays (3rd Friday of Mar/Jun/Sep/Dec) via is_period_boundary\nSIGNAL counter-momentum fade on OPEX Monday: long if 10-day momentum < 0, short if > 0\nHOLD for 10 trading days after OPEX Friday\nDASHBOARD shows cumulative equity curve and per-trade return distribution",
     "tags": {
-      "asset_class": ["equities"],
-      "event_type": ["calendar_event"],
-      "methodology": ["mean_reversion"],
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "technicals"
+      ],
+      "event_type": "calendar_event",
+      "methodology": [
+        "seasonality",
+        "mean_reversion"
+      ],
       "intraday": false
     }
   },
   {
-    "id": "rs007_fx_monthly_seasonality",
-    "name": "FX Monthly Seasonality Analysis",
-    "description": "LOAD USD/CAD and USD/JPY daily and monthly bars from Polygon\nCOMPUTE daily and monthly returns, win/loss flags (positive vs negative months), and absolute monthly returns\nGROUP by calendar month using datetime_extract for seasonality breakdowns\nPLOT monthly returns heatmap (month x year), average return by month bar chart, and win rate by month\nSHOW summary tables: monthly return stats (avg, median, best, worst), win/loss rates per month, and absolute return stats\nVALIDATE Investopedia claims: USD/CAD Oct/Nov 63% win rate, USD/JPY Oct 68% win rate",
+    "id": "spy_opex_week_return",
+    "name": "SPY Quarterly OPEX Week Return Pattern",
+    "description": "QUESTION Is there a reliable SPY return pattern around quarterly OPEX?\nLOAD SPY daily bars\nDETECT quarterly OPEX Fridays via is_period_boundary (3rd Friday of Mar/Jun/Sep/Dec)\nCOMPUTE 5-day return on OPEX weeks, aggregate by quarter and year\nDASHBOARD shows average return by quarter bars, year-by-year totals, quarter\u00d7year heatmap",
     "tags": {
-      "asset_class": ["fx"],
-      "methodology": ["seasonality"],
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "technicals"
+      ],
+      "event_type": "calendar_event",
+      "methodology": [
+        "seasonality"
+      ],
       "intraday": false
     }
   },
   {
-    "id": "rs010_eurusd_monthly_seasonality",
-    "name": "EUR/USD Monthly Seasonality Analysis",
-    "description": "LOAD EUR/USD daily, monthly, and yearly bars from Polygon\nCOMPUTE daily, monthly, and yearly returns plus win/loss indicators and cumulative return series\nEXTRACT best/worst return dates using arg_max/arg_min on monthly timeframe\nPLOT monthly returns heatmap (month x year), average return by calendar month, yearly return bar chart, and day-of-week breakdown\nSHOW summary tables: monthly return stats (avg, median, best, worst), win/loss rates, and absolute returns grouped by month\nDISPLAY summary cards (best/worst return with dates, win rate, counts) and cumulative return equity curve",
+    "id": "spy_yield_curve_inversion",
+    "name": "SPY Reaction to Yield Curve Inversions and Un-Inversions",
+    "description": "LOAD SPY daily bars and 10Y-2Y spread from common_economic_indicators\nDETECT zero-crossings: new inversion (spread crosses below 0) and un-inversion (crosses back above)\nCOMPUTE event day and post-60/126/252d returns by crossing type\nDASHBOARD shows crossing counts (cards), 1-year post-event bar chart, long-window breakdown table, and event markers",
     "tags": {
-      "asset_class": ["fx"],
-      "methodology": ["seasonality"],
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "economic_indicators"
+      ],
+      "event_type": "macro_event",
+      "indicator": [
+        "yield_curve"
+      ],
+      "methodology": [
+        "event_study"
+      ],
       "intraday": false
     }
   },
   {
-    "id": "sp500_worst_performers",
-    "name": "S&P 500 Worst Performers Analysis",
-    "description": "LOAD daily bars for all S&P 500 stocks via polygon\nCOMPUTE 1-week return (5-day ROC), 50-day SMA, 52-week high, and all-time high for each stock\nCALCULATE days since 52-week high and days since all-time high using barssince\nFILTER to bottom 20 stocks ranked by worst 1-week return\nDASHBOARD shows boxplot of return distribution across all S&P 500, plus ranked table of 20 worst performers with SMA position and high-distance metrics",
+    "id": "stock_bond_correlation",
+    "name": "Stock-Bond Correlation: Diversification Regime Tracker",
+    "description": "LOAD SPY weekly bars and TLT via reference_stocks on 1W timeframe\nCOMPUTE weekly returns for both assets\nCALCULATE 2-year (104-week) rolling Pearson correlation\nSPLIT into negative (diversifying) vs positive (co-moving) regimes\nDASHBOARD shows area chart with blue fill when negative, gray when positive, plus current correlation card",
     "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["technicals"],
-      "methodology": ["screening"],
+      "asset_class": [
+        "equities",
+        "bonds"
+      ],
+      "data_source": [
+        "technicals"
+      ],
+      "methodology": [
+        "correlation",
+        "time_series"
+      ],
       "intraday": false
     }
   },
   {
-    "id": "spx_opening_range_breakout",
-    "name": "S&P 500 Opening Range Breakout Analysis",
-    "description": "LOAD 1-minute SPX index bars via polygon over 2 years\nDEFINE opening range as 09:30-09:45 ET high/low, detect upside and downside breakouts after OR completes\nCLASSIFY each day as up-only, down-only, both-sides, or no-breakout; track which direction broke first\nCOMPUTE OR width, breakout extensions (points and multiples of OR), close position relative to OR, and failed breakout rates\nCUMULATE pattern counts over time for trend analysis\nDASHBOARD shows hero cards with breakout/close statistics, summary table, cumulative trend lines, OR width histogram, extension boxplots, and both-sides-break gauge",
+    "id": "stock_bond_correlation_driver",
+    "name": "What Drives Stock-Bond Correlation Flips?",
+    "description": "LOAD SPY daily bars, TLT via reference_stocks, and CPI from common_economic_indicators\nCOMPUTE 1-year rolling stock-bond correlation (252-day) and CPI volatility (rolling 1-year stdev)\nSPLIT by inflation uncertainty regime (high vs low CPI vol)\nDASHBOARD shows scatter plot (CPI vol vs correlation with trend line), regime comparison bars, and correlation time series",
     "tags": {
-      "asset_class": ["equities"],
-      "event_type": ["technical_signal"],
-      "methodology": ["breakout", "market_microstructure"],
+      "asset_class": [
+        "equities",
+        "bonds"
+      ],
+      "data_source": [
+        "economic_indicators",
+        "technicals"
+      ],
+      "indicator": [
+        "CPI"
+      ],
+      "methodology": [
+        "correlation",
+        "regime_analysis"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "tlt_cpi_reaction",
+    "name": "Bond Reaction to Hot vs Cool CPI",
+    "description": "LOAD TLT daily bars and CPI from common_economic_indicators\nDETECT CPI releases via valuewhen for prior readings\nCLASSIFY as Hot (MoM acceleration: current change > prior change) vs Cool (deceleration)\nCOMPUTE day-of and post-20d returns by regime with cumulative event compounding\nDASHBOARD shows event counts (cards), regime comparison bars, window breakdown table, and event markers",
+    "tags": {
+      "asset_class": [
+        "bonds"
+      ],
+      "data_source": [
+        "economic_indicators"
+      ],
+      "event_type": "macro_event",
+      "indicator": [
+        "CPI"
+      ],
+      "methodology": [
+        "event_study"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "tsla_sentiment_vs_fundamentals",
+    "name": "TSLA Sentiment Shock vs Fundamental Deterioration",
+    "description": "LOAD TSLA daily bars, analyst ratings, quarterly earnings, and income_statement data\nDETECT 3 event types: analyst downgrades, earnings misses (surprise < -2%), and margin contractions\nCLASSIFY downgrades as pure sentiment (no recent fundamental event) vs concordant using barssince\nCOMPUTE day-of and post-5/10/20d returns by event type\nDASHBOARD shows event counts (cards), mean-reversion vs persistence bar chart, window breakdown table, and event markers",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "earnings",
+        "analyst_ratings"
+      ],
+      "event_type": "corporate_event",
+      "methodology": [
+        "event_study"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "tsla_short_squeeze_earnings",
+    "name": "TSLA Short Interest Amplification of Post-Earnings Drift",
+    "description": "LOAD TSLA daily bars, quarterly earnings, and short_interest data\nDETECT earnings events via eps_surprise_percent\nCLASSIFY into 4 regimes: High SI Beat, Low SI Beat, High SI Miss, Low SI Miss (DTC > 3 threshold)\nCOMPUTE earnings day and post-5/10/20d returns by regime\nDASHBOARD shows event counts (cards), 4-way regime comparison bars, window breakdown table, and event markers with surprise + DTC details",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "earnings",
+        "short_interest"
+      ],
+      "event_type": "corporate_event",
+      "methodology": [
+        "event_study"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "tsla_short_volume_spike",
+    "name": "TSLA Short Volume Spike Reversal by Price Context",
+    "description": "LOAD TSLA daily bars and short_volume data\nDETECT short volume spikes: ratio > 1.15\u00d7 its 20-day SMA\nCLASSIFY by price context: Bullish (price > 50-SMA) vs Bearish\nCOMPUTE spike day and post-5/10/20d returns by context\nDASHBOARD shows context counts (cards), reversal comparison bars, window breakdown table, and event markers with short vol ratio",
+    "tags": {
+      "asset_class": [
+        "equities"
+      ],
+      "data_source": [
+        "short_interest",
+        "technicals"
+      ],
+      "event_type": "technical_signal",
+      "methodology": [
+        "event_study",
+        "mean_reversion"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "zb_cpi_intraday",
+    "name": "Treasury Bond Futures Intraday Reaction to CPI",
+    "description": "LOAD ZB futures 1Min bars via futures_continuation and CPI from common_economic_indicators\nDETECT CPI release near 8:30 AM ET\nCLASSIFY as Hot (MoM acceleration) vs Cool (deceleration)\nCOMPUTE 1-minute spike, 1-hour digestion, and full-day persistence returns by regime\nDASHBOARD shows regime comparison bars, intraday window breakdown, cumulative return paths, and event markers",
+    "tags": {
+      "asset_class": [
+        "futures",
+        "bonds"
+      ],
+      "data_source": [
+        "economic_indicators"
+      ],
+      "event_type": "macro_event",
+      "indicator": [
+        "CPI"
+      ],
+      "methodology": [
+        "event_study",
+        "market_microstructure"
+      ],
       "intraday": true
-    }
-  },
-  {
-    "id": "spy_morning_dip",
-    "name": "SPY Morning Dip Mean Reversion",
-    "description": "LOAD 5-minute SPY bars via polygon over the past year\nIDENTIFY morning dip: price at 09:45 ET is below the RTH open\nCOMPUTE session return from 09:45 entry to 10:30 exit when trigger fires, track wins/losses\nCUMULATE compounded returns across triggered days to build equity curve\nDASHBOARD shows summary cards (final return, win/loss counts, avg/best/worst return), event markers for winning and losing trades, cumulative return line chart, and return distribution histogram",
-    "tags": {
-      "asset_class": ["equities"],
-      "event_type": ["technical_signal"],
-      "methodology": ["mean_reversion"],
-      "intraday": true
-    }
-  },
-  {
-    "id": "spy_morning_dip_window_analysis",
-    "name": "SPY Morning Dip - Window Optimization",
-    "description": "LOAD 5-minute SPY bars and define 20 entry/exit session windows across 4 entries (9:40-9:55) and 5 exits (10:00-11:00)\nCOMPUTE triggered returns for each window (buy when price below RTH open) and cumulative compounded equity curves\nAGGREGATE average returns per window for side-by-side bar chart comparison\nANALYZE day-of-week effect on the baseline 9:45-10:30 window\nDASHBOARD shows 20-window average return bar chart, day-of-week bars, cumulative return cards by entry time, and equity curve overlay for 9:45 entry variants",
-    "tags": {
-      "asset_class": ["equities"],
-      "event_type": ["technical_signal"],
-      "methodology": ["mean_reversion"],
-      "intraday": true
-    }
-  },
-  {
-    "id": "tradingview_technicals_slv",
-    "name": "TradingView-Style Technical Analysis - SLV",
-    "description": "LOAD daily bars for SLV (Silver ETF) via polygon\nCOMPUTE 9 oscillators (RSI, Stochastic, CCI, ADX, AO, Momentum, MACD, Williams %R, Ultimate) and classify each as Buy/Sell/Neutral\nCOMPUTE 15 moving averages (SMA/EMA at 10-200, HMA, VWMA, Ichimoku) and classify price position vs each\nCALCULATE aggregate scores on 0-100 gauge scale for oscillators, MAs, and combined summary\nDERIVE Classic, Fibonacci, Camarilla, and Woodie pivot points from prior session\nDASHBOARD shows three summary gauges, signal count table, oscillator detail table, MA detail table, and 4-method pivot points table",
-    "tags": {
-      "asset_class": ["commodities"],
-      "data_source": ["technicals"],
-      "event_type": ["technical_signal"],
-      "methodology": ["screening"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "volume_profile_confluence",
-    "name": "Multi-Timeframe Volume Profile Confluence",
-    "description": "LOAD 5-minute SPY bars and compute volume profiles across 3 tiers: 1-day (78 bars), 5-day (390 bars), and extended (500 bars)\nEXTRACT POC, VAH, VAL per tier plus VWAP, prior close, and prior high/low as reference levels\nDETECT confluence zones where levels from different timeframes cluster within 0.3% of anchor levels (POC 1D, POC 5D, VWAP, Prior Close)\nGRADE zone strength on 8-point scale checking prior levels, composite alignment, VPOC presence, volume confirmation, and level hold behavior\nTRACK historical test rates and outcomes (support vs resistance) for prior VPOC, VAH, VAL\nDASHBOARD shows multi-TF overview cards, level tables, confluence/zone score cards, grading breakdown, historical test rates, timeseries overlays, and distribution histograms with event markers for high-conviction zones",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["volume_profile"],
-      "methodology": ["market_microstructure"],
-      "intraday": true
-    }
-  },
-  {
-    "id": "volume_profile_multi_session_analysis",
-    "name": "Multi-Session Volume Profile Analysis",
-    "description": "LOAD 5-minute SPY bars and compute session (78-bar) and 5-day composite (390-bar) volume profiles\nBUILD 5-session lag chain (T-0 through T-4) tracking VPOC, VAH, VAL, VA width, close position, and profile shape per session\nCOMPUTE VA overlap percentages between adjacent sessions, VPOC migration deltas, and VA midpoint shift streaks\nCLASSIFY market regime as Balance (>70% overlap), Migrating Up/Down (3+ streak, <60% overlap), or Neutral\nDETECT Axia Futures price-value divergence (new high/low without VA following) and naked VPOCs (untouched prior session VPOCs)\nDASHBOARD shows 5-session migration table, regime detection cards with overlap/streak timeseries, divergence counts with event markers, composite profile comparison, and naked VPOC cluster alerts",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["volume_profile"],
-      "methodology": ["market_microstructure"],
-      "intraday": true
-    }
-  },
-  {
-    "id": "volume_profile_session_analysis",
-    "name": "Volume Profile Session Analysis",
-    "description": "LOAD 5-minute SPY bars and compute per-session volume profile (VPOC, VAH, VAL) with 78-bar rolling window\nCALCULATE Initial Balance (first 30 min), IB extension ratios, close percentile, volume conviction ratio, and VWAP\nCLASSIFY Dalton day types (Normal, Trend, Double Distribution, Neutral, Normal Variation), profile shapes (P/b/D/B/Elongated), and opening types (Drive, Test-Drive, Reject-Reverse, Auction)\nANALYZE excess/tails for poor highs/lows (magnets), gap behavior, VPOC migration vs prior session, and intraday VA shift from mid-session\nDASHBOARD shows session overview cards, key levels table, close/extension analysis, day type and shape bar charts, auction quality table, distribution histograms and boxplots, with event markers for trend days, poor highs/lows, open-drives, and rejection-reversals",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["volume_profile"],
-      "methodology": ["market_microstructure", "distribution"],
-      "intraday": true
-    }
-  },
-  {
-    "id": "vpoc_tracking_naked_vpoc",
-    "name": "VPOC Tracking & Naked VPOC Analysis",
-    "description": "LOAD 5-minute SPY bars and extract VPOCs from 10 prior sessions using valuewhen(occurrence=N)\nTRACK VPOC migration direction, consecutive streak length, net migration, and trending flag across 10 sessions\nDETECT naked (untested) VPOCs from 9 prior sessions using rolling min/max over N*78-bar windows, compute distances and prominence scores\nCLASSIFY prior-session VPOC test behavior as bounce (defended) vs break (accepted) based on approach direction and close position\nCOMPUTE cumulative bounce/break rates and high-priority naked VPOC count (within 1% of close)\nDASHBOARD shows migration cards and table, naked VPOC summary with 5-session detail table, test behavior cards with outcome bar chart, and event markers for nearby naked VPOCs, bounces, breaks, and migration streaks",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["volume_profile"],
-      "methodology": ["market_microstructure"],
-      "intraday": true
-    }
-  },
-  {
-    "id": "vwap_vpoc_convergence_analysis",
-    "name": "VWAP-VPOC Convergence Analysis",
-    "description": "LOAD 5-minute SPY bars and compute session VWAP and VPOC (78-bar volume profile) each day\nCALCULATE VWAP-VPOC delta in points and percentage, classify as convergence (<=0.2%), intermediate, or decision zone (>0.5%)\nBUILD 5-session rolling history of VWAP, VPOC, and delta; detect trajectory patterns (converging, diverging, parallel)\nCLASSIFY close position relative to both anchors (above both, below both, between) and track VPOC-above-VWAP consistency\nCOMPUTE anchor reference levels (100-day high, 20-day swing low, month-start close, 20-day VWMA) for broader context\nDASHBOARD shows convergence overview cards, delta timeseries, VWAP vs VPOC scatter plots, 5-session history table, trajectory/close distribution bars, close distance histograms, delta boxplots, anchor levels table, and event markers for convergence and divergence zones",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["volume_profile"],
-      "methodology": ["market_microstructure"],
-      "intraday": true
-    }
-  },
-  {
-    "id": "t1_01_aapl_post_earnings_drift_surprise",
-    "name": "AAPL Post-Earnings Drift by EPS Surprise Magnitude",
-    "description": "LOAD AAPL daily bars and quarterly earnings data via earnings(period=EarningsPeriod.quarterly)\nCLASSIFY events into Beat (>5% surprise), Miss (<-5% surprise), and Neutral regimes\nCOMPUTE normalized return paths from T-10 to T+60 relative to pre-event close\nCALCULATE window-specific returns (pre-10d, pre-5d, earnings day, post-5d through post-60d)\nDASHBOARD shows overview cards, cumulative earnings-day returns by regime, composite return path bars, post-60d return distributions, and event markers with EPS surprise details",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["earnings"],
-      "event_type": ["corporate_event"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "t1_02_tlt_cpi_impact",
-    "name": "CPI Release Impact on Treasury Bonds (TLT)",
-    "description": "LOAD TLT daily bars and CPI economic indicator via common_economic_indicators(category=MacroEconomicsIndicator.CPI)\nDETECT CPI acceleration using valuewhen to compare current vs prior CPI change\nCLASSIFY events as Hot CPI (accelerating inflation) vs Cool CPI (decelerating inflation)\nCOMPUTE normalized return paths from T-5 to T+20 relative to pre-event close\nDASHBOARD shows overview cards, cumulative CPI-day returns by regime, composite return path bars, post-20d return distributions, and event markers with CPI change details",
-    "tags": {
-      "asset_class": ["bonds"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["CPI"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "t1_03_spy_fed_rate_decision",
-    "name": "Fed Rate Decision Impact on SPY",
-    "description": "LOAD SPY daily bars and Fed Funds rate via common_economic_indicators(category=MacroEconomicsIndicator.FedFunds)\nCLASSIFY rate decisions as Hike (>=20bps), Cut (<=-20bps), or Hold using valuewhen for prior rate comparison\nCOMPUTE normalized return paths from T-5 to T+30 relative to pre-event close\nCALCULATE window-specific returns (pre-5d, pre-3d, fed day, post-3d through post-30d)\nDASHBOARD shows overview cards, cumulative fed-day returns by regime, composite return path bars, post-30d return distributions, and event markers with rate change details",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["Fed_Funds"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "t1_04_aapl_analyst_rating_drift",
-    "name": "AAPL Analyst Rating Upgrade vs Downgrade Drift",
-    "description": "LOAD AAPL daily bars and analyst ratings via analyst_ratings()\nCLASSIFY events as Upgrade (price target raised) vs Downgrade (price target lowered)\nCOMPUTE normalized return paths from T-10 to T+30 relative to pre-event close\nCALCULATE window-specific returns (pre-10d, pre-5d, rating day, post-5d through post-30d)\nDASHBOARD shows overview cards, cumulative rating-day returns by direction, composite return path bars, post-30d and rating-day return distributions, and event markers with price target change details",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["analyst_ratings"],
-      "event_type": ["corporate_event"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "t1_05_gc_nfp_gold_impact",
-    "name": "NFP Release Impact on Gold Futures (GC)",
-    "description": "LOAD GC-Futures daily bars and NFP economic indicator via common_economic_indicators(category=MacroEconomicsIndicator.NonfarmPayrolls)\nDETECT NFP release dates and compute month-over-month change using valuewhen\nCLASSIFY events as Strong NFP (>200K change, bearish gold) vs Weak NFP (<100K change, bullish gold)\nCOMPUTE normalized return paths from T-5 to T+20 relative to pre-event close\nDASHBOARD shows overview cards, cumulative NFP-day returns by regime, composite return path bars, post-20d return distributions, and event markers with NFP change details",
-    "tags": {
-      "asset_class": ["commodities"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["NFP"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "t1_06_spy_dividend_exdate",
-    "name": "SPY Dividend Ex-Date Price Drop Analysis",
-    "description": "LOAD SPY daily bars and dividend data via dividends(dividend_type=DividendType.CD)\nCOMPUTE dividend yield relative to close and classify as High Yield (>0.4%) vs Low Yield (<=0.4%)\nCALCULATE expected vs actual price drop and drop ratio on ex-date\nCOMPUTE normalized return paths from T-5 to T+10 relative to pre-event close\nDASHBOARD shows overview cards, cumulative ex-date returns by yield regime, composite return path bars, post-10d and drop ratio distributions, and event markers with yield details",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["dividends"],
-      "event_type": ["corporate_event"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "t1_07_spy_yield_curve_inversion",
-    "name": "Yield Curve Inversion Impact on SPY",
-    "description": "LOAD SPY daily bars and Treasury yields (10Y and 2Y) via common_economic_indicators\nDETECT yield curve inversion (2Y > 10Y) and un-inversion (2Y crosses back below 10Y) events\nCOMPUTE normalized return paths from T-60 to T+252 relative to pre-event close\nDASHBOARD shows overview cards, cumulative event-day returns, composite return path bars, post-252d return distributions, and event markers with spread details",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["yield_curve"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "t1_08_spy_ism_manufacturing",
-    "name": "ISM Manufacturing PMI Impact on SPY",
-    "description": "LOAD SPY daily bars and ISM Manufacturing PMI via common_economic_indicators\nCLASSIFY events as Improving (current > prior reading) vs Deteriorating (current < prior) using valuewhen\nCOMPUTE normalized return paths from T-5 to T+20 relative to pre-event close\nDASHBOARD shows overview cards, cumulative PMI-day returns by regime, composite return path bars, post-20d return distributions, and event markers with PMI change details",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["ISM"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "t1_09_eurusd_cpi_impact",
-    "name": "CPI Release Impact on EUR/USD",
-    "description": "LOAD EUR/USD (^EURUSD-FX) daily bars and CPI economic indicator via common_economic_indicators\nDETECT CPI acceleration using valuewhen to compare current vs prior CPI change\nCLASSIFY events as Hot CPI (accelerating) vs Cool CPI (decelerating)\nCOMPUTE normalized return paths from T-5 to T+20 relative to pre-event close\nDASHBOARD shows overview cards, cumulative CPI-day returns by regime, composite return path bars, and event markers",
-    "tags": {
-      "asset_class": ["fx"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["CPI"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "t1_10_tsla_short_volume_spike",
-    "name": "TSLA Short Volume Spike Signal",
-    "description": "LOAD TSLA daily bars and short volume data via short_volume()\nDETECT short volume spikes using ratio > 1.15x threshold of recent average\nCLASSIFY events as Bullish Signal (spike followed by up move) vs Bearish Signal\nCOMPUTE normalized return paths from T-5 to T+20 relative to pre-event close\nDASHBOARD shows overview cards, cumulative returns by signal type, composite return paths, and event markers with short volume ratio details",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["short_interest"],
-      "event_type": ["technical_signal"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "t1_02b_zb_cpi_intraday",
-    "name": "CPI Release Intraday Impact on Treasury Futures (ZB)",
-    "description": "LOAD TLT 5Min bars and CPI economic indicator for intraday event study around 8:30 AM ET\nDETECT CPI release days and classify as Hot CPI vs Cool CPI using valuewhen comparison\nDEFINE session windows: pre (7:30-8:30), immediate (8:30-8:35), short (8:35-9:00), and post windows\nCOMPUTE window returns and range for CPI days only\nDASHBOARD shows summary cards, window return comparisons, and intraday reaction charts",
-    "tags": {
-      "asset_class": ["bonds"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["CPI"],
-      "methodology": ["event_study"],
-      "intraday": true
-    }
-  },
-  {
-    "id": "t1_05b_gc_nfp_intraday",
-    "name": "NFP Release Intraday Impact on Gold Futures (GC)",
-    "description": "LOAD GC-Futures 5Min bars via futures_continuation and NFP economic indicator\nDETECT NFP release dates and classify as Strong (>200K) vs Weak (<100K) using valuewhen\nDEFINE session windows around 8:30 AM ET: pre, immediate, short, and post windows\nCOMPUTE window returns for NFP days only\nDASHBOARD shows summary cards, intraday reaction comparison bars, and window return analysis",
-    "tags": {
-      "asset_class": ["commodities"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["NFP"],
-      "methodology": ["event_study"],
-      "intraday": true
-    }
-  },
-  {
-    "id": "t1_08b_spy_ism_intraday",
-    "name": "ISM Manufacturing PMI Intraday Impact on SPY",
-    "description": "LOAD SPY 5Min bars and ISM Manufacturing PMI for intraday event study around 10:00 AM ET\nDETECT ISM release days and classify as Improving vs Deteriorating using valuewhen comparison\nDEFINE session windows around 10:00 AM ET: pre, immediate, short, and post windows\nCOMPUTE window returns for ISM days only\nDASHBOARD shows summary cards, window return comparisons, and intraday reaction charts",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["ISM"],
-      "methodology": ["event_study"],
-      "intraday": true
-    }
-  },
-  {
-    "id": "t1_09b_eurusd_cpi_intraday",
-    "name": "CPI Release Intraday Impact on EUR/USD",
-    "description": "LOAD EUR/USD (^EURUSD-FX) 5Min bars and CPI economic indicator\nDETECT CPI release days and classify as Hot CPI vs Cool CPI around 8:30 AM ET\nDEFINE session windows: pre, immediate, short, and post windows\nCOMPUTE window returns for CPI days only\nDASHBOARD shows summary cards, intraday FX reaction comparisons, and window return analysis",
-    "tags": {
-      "asset_class": ["fx"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["CPI"],
-      "methodology": ["event_study"],
-      "intraday": true
-    }
-  },
-  {
-    "id": "t2_01_aapl_earnings_rating_double_event",
-    "name": "AAPL Earnings + Analyst Rating Double Event",
-    "description": "LOAD AAPL daily bars, quarterly earnings, and analyst ratings\nDETECT concordance: earnings beat/miss within 30 bars of analyst upgrade/downgrade\nCLASSIFY as Positive Concordant (beat+upgrade), Negative Concordant (miss+downgrade), or Discordant\nCOMPUTE normalized return paths from T-10 to T+30 for each concordance regime\nDASHBOARD shows event census cards, cumulative returns, composite return paths, and concordance analysis",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["earnings", "analyst_ratings"],
-      "event_type": ["corporate_event"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "t2_02_tlt_cpi_fed_double_event",
-    "name": "CPI + Fed Funds Double Event on Bonds (TLT)",
-    "description": "LOAD TLT daily bars, CPI indicator, and Fed Funds rate\nDETECT double macro events: CPI release within 30 bars of Fed rate change\nCLASSIFY as Hot+Hike, Cool+Cut, or Mixed regime\nCOMPUTE normalized return paths from T-5 to T+20 for each double-event regime\nDASHBOARD shows event census, cumulative returns, composite return paths, and regime comparison",
-    "tags": {
-      "asset_class": ["bonds"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["CPI", "Fed_Funds"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "t2_03_nvda_earnings_volatility",
-    "name": "NVDA Earnings Surprise vs Post-Earnings Volatility",
-    "description": "LOAD NVDA daily bars and quarterly earnings data\nCLASSIFY earnings events as Beat (>5% surprise) or Miss and compute pre-event volatility change\nCALCULATE average volatility change around earnings using stddev of returns\nCOMPUTE normalized return paths from T-10 to T+30 relative to pre-event close\nDASHBOARD shows event overview cards, cumulative returns, composite return paths, volatility metrics, and event markers",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["earnings"],
-      "event_type": ["corporate_event"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "t2_04_spy_claims_yield_curve",
-    "name": "Initial Claims Spike + Yield Curve Regime on SPY",
-    "description": "LOAD SPY daily bars, initial jobless claims, and yield curve spread (10Y-2Y)\nDETECT claims spikes and condition on yield curve state (inverted vs normal)\nCLASSIFY as Spike+Inverted, Spike+Normal, or No Spike regime\nCOMPUTE normalized return paths from T-5 to T+20 for each double-condition regime\nDASHBOARD shows event census, cumulative returns, composite return paths, and regime comparison",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["economic_indicators"],
-      "event_type": ["macro_event"],
-      "indicator": ["yield_curve"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "t2_05_tsla_short_interest_earnings",
-    "name": "TSLA Short Interest + Earnings Short Squeeze Setup",
-    "description": "LOAD TSLA daily bars, short interest data, and quarterly earnings\nCLASSIFY short interest as High (above median) or Low and combine with earnings beat/miss\nCREATE regimes: High SI + Beat, High SI + Miss, Low SI + Beat, Low SI + Miss\nCOMPUTE normalized return paths from T-10 to T+30 for each combined regime\nDASHBOARD shows event census, cumulative returns, composite return paths, and event markers",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["short_interest", "earnings"],
-      "event_type": ["corporate_event"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "t2_06_aapl_gross_margin_drift",
-    "name": "AAPL Gross Margin Expansion/Contraction Drift",
-    "description": "LOAD AAPL daily bars and quarterly income statement data\nCOMPUTE gross margin (gross_profit/revenue) and detect margin expansion vs contraction using valuewhen\nCLASSIFY as Margin Expansion or Margin Contraction regime\nCOMPUTE normalized return paths from T-10 to T+30 relative to pre-event close\nDASHBOARD shows event census, cumulative returns, composite return paths, margin trend charts, and event markers",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["earnings"],
-      "event_type": ["corporate_event"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "nvda_earnings_revenue_acceleration",
-    "name": "NVDA Earnings: Revenue Acceleration Event Study",
-    "description": "LOAD NVDA daily bars and quarterly earnings data via earnings(period=EarningsPeriod.quarterly)\nCOMPUTE YoY revenue growth and detect acceleration (current > prior quarter) using valuewhen\nCLASSIFY events as Accelerating or Decelerating revenue growth regime\nCOMPUTE normalized return paths from T-30 to T+30 relative to pre-event close\nDASHBOARD shows overview cards, cumulative earnings-day returns by regime, composite return path bars, distributions, and event markers with revenue growth details",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["earnings"],
-      "event_type": ["corporate_event"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "aapl_valuation_multiples_peer_comparison",
-    "name": "AAPL Valuation Multiples: 5Y History & Large-Cap Tech Peer Comparison",
-    "description": "LOAD daily bars for 6 large-cap tech stocks (AAPL, MSFT, GOOGL, AMZN, META, NVDA)\nCOMPUTE P/E, P/S, EV/EBITDA, P/B via finance_ratio plus gross/operating/net margins\nCALCULATE rolling 5-year z-scores and margin-adjusted P/E for relative value assessment\nDASHBOARD shows cross-sectional summary tables, valuation bar charts by asset, margin comparisons, z-score bars, and time-series overlays for all metrics using cs_* reporters",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["earnings"],
-      "methodology": ["cross_sectional"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "msft_return_decomposition",
-    "name": "MSFT Return Decomposition: Earnings Growth, Multiple Expansion & Rate Sensitivity",
-    "description": "LOAD MSFT daily bars, TTM income statement, and FRED 10Y TIPS real yield (DFII10)\nCOMPUTE daily log returns decomposed into earnings growth, rate-driven multiple change, and residual sentiment\nCALCULATE rolling 60-day beta and correlation to real yield changes\nDASHBOARD shows cumulative return attribution (stacked area), total vs component returns, scatter plot of returns vs yield changes, rolling beta/correlation, P/E and EPS context charts",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["earnings", "economic_indicators"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "amzn_downside_rate_shock_scenario",
-    "name": "AMZN Downside Scenario: +100bp Real Rate Rise & Flat Forward Earnings",
-    "description": "LOAD AMZN daily bars, TTM fundamentals (income, balance sheet, cash flow), and 10Y Treasury yield\nCOMPUTE 3 scenario fair values using justified P/E multipliers (Base 33.3x, Downside 11.3x, Severe 10.9x) applied to TTM EPS\nCALCULATE premium/discount to each fair value, EPS/revenue YoY growth, FCF yield, and P/E by rate regime\nDASHBOARD shows scenario overview cards, price vs fair value charts, P/E with reference lines, rate regime histograms, yield comparisons, and fundamental trend charts",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["earnings", "economic_indicators"],
-      "methodology": ["event_study"],
-      "intraday": false
-    }
-  },
-  {
-    "id": "tsla_sentiment_vs_fundamental_deterioration",
-    "name": "TSLA: Sentiment Proxy vs Fundamental Deterioration",
-    "description": "LOAD TSLA daily bars, analyst ratings, quarterly earnings, and income statement\nDETECT sentiment events (analyst downgrades) and fundamental events (earnings miss, margin contraction, revenue deceleration)\nCLASSIFY concordance: pure sentiment (downgrade without recent fundamental) vs concordant (downgrade near fundamental event)\nCOMPUTE normalized return paths from T-10 to T+30 for each event type\nDASHBOARD shows event census, sentiment vs fundamental return paths, persistence analysis, concordance comparison, cumulative returns, and event markers",
-    "tags": {
-      "asset_class": ["equities"],
-      "data_source": ["earnings", "analyst_ratings"],
-      "event_type": ["corporate_event"],
-      "methodology": ["event_study"],
-      "intraday": false
     }
   }
 ]

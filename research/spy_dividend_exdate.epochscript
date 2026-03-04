@@ -1,0 +1,131 @@
+# =============================================================================
+# DOES SPY DROP BY THE FULL DIVIDEND AMOUNT ON EX-DATE?
+# =============================================================================
+# Event: SPY cash dividend ex-dates
+# Key metric: drop ratio = actual price drop / expected dividend amount
+# Chart 1 (bar): avg post-10d return by yield tier
+# Chart 2 (table): window breakdown
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# DIVIDEND DATA
+# =============================================================================
+
+div_data = dividends(dividend_type=DividendType.CD)()
+cash_amount = div_data.cash_amount
+had_div = is_valid(cash_amount)
+
+# Dividend yield as fraction of price
+div_yield = cash_amount / close
+
+# Drop ratio: how much of the dividend was priced in?
+actual_drop = (close >> 1) - close
+expected_drop = cash_amount
+drop_ratio = actual_drop / expected_drop
+
+# =============================================================================
+# REGIME CLASSIFICATION
+# =============================================================================
+
+is_high_yield = had_div and (div_yield > 0.004)
+is_low_yield = had_div and (div_yield <= 0.004)
+
+# Counters (Antipattern #14 guard)
+raw_high = 1.0 if is_high_yield else 0.0
+high_count = raw_high if is_valid(raw_high) else 0.0
+raw_low = 1.0 if is_low_yield else 0.0
+low_count = raw_low if is_valid(raw_low) else 0.0
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+exdate_day = (close - (close >> 1)) / (close >> 1)
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+
+# =============================================================================
+# REGIME-FILTERED SERIES
+# =============================================================================
+
+h_post10 = where(is_high_yield, post_10d)
+l_post10 = where(is_low_yield, post_10d)
+
+h_exdate = where(is_high_yield, exdate_day)
+l_exdate = where(is_low_yield, exdate_day)
+
+h_post5 = where(is_high_yield, post_5d)
+l_post5 = where(is_low_yield, post_5d)
+
+# Event marker helpers
+ev_yield = where(had_div, div_yield)
+ev_drop_ratio = where(had_div, drop_ratio)
+ev_post10 = where(had_div, post_10d)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='SPY Dividend Ex-Date',
+        cells=[
+            ColumnSpec(title='High Yield Ex-Dates (>0.4%)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Low Yield Ex-Dates', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='Dividend Ex-Date'
+)(high_count, low_count)
+
+xy_bars(
+    title='Does SPY Recover After Ex-Date Drops?',
+    category='Dividend Ex-Date',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    color_by_value=True,
+    y_axis_label='Avg Post-10d Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='High Yield (>0.4%)'),
+        BarSeriesSpec(name='Low Yield')
+    ])
+)(h_post10, l_post10)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Return Profile by Yield Tier and Window',
+        row_size=2,
+        col_size=3,
+        row_headers=['High Yield (>0.4%)', 'Low Yield'],
+        col_headers=['Ex-Date Day', 'Post-5d', 'Post-10d'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='Dividend Ex-Date'
+)(h_exdate, h_post5, h_post10, l_exdate, l_post5, l_post10)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='SPY Dividend Ex-Dates',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Div Yield %', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Drop Ratio', type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-10d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(had_div, ev_yield, ev_drop_ratio, ev_post10)

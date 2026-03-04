@@ -1,0 +1,51 @@
+# =============================================================================
+# GAINS INCREASE WITH HOLDING PERIOD
+# =============================================================================
+# Question: How do average S&P 500 returns change as the investment holding
+#   period increases?
+#
+# Chart: xy_bars
+#   - X-axis: Holding period categories (1 Day through 20 Years)
+#   - Y-axis: Average return over each holding period (percent)
+#   - Series: 9 bars for each holding period (1D, 1W, 1M, 3M, 6M, 1Y, 5Y, 10Y, 20Y)
+#   - Overlay: None
+#
+# Dataset:
+#   - market_data_source (SPY-Stocks, 1D)
+# =============================================================================
+
+# Gains Increase with Holding Period
+src = market_data_source()()
+close = src.c
+
+# Various holding period returns
+ret_1d = (close - (close >> 1)) / (close >> 1)
+ret_1w = (close - (close >> 5)) / (close >> 5)
+ret_1m = (close - (close >> 21)) / (close >> 21)
+ret_3m = (close - (close >> 63)) / (close >> 63)
+ret_6m = (close - (close >> 126)) / (close >> 126)
+ret_1y = (close - (close >> 252)) / (close >> 252)
+ret_5y = (close - (close >> 1260)) / (close >> 1260)
+ret_10y = (close - (close >> 2520)) / (close >> 2520)
+ret_20y = (close - (close >> 5040)) / (close >> 5040)
+
+xy_bars(
+    title='Gains Increase with Holding Period',
+    category='1. Holding Period Returns',
+    agg=AggregationType.Mean,
+    y_axis_label='Average S&P 500 Return Over Holding Period',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    data_labels=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='1 Day', color=Color.Blue),
+        BarSeriesSpec(name='1 Week', color=Color.Blue),
+        BarSeriesSpec(name='1 Month', color=Color.Blue),
+        BarSeriesSpec(name='3 Months', color=Color.Blue),
+        BarSeriesSpec(name='6 Months', color=Color.Blue),
+        BarSeriesSpec(name='1 Year', color=Color.Blue),
+        BarSeriesSpec(name='5 Years', color=Color.Blue),
+        BarSeriesSpec(name='10 Years', color=Color.Blue),
+        BarSeriesSpec(name='20 Years', color=Color.Blue)
+    ])
+)(ret_1d, ret_1w, ret_1m, ret_3m, ret_6m, ret_1y, ret_5y, ret_10y, ret_20y)

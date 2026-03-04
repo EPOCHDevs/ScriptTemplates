@@ -1,0 +1,168 @@
+# =============================================================================
+# DOES ANALYST CONFIRMATION STRENGTHEN AAPL'S POST-EARNINGS DRIFT?
+# =============================================================================
+# Regimes: Confirmed Beat, Confirmed Miss, Unconfirmed
+# Chart 1 (bar): avg post-20d return by regime — the verdict
+# Chart 2 (table): detailed window breakdown — earn day through post-20d
+# Event marker: each earnings event on the price chart
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# EARNINGS DATA
+# =============================================================================
+
+earnings_data = earnings()()
+surprise_pct = earnings_data.eps_surprise_percent
+had_earnings = is_valid(surprise_pct)
+
+# =============================================================================
+# ANALYST RATINGS — forward-fill last PT direction
+# =============================================================================
+
+ratings = analyst_ratings()()
+pt = ratings.adjusted_price_target
+prev_pt = ratings.previous_adjusted_price_target
+had_rating = is_valid(pt) and is_valid(prev_pt)
+is_pt_raise = pt > prev_pt
+is_pt_cut = pt < prev_pt
+
+rating_dir_raw = conditional_select(had_rating and is_pt_raise, 1.0, had_rating and is_pt_cut, -1.0, 0.0 / 0.0)
+rating_dir = ffill(rating_dir_raw)
+
+# NaN-safe rating direction: coalesce NaN to 0 (no rating = unconfirmed)
+rating_dir_safe = coalesce(rating_dir, 0.0)
+
+# =============================================================================
+# REGIME CLASSIFICATION (NaN-safe — Antipattern #14)
+# =============================================================================
+
+is_confirmed_beat = had_earnings and (surprise_pct > 0.0) and (rating_dir_safe > 0.0)
+is_confirmed_miss = had_earnings and (surprise_pct < 0.0) and (rating_dir_safe < 0.0)
+is_unconfirmed = had_earnings and not is_confirmed_beat and not is_confirmed_miss
+
+# Counters (is_valid guard for Antipattern #14)
+raw_beat = 1.0 if is_confirmed_beat else 0.0
+confirmed_beat_count = raw_beat if is_valid(raw_beat) else 0.0
+raw_miss = 1.0 if is_confirmed_miss else 0.0
+confirmed_miss_count = raw_miss if is_valid(raw_miss) else 0.0
+raw_uc = 1.0 if is_unconfirmed else 0.0
+unconfirmed_count = raw_uc if is_valid(raw_uc) else 0.0
+earnings_count = 1.0 if had_earnings else 0.0
+confirmed_count = confirmed_beat_count + confirmed_miss_count
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+earn_day = (close - (close >> 1)) / (close >> 1)
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+
+# =============================================================================
+# REGIME-FILTERED SERIES
+# =============================================================================
+
+# Post-20d by regime — for bar chart
+cb_post20 = where(is_confirmed_beat, post_20d)
+cm_post20 = where(is_confirmed_miss, post_20d)
+uc_post20 = where(is_unconfirmed, post_20d)
+
+# Earn day by regime — for summary table
+cb_earn = where(is_confirmed_beat, earn_day)
+cm_earn = where(is_confirmed_miss, earn_day)
+uc_earn = where(is_unconfirmed, earn_day)
+
+# Post-5d by regime
+cb_post5 = where(is_confirmed_beat, post_5d)
+cm_post5 = where(is_confirmed_miss, post_5d)
+uc_post5 = where(is_unconfirmed, post_5d)
+
+# Post-10d by regime
+cb_post10 = where(is_confirmed_beat, post_10d)
+cm_post10 = where(is_confirmed_miss, post_10d)
+uc_post10 = where(is_unconfirmed, post_10d)
+
+# Event marker helpers
+ev_surprise = where(had_earnings, surprise_pct)
+ev_regime = conditional_select(is_confirmed_beat, 1.0, is_confirmed_miss, -1.0, is_unconfirmed, 0.0, 0.0 / 0.0)
+ev_post20 = where(had_earnings, post_20d)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- Cards: sample size + confirmation rate (not on any chart) ---
+cards(
+    layout=CardLayout(
+        title='AAPL Post-Earnings Drift',
+        cells=[
+            ColumnSpec(title='Earnings Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Analyst-Confirmed Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='Post-Earnings Drift'
+)(earnings_count, confirmed_count)
+
+# --- Chart 1: The Verdict — avg post-20d return by regime ---
+xy_bars(
+    title='Does Analyst Confirmation Strengthen the Post-Earnings Drift?',
+    category='Post-Earnings Drift',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    color_by_value=True,
+    y_axis_label='Avg Post-20d Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Confirmed Beat'),
+        BarSeriesSpec(name='Unconfirmed'),
+        BarSeriesSpec(name='Confirmed Miss')
+    ])
+)(cb_post20, uc_post20, cm_post20)
+
+# --- Chart 2: Detailed window breakdown ---
+summary_table(
+    layout=SummaryTableLayout(
+        title='Return Profile by Signal Type and Window',
+        row_size=3,
+        col_size=4,
+        row_headers=['Confirmed Beat', 'Unconfirmed', 'Confirmed Miss'],
+        col_headers=['Earn Day', 'Post-5d', 'Post-10d', 'Post-20d'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='Post-Earnings Drift'
+)(cb_earn, cb_post5, cb_post10, cb_post20, uc_earn, uc_post5, uc_post10, uc_post20, cm_earn, cm_post5, cm_post10, cm_post20)
+
+# --- Event Marker: each earnings event on the price chart ---
+event_marker(
+    schema=EventMarkerSchema(
+        title='AAPL Earnings Events',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='EPS Surprise %', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='Signal (1=Beat, -1=Miss, 0=Unconf)', type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(had_earnings, ev_surprise, ev_regime, ev_post20)

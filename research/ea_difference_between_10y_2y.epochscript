@@ -1,0 +1,41 @@
+# =============================================================================
+# IS THE YIELD CURVE INVERTED OR UNINVERTED?
+# =============================================================================
+# Question: Is the U.S. Treasury yield curve currently inverted, and what does
+#   the 10-year minus 2-year spread tell us about recession risk?
+#
+# Chart: xy_lines
+#   - X-axis: Date (timestamp index)
+#   - Y-axis: 10Y - 2Y yield spread (percentage points)
+#   - Series: Two area series - Uninverted (blue, positive) and Inverted (red, negative)
+#   - Overlay: None
+#
+# Dataset:
+#   - common_economic_indicators (Spread10Y2Y)
+# =============================================================================
+
+# Is the Yield Curve Inverted or Uninverted?
+spread_obs, spread_val, spread_rev = common_economic_indicators(category=MacroEconomicsIndicator.Spread10Y2Y)()
+spread_filled = ffill(spread_val)
+
+spread_abs = abs(spread_filled)
+spread_pos = (spread_filled + spread_abs) / 2
+spread_neg = (spread_filled - spread_abs) / 2
+
+bar_ts = index()
+
+xy_lines(
+    title='Difference Between 10 Year Yield and 2 Year Yield (U.S. Treasuries)',
+    category='1. Yield Curve',
+    area=True,
+    y_axis_label='10 Year Yield - 2 Year Yield (U.S. Treasuries)',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=2,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Red, dash_style=DashStyle.Dash, title="Inversion Line")
+    ]),
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Uninverted', color=Color.Blue),
+        LineSeriesSpec(name='Inverted', color=Color.Red)
+    ])
+)(bar_ts, spread_pos, spread_neg)

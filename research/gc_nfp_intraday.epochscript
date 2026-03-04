@@ -1,0 +1,174 @@
+# =============================================================================
+# HOW FAST DOES GOLD REACT TO NFP AND DOES IT PERSIST INTRADAY?
+# =============================================================================
+# NFP releases at 8:30 AM ET on first Friday of month.
+# Regimes: Strong (>200K change) vs Weak (<100K change)
+# Chart 1: Avg return across 3 time windows (spike → digestion → persistence)
+# Chart 2: Cumulative immediate returns (does the spike compound?)
+# =============================================================================
+
+# === DATA SOURCE (1Min bars) ===
+src = market_data_source()()
+
+# === CONTINUOUS CONTRACT ===
+cont = futures_continuation(s_rollover_method=RolloverType.LiquidityBased, s_adjustment_method=AdjustmentType.NoAdjustment, i_offset=0)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+close = cont.c
+high = cont.h
+low = cont.l
+open_price = cont.o
+
+# === NFP DAY DETECTION ===
+nfp_data = common_economic_indicators(category=MacroEconomicsIndicator.NonfarmPayrolls)()
+nfp_value = nfp_data.result
+nfp_filled = ffill_day(nfp_value)
+is_nfp_day = is_valid(nfp_filled)
+
+# === FRIDAY DETECTION ===
+bar_idx = index()
+day_of_week = datetime_extract(component=DatetimeExtractionType.day_of_week)(bar_idx)
+is_friday = day_of_week == 4
+is_nfp_friday = is_nfp_day and is_friday
+
+# === NFP CHANGE & REGIME CLASSIFICATION ===
+had_nfp = is_valid(nfp_value)
+prior_nfp_raw = valuewhen(occurrence=1)(had_nfp, nfp_value)
+nfp_change_raw = nfp_value - prior_nfp_raw
+nfp_change = ffill_day(nfp_change_raw)
+
+is_strong = is_nfp_friday and is_valid(nfp_change) and (nfp_change > 200.0)
+is_weak = is_nfp_friday and is_valid(nfp_change) and (nfp_change < 100.0)
+
+# === SESSION WINDOWS ===
+
+# Immediate: 08:30-08:31 (first 1 min spike)
+w_imm = session_window(session=Session(start='08:30', end='08:31', tz='America/New_York'))(open_price, high, low, close)
+
+# 1hr Post: 08:30-09:30 (full hour after release)
+w_1hr = session_window(session=Session(start='08:30', end='09:30', tz='America/New_York'))(open_price, high, low, close)
+
+# Full Day: 08:30-16:00 (release through near-close)
+w_full = session_window(session=Session(start='08:30', end='16:00', tz='America/New_York'))(open_price, high, low, close)
+
+# === WINDOW RETURNS ===
+r_imm = ((w_imm.close - w_imm.open) / w_imm.open) if w_imm.closed else 0
+r_1hr = ((w_1hr.close - w_1hr.open) / w_1hr.open) if w_1hr.closed else 0
+r_full = ((w_full.close - w_full.open) / w_full.open) if w_full.closed else 0
+
+# === ALIGNED SERIES FOR XY_BARS ===
+# All latched to w_full.closed so they fire on the same bar
+imm_ret_latched = valuewhen(occurrence=0)(w_imm.closed, r_imm)
+hr_ret_latched = valuewhen(occurrence=0)(w_1hr.closed, r_1hr)
+
+# Strong aligned
+strong_bar_imm = where(w_full.closed and is_strong, imm_ret_latched)
+strong_bar_1hr = where(w_full.closed and is_strong, hr_ret_latched)
+strong_bar_full = where(w_full.closed and is_strong, r_full)
+
+# Weak aligned
+weak_bar_imm = where(w_full.closed and is_weak, imm_ret_latched)
+weak_bar_1hr = where(w_full.closed and is_weak, hr_ret_latched)
+weak_bar_full = where(w_full.closed and is_weak, r_full)
+
+# === COUNTERS ===
+strong_count = where(w_1hr.closed and is_strong, 1.0)
+weak_count = where(w_1hr.closed and is_weak, 1.0)
+
+# === CUMULATIVE EVENT RETURNS ===
+strong_imm_raw = r_imm if (w_imm.closed and is_strong) else 0.0
+weak_imm_raw = r_imm if (w_imm.closed and is_weak) else 0.0
+strong_imm_daily = strong_imm_raw if is_valid(strong_imm_raw) else 0.0
+weak_imm_daily = weak_imm_raw if is_valid(weak_imm_raw) else 0.0
+cum_strong_imm = cumulative()(strong_imm_daily)
+cum_weak_imm = cumulative()(weak_imm_daily)
+
+# === EVENT MARKER HELPERS ===
+strong_nfp_chg = where(w_1hr.closed and is_strong, nfp_change)
+strong_em_imm = where(w_1hr.closed and is_strong, imm_ret_latched)
+strong_em_1hr = where(w_1hr.closed and is_strong, r_1hr)
+strong_em_full = where(w_full.closed and is_strong, r_full)
+weak_nfp_chg = where(w_1hr.closed and is_weak, nfp_change)
+weak_em_imm = where(w_1hr.closed and is_weak, imm_ret_latched)
+weak_em_1hr = where(w_1hr.closed and is_weak, r_1hr)
+weak_em_full = where(w_full.closed and is_weak, r_full)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- Cards: event counts ---
+cards(
+    layout=CardLayout(
+        title='NFP Intraday Events',
+        cells=[
+            ColumnSpec(title='Strong NFP Events (>200K)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Weak NFP Events (<100K)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='NFP Intraday'
+)(strong_count, weak_count)
+
+# --- Chart 1: Return by Window (Spike → Digestion → Persistence) ---
+xy_bars(
+    title='Strong NFP Hits Gold Fast; Does the Weak NFP Lift Persist?',
+    category='NFP Intraday',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=3,
+    y_axis_label='Avg Return',
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Strong: 1min Spike', color=Color.Blue),
+        BarSeriesSpec(name='Strong: 1hr', color=Color.Blue),
+        BarSeriesSpec(name='Strong: Full Day', color=Color.Blue),
+        BarSeriesSpec(name='Weak: 1min Spike', color=Color.Gray),
+        BarSeriesSpec(name='Weak: 1hr', color=Color.Gray),
+        BarSeriesSpec(name='Weak: Full Day', color=Color.Gray)
+    ])
+)(strong_bar_imm, strong_bar_1hr, strong_bar_full, weak_bar_imm, weak_bar_1hr, weak_bar_full)
+
+# --- Chart 2: Cumulative Immediate Returns ---
+xy_lines(
+    title='Does the 1-Minute NFP Spike Compound Across Events?',
+    category='NFP Intraday',
+    y_axis_label='Cumulative Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Strong NFP (>200K)', color=Color.Blue),
+        LineSeriesSpec(name='Weak NFP (<100K)', color=Color.Gray)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title='Breakeven')
+    ])
+)(bar_idx, cum_strong_imm, cum_weak_imm)
+
+# --- Event Markers (diagnostic) ---
+event_marker(
+    schema=EventMarkerSchema(
+        title='Strong NFP Events (>200K)',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='NFP Change (K)', type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(card_slot=CardSlot.Details, title='Imm 1min Return', type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='1hr Post Return', type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='Full Day Return', type=CardRenderType.PercentFormat, dp=3)
+        ]
+    )
+)(is_strong, strong_nfp_chg, strong_em_imm, strong_em_1hr, strong_em_full)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Weak NFP Events (<100K)',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='NFP Change (K)', type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(card_slot=CardSlot.Details, title='Imm 1min Return', type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='1hr Post Return', type=CardRenderType.PercentFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='Full Day Return', type=CardRenderType.PercentFormat, dp=3)
+        ]
+    )
+)(is_weak, weak_nfp_chg, weak_em_imm, weak_em_1hr, weak_em_full)

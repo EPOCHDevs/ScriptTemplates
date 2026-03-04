@@ -1,0 +1,92 @@
+# =============================================================================
+# A LOOK AT THE U.S. TREASURY YIELD CURVE
+# =============================================================================
+# Question: What does the current shape of the U.S. Treasury yield curve look
+#   like, and how has it changed from a year ago?
+#
+# Chart: labeled_lines + xy_lines
+#   - X-axis: Maturity tenor (1M to 30Y) for yield curve; Date for trends
+#   - Y-axis: Yield (%)
+#   - Series: Current yield curve vs 1 Year Ago (labeled_lines);
+#             3M, 2Y, 5Y, 10Y, 30Y over time (xy_lines)
+#   - Overlay: None
+#
+# Dataset:
+#   - common_economic_indicators (Treasury1M, Treasury3M, Treasury6M,
+#     Treasury1Y, Treasury2Y, Treasury3Y, Treasury5Y, Treasury7Y,
+#     Treasury10Y, Treasury20Y, Treasury30Y)
+# =============================================================================
+
+# U.S. Treasury Yield Curve
+
+# Load all available Treasury maturities
+m1_obs, m1_val, m1_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury1M)()
+m3_obs, m3_val, m3_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury3M)()
+m6_obs, m6_val, m6_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury6M)()
+y1_obs, y1_val, y1_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury1Y)()
+y2_obs, y2_val, y2_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury2Y)()
+y3_obs, y3_val, y3_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury3Y)()
+y5_obs, y5_val, y5_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury5Y)()
+y7_obs, y7_val, y7_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury7Y)()
+y10_obs, y10_val, y10_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury10Y)()
+y20_obs, y20_val, y20_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury20Y)()
+y30_obs, y30_val, y30_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury30Y)()
+
+m1 = ffill(m1_val)
+m3 = ffill(m3_val)
+m6 = ffill(m6_val)
+y1 = ffill(y1_val)
+y2 = ffill(y2_val)
+y3 = ffill(y3_val)
+y5 = ffill(y5_val)
+y7 = ffill(y7_val)
+y10 = ffill(y10_val)
+y20 = ffill(y20_val)
+y30 = ffill(y30_val)
+
+# 1 Year Ago yields (shift by 252 trading days)
+m1_1yr = m1 >> 252
+m3_1yr = m3 >> 252
+m6_1yr = m6 >> 252
+y1_1yr = y1 >> 252
+y2_1yr = y2 >> 252
+y3_1yr = y3 >> 252
+y5_1yr = y5 >> 252
+y7_1yr = y7 >> 252
+y10_1yr = y10 >> 252
+y20_1yr = y20 >> 252
+y30_1yr = y30 >> 252
+
+bar_ts = index()
+
+# Yield curve: Current vs 1 Year Ago (labeled lines with categorical X axis)
+labeled_lines(
+    title='Yield Curve',
+    category='1. Yield Curve',
+    y_axis_label='Yield (%)',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=2,
+    series=LabeledLineSeriesSchema(
+        x_labels=['1M','3M','6M','1Y','2Y','3Y','5Y','7Y','10Y','20Y','30Y'],
+        series=[
+            LabeledLineSeriesSpec(name='Current', color=Color.Blue, marker=MarkerSymbol.CircleMarker, agg=AggregationType.Last),
+            LabeledLineSeriesSpec(name='1 Year Ago', color=Color.Gray, dash_style=DashStyle.Dash, marker=MarkerSymbol.SquareMarker, agg=AggregationType.Last)
+        ]
+    )
+)(m1, m3, m6, y1, y2, y3, y5, y7, y10, y20, y30, m1_1yr, m3_1yr, m6_1yr, y1_1yr, y2_1yr, y3_1yr, y5_1yr, y7_1yr, y10_1yr, y20_1yr, y30_1yr)
+
+# Yield trends over time
+xy_lines(
+    title='Treasury Yields Over Time',
+    category='2. Yield Trends',
+    y_axis_label='Yield (%)',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='3M', color=Color.Green),
+        LineSeriesSpec(name='2Y', color=Color.Blue),
+        LineSeriesSpec(name='5Y', color=Color.Orange),
+        LineSeriesSpec(name='10Y', color=Color.Red),
+        LineSeriesSpec(name='30Y', color=Color.Purple)
+    ])
+)(bar_ts, m3, y2, y5, y10, y30)

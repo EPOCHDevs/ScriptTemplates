@@ -1,0 +1,77 @@
+# =============================================================================
+# STAYING THE COURSE WORKED IN 2025
+# =============================================================================
+# Question: What was the cost of selling at the April 2025 lows versus staying
+#   invested across different equity categories?
+#
+# Chart: xy_bars
+#   - X-axis: Equity category (Emerging Markets, Developed Markets, U.S. Large Cap, U.S. Mid Cap, U.S. Small Cap)
+#   - Y-axis: Total return (%) for held vs sold scenarios
+#   - Series: Paired bars per category (Holding Throughout 2025 vs Selling at April Low)
+#   - Overlay: Reference line at 0%
+#
+# Dataset:
+#   - market_data_source (SPY-Stocks, 1D)
+#   - reference_stocks (EEM, EFA, MDY, IWM)
+# =============================================================================
+
+# Staying The Course Worked In 2025
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# Load reference ETFs for each equity category
+eem_o, eem_h, eem_l, eem_c, eem_v, eem_vw, eem_n = reference_stocks(ticker='EEM')()
+efa_o, efa_h, efa_l, efa_c, efa_v, efa_vw, efa_n = reference_stocks(ticker='EFA')()
+mdy_o, mdy_h, mdy_l, mdy_c, mdy_v, mdy_vw, mdy_n = reference_stocks(ticker='MDY')()
+iwm_o, iwm_h, iwm_l, iwm_c, iwm_v, iwm_vw, iwm_n = reference_stocks(ticker='IWM')()
+
+eem = ffill(eem_c)
+efa = ffill(efa_c)
+spy = ffill(close)
+mdy = ffill(mdy_c)
+iwm = ffill(iwm_c)
+
+# First bar values (start of year) using cumulative First
+eem_first = cumulative(agg=AggregationType.First)(eem)
+efa_first = cumulative(agg=AggregationType.First)(efa)
+spy_first = cumulative(agg=AggregationType.First)(spy)
+mdy_first = cumulative(agg=AggregationType.First)(mdy)
+iwm_first = cumulative(agg=AggregationType.First)(iwm)
+
+# YTD return (if stayed invested)
+eem_ytd = (eem - eem_first) / eem_first
+efa_ytd = (efa - efa_first) / efa_first
+spy_ytd = (spy - spy_first) / spy_first
+mdy_ytd = (mdy - mdy_first) / mdy_first
+iwm_ytd = (iwm - iwm_first) / iwm_first
+
+# What sellers locked in (worst point YTD)
+eem_sold = cumulative(agg=AggregationType.Min)(eem_ytd)
+efa_sold = cumulative(agg=AggregationType.Min)(efa_ytd)
+spy_sold = cumulative(agg=AggregationType.Min)(spy_ytd)
+mdy_sold = cumulative(agg=AggregationType.Min)(mdy_ytd)
+iwm_sold = cumulative(agg=AggregationType.Min)(iwm_ytd)
+
+xy_bars(
+    title='Staying The Course Worked In 2025',
+    category='1. Held vs Sold',
+    agg=AggregationType.Last,
+    y_axis_label='Total Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash, title='0%')
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Holding Throughout 2025', color=Color.Blue, stack='Emerging Markets'),
+        BarSeriesSpec(name='Selling at April Low', color=Color.Gray, stack='Emerging Markets'),
+        BarSeriesSpec(name='Holding Throughout 2025', color=Color.Blue, stack='Developed Markets'),
+        BarSeriesSpec(name='Selling at April Low', color=Color.Gray, stack='Developed Markets'),
+        BarSeriesSpec(name='Holding Throughout 2025', color=Color.Blue, stack='U.S. Large Cap'),
+        BarSeriesSpec(name='Selling at April Low', color=Color.Gray, stack='U.S. Large Cap'),
+        BarSeriesSpec(name='Holding Throughout 2025', color=Color.Blue, stack='U.S. Mid Cap'),
+        BarSeriesSpec(name='Selling at April Low', color=Color.Gray, stack='U.S. Mid Cap'),
+        BarSeriesSpec(name='Holding Throughout 2025', color=Color.Blue, stack='U.S. Small Cap'),
+        BarSeriesSpec(name='Selling at April Low', color=Color.Gray, stack='U.S. Small Cap')
+    ])
+)(eem_ytd, eem_sold, efa_ytd, efa_sold, spy_ytd, spy_sold, mdy_ytd, mdy_sold, iwm_ytd, iwm_sold)

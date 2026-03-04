@@ -1,0 +1,37 @@
+# =============================================================================
+# QUITS VS HIRES IN THE U.S. ECONOMY
+# =============================================================================
+# Question: How do voluntary quits compare to total hires in the U.S. labor
+#   market, and what does this ratio signal about worker confidence and labor
+#   demand?
+#
+# Chart: xy_lines
+#   - X-axis: Date (timestamp index)
+#   - Y-axis: Rate (%) for quit rate and hire rate
+#   - Series: Total Quits (Blue), Total Hires (Gray)
+#   - Overlay: None
+#
+# Dataset:
+#   - common_economic_indicators (QuitRate, HireRate)
+# =============================================================================
+
+# Quits vs Hires in the U.S. Economy
+quit_obs, quit_val, quit_rev = common_economic_indicators(category=MacroEconomicsIndicator.QuitRate)()
+hire_obs, hire_val, hire_rev = common_economic_indicators(category=MacroEconomicsIndicator.HireRate)()
+
+quit_filled = ffill(quit_val)
+hire_filled = ffill(hire_val)
+
+bar_ts = index()
+
+xy_lines(
+    title='Quits vs Hires in the U.S. Economy',
+    category='1. Labor Market',
+    y_axis_label='Rate (%)',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=1,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Total Quits', color=Color.Blue),
+        LineSeriesSpec(name='Total Hires', color=Color.Gray)
+    ])
+)(bar_ts, quit_filled, hire_filled)

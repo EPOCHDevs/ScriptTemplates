@@ -1,0 +1,93 @@
+# =============================================================================
+# HOW FAR DOES SPY EXTEND BEYOND ITS OPENING RANGE?
+# =============================================================================
+# OR = 09:30-09:45 ET. Extension = how far price goes past OR high/low.
+# Boxplot = upside vs downside extension shape
+# Histogram = extension distance distribution (how far does it go?)
+# =============================================================================
+
+src = market_data_source()()
+high = src.h
+low = src.l
+close = src.c
+
+# === OPENING RANGE (09:30-09:45 ET) ===
+or_sw = session_window(session=Session(start='09:30', end='09:45', tz='America/New_York'))(src.o, high, low, close)
+or_high_raw = or_sw.high
+or_low_raw = or_sw.low
+or_high = ffill_day(or_high_raw)
+or_low = ffill_day(or_low_raw)
+
+# === RTH SESSION EXTREMES ===
+rth_sw = session_window(session=SessionType.EquityRTHSession)(src.o, high, low, close)
+rth_high = rth_sw.high
+rth_low = rth_sw.low
+
+# === END OF DAY DETECTION ===
+eod_sw = session_window(session=Session(start='15:55', end='16:00', tz='America/New_York'))(src.o, high, low, close)
+is_eod = eod_sw.closed
+eod_flag = 1.0 if is_eod else 0.0
+eod_filter = eod_flag / eod_flag
+
+# === EXTENSION METRICS (EOD only) ===
+
+# OR width in points and percent
+or_width_pts = (or_high - or_low) * eod_filter
+or_width_pct = ((or_high - or_low) / close) * eod_filter
+
+# Extension beyond OR (points)
+upside_ext_raw = (rth_high - or_high) * eod_filter
+downside_ext_raw = (or_low - rth_low) * eod_filter
+
+# Guard: negative extension means no breakout on that side (set to NaN)
+upside_ext = upside_ext_raw if upside_ext_raw > 0 else 0.0 / 0.0
+downside_ext = downside_ext_raw if downside_ext_raw > 0 else 0.0 / 0.0
+
+# is_valid guard for NaN-poisoned conditionals
+upside_ext_safe = upside_ext if is_valid(upside_ext) else 0.0 / 0.0
+downside_ext_safe = downside_ext if is_valid(downside_ext) else 0.0 / 0.0
+
+# Extension as multiple of OR width
+or_width_safe = or_width_pts if or_width_pts > 0 else 0.0 / 0.0
+upside_ratio = upside_ext_safe / or_width_safe
+downside_ratio = downside_ext_safe / or_width_safe
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- Cards: summary stats not shown on charts ---
+cards(
+    layout=CardLayout(
+        title='Extension Summary',
+        cells=[
+            ColumnSpec(title='Median Upside Extension (pts)', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Median Downside Extension (pts)', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(title='Median Upside (x OR Width)', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(title='Median Downside (x OR Width)', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=1)
+        ]
+    ),
+    category='Extensions'
+)(upside_ext_safe, downside_ext_safe, upside_ratio, downside_ratio)
+
+# --- Chart 1: Extension Boxplot (showcase feature) ---
+boxplot(
+    title='Upside and Downside Extensions Are Nearly Symmetric',
+    category='Extensions',
+    y_axis_label='Extension Beyond OR (points)',
+    show_outliers=True,
+    whisker_iqr=1.5,
+    colors=['Blue', 'Gray'],
+    median_color=Color.Blue
+)(upside_ext_safe, downside_ext_safe)
+
+# --- Chart 2: Extension Distance Distribution ---
+histogram(
+    title='Most Extensions Reach 1-4 Points Beyond the Opening Range',
+    category='Extensions',
+    x_axis_label='Extension Beyond OR (points)',
+    y_axis_label='Frequency',
+    bins=25,
+    fill_color=Color.Blue,
+    show_analytics=True
+)(value=upside_ext_safe)

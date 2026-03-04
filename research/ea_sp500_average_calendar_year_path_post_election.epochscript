@@ -1,0 +1,53 @@
+# =============================================================================
+# AVERAGE POST-ELECTION YEAR PATH OF THE S&P 500
+# =============================================================================
+# Question: How does the S&P 500 typically perform during post-election years,
+#   and how is 2026 tracking against that historical pattern?
+#
+# Chart: xy_lines
+#   - X-axis: Day of year (CategoryAxisType.DayOfYear)
+#   - Y-axis: YTD return (percent)
+#   - Series: 2026 S&P 500 Path (Blue, Last), Average Post-Election Year Path (Gray, Mean)
+#   - Overlay: Reference line at 0%
+#
+# Dataset:
+#   - market_data_source (SPY-Stocks, 1D)
+# =============================================================================
+
+# Average Post-Election Year Path of the S&P 500
+src = market_data_source(timeframe=1D)()
+close = src.c
+year_num = datetime_extract(component=DatetimeExtractionType.year)(index())
+day_of_year = datetime_extract(component=DatetimeExtractionType.day_of_year)(index())
+
+# Year-open price via forward fill
+is_yr1 = year_num != (year_num >> 1)
+yr_open = ffill(close if is_yr1 else 0.0 / 0.0)
+ytd = close / yr_open - 1
+
+# Split: 2026 current vs historical post-election years
+# Post-election years: year after presidential election (year % 4 == 1)
+is_c = year_num == 2026
+is_post_election = (year_num % 4) == 1
+is_hist = is_post_election and not is_c and year_num >= 2005
+
+c_ytd = where(is_c, ytd)
+h_ytd = where(is_hist, ytd)
+
+xy_lines(
+    title='Average Post-Election Year Path of the S&P 500',
+    category='1. Post-Election Year Path',
+    y_axis_label='2026 S&P 500 Path vs 2005-2025 Average Post-Election Year S&P 500 Path',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    x_category_type=CategoryAxisType.DayOfYear,
+    smooth=True,
+    data_labels=False,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='2026 S&P 500 Path', color=Color.Blue, agg=AggregationType.Last),
+        LineSeriesSpec(name='Average Post-Election Year S&P 500 Path', color=Color.Gray, agg=AggregationType.Mean)
+    ])
+)(day_of_year, c_ytd, h_ytd)

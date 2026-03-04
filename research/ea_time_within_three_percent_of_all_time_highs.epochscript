@@ -1,0 +1,41 @@
+# =============================================================================
+# HOW OFTEN THE S&P 500 HAS STAYED NEAR RECORD HIGHS
+# =============================================================================
+# Question: How often and for how long has the S&P 500 remained close to its
+#   all-time highs throughout history?
+#
+# Chart: xy_lines (area)
+#   - X-axis: Date (timestamp index)
+#   - Y-axis: Number of consecutive trading days within 3% of all-time highs
+#   - Series: Trading Days S&P 500 Has Stayed Within 3% of ATH (area fill)
+#   - Overlay: None
+#
+# Dataset:
+#   - common_reference_stocks (SPY)
+# =============================================================================
+
+# How Often The S&P 500 Has Stayed Near Record Highs
+spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
+
+running_max = cumulative(agg=AggregationType.Max)(spy_c)
+pct_from_ath = (spy_c - running_max) / running_max
+
+# Is NOT within 3% of ATH?
+not_near = pct_from_ath <= -0.03
+
+# Consecutive days within 3% of ATH (multiply by 1.0 to cast integer to decimal for chart)
+streak = barssince()(not_near) * 1.0
+
+bar_ts = index()
+
+xy_lines(
+    title='How Often The S&P 500 Has Stayed Near Record Highs',
+    category='1. Near Record Highs',
+    y_axis_label='# Trading Days',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=0,
+    area=True,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Trading Days S&P 500 Has Stayed Within 3% of All Time Highs In A Row', color=Color.Blue)
+    ])
+)(bar_ts, streak)

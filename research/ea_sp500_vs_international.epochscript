@@ -1,0 +1,62 @@
+# =============================================================================
+# CYCLES OF INTERNATIONAL VS U.S. PERFORMANCE
+# =============================================================================
+# Question: Do international stocks and U.S. stocks take turns outperforming
+#   each other, and what is the current trend?
+#
+# Chart: xy_lines
+#   - X-axis: Date (timestamp index)
+#   - Y-axis: 1Y rolling return spread (International minus U.S., percent)
+#   - Series: International outperforming (blue area), U.S. outperforming (gray area)
+#   - Overlay: Reference line at 0%
+#
+# Dataset:
+#   - market_data_source (SPY-Stocks, 1D)
+#   - reference_stocks (EFA)
+# =============================================================================
+
+# Cycles of International vs U.S. Performance
+src = market_data_source(timeframe=1D)()
+close = src.c
+spy = ffill(close)
+
+# Load EFA via reference_stocks
+efa_o, efa_h, efa_l, efa_c, efa_v, efa_vw, efa_n = reference_stocks(ticker='EFA')()
+efa_raw = ffill(efa_c)
+
+# Fix Polygon missing EFA 3:1 split (June 9, 2005)
+# Pre-split prices are 3x too high; detect via YYYYMMDD date number
+yy = datetime_extract(component=DatetimeExtractionType.year)(index())
+mm = datetime_extract(component=DatetimeExtractionType.month)(index())
+dd = datetime_extract(component=DatetimeExtractionType.day)(index())
+date_num = yy * 10000 + mm * 100 + dd
+efa = efa_raw / 3.0 if date_num < 20050609 else efa_raw
+
+# Rolling 1-year (252 trading day) return
+spy_1y = (spy - (spy >> 252)) / (spy >> 252)
+efa_1y = (efa - (efa >> 252)) / (efa >> 252)
+
+# Spread: positive = international outperforming
+spread = efa_1y - spy_1y
+
+# Split into positive and negative for dual-color area fill
+spread_pos = spread if spread > 0 else 0.0 / 0.0
+spread_neg = spread if spread < 0 else 0.0 / 0.0
+
+bar_ts = index()
+
+xy_lines(
+    title='Cycles of International vs U.S. Performance',
+    category='1. International vs U.S.',
+    area=True,
+    y_axis_label='1Y Rolling Return Spread: International minus U.S.',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=0,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Solid, title='0%')
+    ]),
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='International Outperforming U.S.', color=Color.Blue),
+        LineSeriesSpec(name='U.S. Outperforming International', color=Color.Gray)
+    ])
+)(bar_ts, spread_pos, spread_neg)

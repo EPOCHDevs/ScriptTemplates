@@ -1,0 +1,133 @@
+# =============================================================================
+# DOES TSLA REVERSE AFTER SHORT VOLUME SPIKES?
+# =============================================================================
+# Event: Short volume ratio > 1.15x its 20-day SMA
+# Context: Bullish (price > 50-SMA) vs Bearish
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# SHORT VOLUME DATA
+# =============================================================================
+
+sv_data = short_volume()()
+short_vol_ratio = sv_data.short_volume_ratio
+sv = short_vol_ratio
+sv_sma = sma(period=20)(sv)
+
+# Price trend context
+price_sma50 = sma(period=50)(close)
+is_bullish_context = close > price_sma50
+
+# =============================================================================
+# SPIKE DETECTION & REGIME CLASSIFICATION
+# =============================================================================
+
+is_spike = is_valid(sv) and is_valid(sv_sma) and (sv > sv_sma * 1.15)
+is_bull_spike = is_spike and is_bullish_context
+is_bear_spike = is_spike and not is_bullish_context
+
+# Counters
+raw_bull = 1.0 if is_bull_spike else 0.0
+bull_count = raw_bull if is_valid(raw_bull) else 0.0
+raw_bear = 1.0 if is_bear_spike else 0.0
+bear_count = raw_bear if is_valid(raw_bear) else 0.0
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+spike_day = (close - (close >> 1)) / (close >> 1)
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+
+# =============================================================================
+# REGIME-FILTERED SERIES
+# =============================================================================
+
+bull_post20 = where(is_bull_spike, post_20d)
+bear_post20 = where(is_bear_spike, post_20d)
+
+bull_day = where(is_bull_spike, spike_day)
+bear_day = where(is_bear_spike, spike_day)
+
+bull_post5 = where(is_bull_spike, post_5d)
+bear_post5 = where(is_bear_spike, post_5d)
+
+bull_post10 = where(is_bull_spike, post_10d)
+bear_post10 = where(is_bear_spike, post_10d)
+
+# Event marker helpers
+ev_sv_ratio = where(is_spike, sv)
+ev_context = conditional_select(is_bull_spike, 1.0, is_bear_spike, -1.0, 0.0 / 0.0)
+ev_post20 = where(is_spike, post_20d)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='TSLA Short Volume Spikes',
+        cells=[
+            ColumnSpec(title='Bullish Context Spikes', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Bearish Context Spikes', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='Short Volume Spike'
+)(bull_count, bear_count)
+
+xy_bars(
+    title='Does TSLA Reverse After Short Volume Spikes?',
+    category='Short Volume Spike',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    color_by_value=True,
+    y_axis_label='Avg Post-20d Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Bullish Context'),
+        BarSeriesSpec(name='Bearish Context')
+    ])
+)(bull_post20, bear_post20)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Return Profile by Context and Window',
+        row_size=2,
+        col_size=4,
+        row_headers=['Bullish Context', 'Bearish Context'],
+        col_headers=['Spike Day', 'Post-5d', 'Post-10d', 'Post-20d'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='Short Volume Spike'
+)(bull_day, bull_post5, bull_post10, bull_post20, bear_day, bear_post5, bear_post10, bear_post20)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='TSLA Short Volume Spikes',
+        icon=Icon.AlertTriangleIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Short Vol Ratio', type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='Context (1=Bull, -1=Bear)', type=CardRenderType.DecimalFormat, dp=0),
+            ColumnSpec(card_slot=CardSlot.Details, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_spike, ev_sv_ratio, ev_context, ev_post20)

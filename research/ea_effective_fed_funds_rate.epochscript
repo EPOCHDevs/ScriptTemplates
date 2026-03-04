@@ -1,0 +1,45 @@
+# =============================================================================
+# FEDERAL FUNDS RATE AND FOMC PROJECTION
+# =============================================================================
+# Question: Where is the federal funds rate currently, and what does the FOMC
+#   project for future rate levels?
+#
+# Chart: xy_lines
+#   - X-axis: Date (timestamp index)
+#   - Y-axis: Interest rate percentage
+#   - Series: Effective Fed Funds Rate (solid blue) and FOMC Projection (dashed sky)
+#   - Overlay: None
+#
+# Dataset:
+#   - common_economic_indicators (FedFunds)
+#   - economic_indicators (FEDTARMD)
+# =============================================================================
+
+# Federal Funds Rate and FOMC Projection
+ff_obs, ff_val, ff_rev = common_economic_indicators(category=MacroEconomicsIndicator.FedFunds)()
+fomc_obs, fomc_val, fomc_rev = economic_indicators(series_id='FEDTARMD')()
+
+ff_filled = ffill(ff_val)
+fomc_filled = ffill(fomc_val)
+
+# Only show FOMC projection in 2025+ (forward projection period)
+year_num = datetime_extract(component=DatetimeExtractionType.year)(index())
+fomc_projection = fomc_filled if year_num >= 2025 else 0.0 / 0.0
+
+# Convert rate to decimal for percent format
+ff_pct = ff_filled / 100
+fomc_pct = fomc_projection / 100
+
+bar_ts = index()
+
+xy_lines(
+    title='Federal Funds Rate and FOMC Projection',
+    category='1. Monetary Policy',
+    y_axis_label='Percentage (%)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Effective Federal Funds Rate (Actual)', color=Color.Blue),
+        LineSeriesSpec(name='FOMC Summary of Economic Projections (Median Expected)', color=Color.Sky, dash_style=DashStyle.Dash)
+    ])
+)(bar_ts, ff_pct, fomc_pct)

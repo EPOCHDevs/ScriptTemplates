@@ -1,0 +1,35 @@
+# =============================================================================
+# HISTORICAL GROWTH OF THE U.S. ECONOMY
+# =============================================================================
+# Question: How has the overall size of the U.S. economy grown over the past
+#   seven decades in real (inflation-adjusted) terms?
+#
+# Chart: xy_lines
+#   - X-axis: Date (timestamp index)
+#   - Y-axis: Seasonally adjusted annual rate in trillions of dollars
+#   - Series: U.S. Real GDP in $Trillions (Blue, area fill)
+#   - Overlay: None
+#
+# Dataset:
+#   - common_economic_indicators (RealGDP)
+# =============================================================================
+
+# Historical Growth of the U.S. Economy - Real GDP
+gdp_obs, gdp_val, gdp_rev = common_economic_indicators(category=MacroEconomicsIndicator.RealGDP)()
+gdp_filled = ffill(gdp_val)
+
+# Convert billions to trillions
+gdp_trillions = gdp_filled / 1000
+
+bar_ts = index()
+
+xy_lines(
+    title='Historical Growth of the U.S. Economy',
+    category='1. GDP',
+    area=True,
+    y_axis_label='Seasonally Adjusted Annual Rate ($Trillions)',
+    y_axis_format=AxisValueFormat.MonetaryFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='U.S. Real GDP in $Trillions', color=Color.Blue)
+    ])
+)(bar_ts, gdp_trillions)

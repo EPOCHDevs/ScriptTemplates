@@ -1,0 +1,102 @@
+# =============================================================================
+# NUMBER OF 10% PULLBACKS BY DIFFERENT STOCK / BOND SPLITS
+# =============================================================================
+# Question: How does the stock/bond allocation mix in a portfolio affect the
+#   frequency of 10% or greater pullbacks?
+#
+# Chart: xy_bars
+#   - X-axis: Portfolio allocation (100/0 through 0/100 stock/bond splits)
+#   - Y-axis: Number of 10% pullbacks (count)
+#   - Series: 11 bars for each allocation split from 100/0 to 0/100
+#   - Overlay: None
+#
+# Dataset: common_reference_stocks
+#   - common_reference_stocks(ticker=ReferenceStock.SPY) - S&P 500
+#   - common_reference_stocks(ticker=ReferenceStock.AGG) - U.S. Bloomberg Agg
+# =============================================================================
+
+# 10% Pullbacks by Stock/Bond Splits
+spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
+close = ffill(spy_c)
+
+agg_o, agg_h, agg_l, agg_c, agg_v, agg_vw, agg_n = common_reference_stocks(ticker=ReferenceStock.AGG)()
+agg = ffill(agg_c)
+
+# Daily returns
+spy_ret = (close - (close >> 1)) / (close >> 1)
+agg_ret = (agg - (agg >> 1)) / (agg >> 1)
+
+# Portfolio cumulative values for each split
+cum_100 = cumulative(agg=AggregationType.Sum)(spy_ret) + 1
+cum_90 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.9 + agg_ret * 0.1) + 1
+cum_80 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.8 + agg_ret * 0.2) + 1
+cum_70 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.7 + agg_ret * 0.3) + 1
+cum_60 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.6 + agg_ret * 0.4) + 1
+cum_50 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.5 + agg_ret * 0.5) + 1
+cum_40 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.4 + agg_ret * 0.6) + 1
+cum_30 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.3 + agg_ret * 0.7) + 1
+cum_20 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.2 + agg_ret * 0.8) + 1
+cum_10 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.1 + agg_ret * 0.9) + 1
+cum_00 = cumulative(agg=AggregationType.Sum)(agg_ret) + 1
+
+# Expanding (all-time) high watermark for each portfolio
+pk_100 = cumulative(agg=AggregationType.Max)(cum_100)
+pk_90 = cumulative(agg=AggregationType.Max)(cum_90)
+pk_80 = cumulative(agg=AggregationType.Max)(cum_80)
+pk_70 = cumulative(agg=AggregationType.Max)(cum_70)
+pk_60 = cumulative(agg=AggregationType.Max)(cum_60)
+pk_50 = cumulative(agg=AggregationType.Max)(cum_50)
+pk_40 = cumulative(agg=AggregationType.Max)(cum_40)
+pk_30 = cumulative(agg=AggregationType.Max)(cum_30)
+pk_20 = cumulative(agg=AggregationType.Max)(cum_20)
+pk_10 = cumulative(agg=AggregationType.Max)(cum_10)
+pk_00 = cumulative(agg=AggregationType.Max)(cum_00)
+
+# Drawdowns from all-time high
+dd_100 = (cum_100 - pk_100) / pk_100
+dd_90 = (cum_90 - pk_90) / pk_90
+dd_80 = (cum_80 - pk_80) / pk_80
+dd_70 = (cum_70 - pk_70) / pk_70
+dd_60 = (cum_60 - pk_60) / pk_60
+dd_50 = (cum_50 - pk_50) / pk_50
+dd_40 = (cum_40 - pk_40) / pk_40
+dd_30 = (cum_30 - pk_30) / pk_30
+dd_20 = (cum_20 - pk_20) / pk_20
+dd_10 = (cum_10 - pk_10) / pk_10
+dd_00 = (cum_00 - pk_00) / pk_00
+
+# Detect 10% pullback events using raw drawdown
+f_100 = 1.0 if crossunder(dd_100, -0.10) else 0.0
+f_90 = 1.0 if crossunder(dd_90, -0.10) else 0.0
+f_80 = 1.0 if crossunder(dd_80, -0.10) else 0.0
+f_70 = 1.0 if crossunder(dd_70, -0.10) else 0.0
+f_60 = 1.0 if crossunder(dd_60, -0.10) else 0.0
+f_50 = 1.0 if crossunder(dd_50, -0.10) else 0.0
+f_40 = 1.0 if crossunder(dd_40, -0.10) else 0.0
+f_30 = 1.0 if crossunder(dd_30, -0.10) else 0.0
+f_20 = 1.0 if crossunder(dd_20, -0.10) else 0.0
+f_10 = 1.0 if crossunder(dd_10, -0.10) else 0.0
+f_00 = 1.0 if crossunder(dd_00, -0.10) else 0.0
+
+# Bar chart: pullback count per split
+xy_bars(
+    title='# of 10% Pullbacks by Different Stock / Bond Splits (More Stocks <- % Stocks / % Bonds -> More Bonds)',
+    category='1. Pullback Count',
+    agg=AggregationType.Sum,
+    y_axis_label='# of 10% Pullbacks',
+    y_axis_format=AxisValueFormat.IntegerFormat,
+    data_labels=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='100/0', color=Color.Blue),
+        BarSeriesSpec(name='90/10', color=Color.Blue),
+        BarSeriesSpec(name='80/20', color=Color.Blue),
+        BarSeriesSpec(name='70/30', color=Color.Blue),
+        BarSeriesSpec(name='60/40', color=Color.Blue),
+        BarSeriesSpec(name='50/50', color=Color.Blue),
+        BarSeriesSpec(name='40/60', color=Color.Blue),
+        BarSeriesSpec(name='30/70', color=Color.Blue),
+        BarSeriesSpec(name='20/80', color=Color.Blue),
+        BarSeriesSpec(name='10/90', color=Color.Blue),
+        BarSeriesSpec(name='0/100', color=Color.Blue)
+    ])
+)(f_100, f_90, f_80, f_70, f_60, f_50, f_40, f_30, f_20, f_10, f_00)

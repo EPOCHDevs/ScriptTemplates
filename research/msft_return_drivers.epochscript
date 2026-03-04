@@ -1,0 +1,88 @@
+# =============================================================================
+# WHAT'S DRIVING MSFT'S RETURNS?
+# =============================================================================
+# Decompose total return into: Earnings Growth + Rate Impact + Sentiment
+# Identity: Price = EPS x P/E -> log return = d(ln EPS) + d(ln P/E)
+# d(ln P/E) further split: beta x d(yield) + residual
+#
+# Chart 1: xy_bars — snapshot of each driver's contribution
+# Chart 2: xy_lines — cumulative attribution over time
+#
+# Dataset:
+#   - market_data_source (MSFT-Stocks, 1D)
+#   - income_statement (TTM)
+#   - economic_indicators (DFII10 — 10Y TIPS real yield)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# 10Y TIPS Real Yield
+fred = economic_indicators(series_id='DFII10')()
+real_yield = ffill(fred.result)
+
+# TTM Diluted EPS
+inc_data = income_statement(period=ReportingPeriod.trailing_twelve_months)()
+eps = ffill(inc_data.diluted_eps)
+shares = ffill(inc_data.basic_shares)
+
+# Daily log returns and component changes
+daily_ret = returns(period=1, type=ReturnsType.log)(close)
+eps_chg = returns(period=1, type=ReturnsType.log)(eps)
+yield_chg = real_yield - (real_yield >> 1)
+
+# Rate sensitivity: rolling 60-day beta
+rate_beta = beta(window=60)(asset_returns=daily_ret, market_returns=yield_chg)
+
+# Decomposition
+earnings_component = where(is_valid(eps_chg), eps_chg, 0)
+rate_component = where(is_valid(rate_beta.result) and is_valid(yield_chg), rate_beta.result * yield_chg, 0)
+residual_component = daily_ret - earnings_component - rate_component
+
+# Cumulative attribution
+cum_earnings = cumulative()(earnings_component)
+cum_rate = cumulative()(rate_component)
+cum_residual = cumulative()(residual_component)
+
+bar_ts = index()
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# Bar chart: snapshot — how much did each driver contribute?
+xy_bars(
+    title='How Much Did Each Driver Contribute to MSFT Returns?',
+    category='Return Attribution',
+    agg=AggregationType.Last,
+    data_labels=True,
+    color_by_value=True,
+    y_axis_label='Cumulative Contribution',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Earnings Growth'),
+        BarSeriesSpec(name='Rate Impact'),
+        BarSeriesSpec(name='Sentiment')
+    ])
+)(cum_earnings, cum_rate, cum_residual)
+
+# Line chart: when did each return driver kick in?
+xy_lines(
+    title='When Did Each Return Driver Kick In?',
+    category='Return Attribution',
+    y_axis_label='Cumulative Contribution',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=0,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Earnings Growth', color=Color.Blue),
+        LineSeriesSpec(name='Rate Impact', color=Color.Gray),
+        LineSeriesSpec(name='Sentiment', color=Color.Cyan)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, title='Breakeven', color=Color.Slate, dash_style=DashStyle.Dash)
+    ])
+)(bar_ts, cum_earnings, cum_rate, cum_residual)

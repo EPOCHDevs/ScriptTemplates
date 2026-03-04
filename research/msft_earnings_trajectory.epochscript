@@ -1,0 +1,69 @@
+# =============================================================================
+# IS MSFT'S EARNINGS GROWTH ACCELERATING OR DECELERATING?
+# =============================================================================
+# Question: Is MSFT's earnings growth accelerating or decelerating?
+#
+# Chart 1: Cards — Last P/E Ratio (valuation context)
+# Chart 2: xy_bars — Quarterly YoY EPS growth, color_by_value
+#   Rising bars = accelerating, falling = decelerating
+#
+# Dataset:
+#   - market_data_source (MSFT-Stocks, 1D)
+#   - income_statement (TTM)
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# TTM Diluted EPS
+inc_data = income_statement(period=ReportingPeriod.trailing_twelve_months)()
+eps = ffill(inc_data.diluted_eps)
+shares = ffill(inc_data.basic_shares)
+
+# P/E ratio
+pe = finance_ratio(ratio_type=FinanceRatioType.price_to_earnings, period=ReportingPeriod.trailing_twelve_months)(
+    c=close, basic_eps=eps, basic_shares=shares
+).value
+
+# YoY EPS growth (stepped quarterly via forward-fill)
+eps_1y_ago = eps >> 252
+eps_yoy = (eps - eps_1y_ago) / abs(eps_1y_ago) if is_valid(eps_1y_ago) and abs(eps_1y_ago) > 0.01 else 0.0 / 0.0
+
+# Quarter label in MonthYear format: YYYYMM using quarter end month
+bar_ts = index()
+year_num = datetime_extract(component=DatetimeExtractionType.year)(bar_ts)
+quarter_num = datetime_extract(component=DatetimeExtractionType.quarter)(bar_ts)
+qtr_end_month = quarter_num * 3
+nan_flag = eps_yoy / eps_yoy
+yq_label = (year_num * 100 + qtr_end_month) * nan_flag
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# Card: valuation context — growth is decelerating, but what is the market paying?
+cards(
+    layout=CardLayout(
+        title='MSFT Earnings Momentum',
+        cells=[
+            ColumnSpec(title='Last P/E Ratio', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1, card_slot=CardSlot.Hero)
+        ]
+    ),
+    category='Earnings Momentum'
+)(pe)
+
+# Quarterly growth rate bars — bar heights tell the acceleration story
+xy_bars(
+    title="Is MSFT's Earnings Growth Accelerating or Decelerating?",
+    category='Earnings Momentum',
+    agg=AggregationType.Last,
+    data_labels=True,
+    color_by_value=True,
+    x_category_type=CategoryAxisType.MonthYear,
+    y_axis_label='YoY EPS Growth',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=0,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ])
+)(eps_yoy, label=yq_label)

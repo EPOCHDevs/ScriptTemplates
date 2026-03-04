@@ -1,0 +1,48 @@
+# =============================================================================
+# TRENDS IN CONSUMPTION
+# =============================================================================
+# Question: What do the headline and core PCE inflation measures indicate about
+#   current consumer-level inflationary pressures?
+#
+# Chart: xy_lines
+#   - X-axis: Date (bar timestamp)
+#   - Y-axis: YoY Change (%) in PCE Price Index
+#   - Series: Headline PCE, Core PCE
+#   - Overlay: None
+#
+# Dataset: common_economic_indicators
+#   - common_economic_indicators(category=MacroEconomicsIndicator.PCE)
+#   - common_economic_indicators(category=MacroEconomicsIndicator.CorePCE)
+# =============================================================================
+
+# Trends in Consumption - PCE Inflation
+# YoY change in PCE and Core PCE
+
+pce_obs, pce_val, pce_rev = common_economic_indicators(category=MacroEconomicsIndicator.PCE)()
+core_obs, core_val, core_rev = common_economic_indicators(category=MacroEconomicsIndicator.CorePCE)()
+
+had_pce = is_valid(pce_val)
+had_core = is_valid(core_val)
+
+pce_filled = ffill(pce_val)
+core_filled = ffill(core_val)
+
+pce_12m_ago = valuewhen(occurrence=12)(had_pce, pce_val)
+core_12m_ago = valuewhen(occurrence=12)(had_core, core_val)
+
+pce_yoy = (pce_filled - ffill(pce_12m_ago)) / ffill(pce_12m_ago)
+core_yoy = (core_filled - ffill(core_12m_ago)) / ffill(core_12m_ago)
+
+bar_ts = index()
+
+xy_lines(
+    title='Headline vs Core PCE (Year-over-Year)',
+    category='1. PCE Trends',
+    y_axis_label='YoY Change',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Headline PCE', color=Color.Blue),
+        LineSeriesSpec(name='Core PCE', color=Color.Orange)
+    ])
+)(bar_ts, pce_yoy, core_yoy)

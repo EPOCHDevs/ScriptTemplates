@@ -1,0 +1,73 @@
+# =============================================================================
+# HISTORICALLY, BITCOIN RETURNS HAVE COME WITH VOLATILITY
+# =============================================================================
+# Question: How does Bitcoin's return and volatility profile compare to
+#   traditional asset classes like stocks, bonds, and gold?
+#
+# Chart: xy_bars
+#   - X-axis: Asset class (Bitcoin, Gold, U.S. Large Cap Stocks, U.S. Core Bonds)
+#   - Y-axis: Annualized return (bars) and average drawdown (overlay diamonds)
+#   - Series: One bar per asset class showing annualized return
+#   - Overlay: Diamond markers showing average drawdown per asset
+#
+# Dataset:
+#   - common_reference_stocks (SPY, GLD, AGG)
+#   - common_crypto_pairs (BTCUSD)
+# =============================================================================
+
+# Bitcoin vs Asset Classes
+spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
+gld_o, gld_h, gld_l, gld_c, gld_v, gld_vw, gld_n = common_reference_stocks(ticker=ReferenceStock.GLD)()
+agg_o, agg_h, agg_l, agg_c, agg_v, agg_vw, agg_n = common_reference_stocks(ticker=ReferenceStock.AGG)()
+btc_o, btc_h, btc_l, btc_c, btc_v, btc_vw, btc_n = common_crypto_pairs(ticker=ReferenceCryptoPair.BTCUSD)()
+close = ffill(spy_c)
+gld = ffill(gld_c)
+agg = ffill(agg_c)
+btc = ffill(btc_c)
+
+# Daily returns
+spy_ret = (close - (close >> 1)) / (close >> 1)
+gld_ret = (gld - (gld >> 1)) / (gld >> 1)
+agg_ret = (agg - (agg >> 1)) / (agg >> 1)
+btc_ret = (btc - (btc >> 1)) / (btc >> 1)
+
+# Annualized returns (rolling 252-day mean * 252)
+spy_ann = sma(period=252)(spy_ret) * 252
+gld_ann = sma(period=252)(gld_ret) * 252
+agg_ann = sma(period=252)(agg_ret) * 252
+btc_ann = sma(period=252)(btc_ret) * 252
+
+# Drawdowns from cumulative max
+spy_max = cumulative(agg=AggregationType.Max)(close)
+spy_dd = (close - spy_max) / spy_max
+gld_max = cumulative(agg=AggregationType.Max)(gld)
+gld_dd = (gld - gld_max) / gld_max
+agg_max = cumulative(agg=AggregationType.Max)(agg)
+agg_dd = (agg - agg_max) / agg_max
+btc_max = cumulative(agg=AggregationType.Max)(btc)
+btc_dd = (btc - btc_max) / btc_max
+
+xy_bars(
+    title='Historically, Bitcoin Returns Have Come With Volatility',
+    category='1. Returns vs Drawdowns',
+    agg=AggregationType.Mean,
+    y_axis_label='Annualized Return and Average Drawdown',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    data_labels=True,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Bitcoin', color=Color.Blue),
+        BarSeriesSpec(name='Gold', color=Color.Blue),
+        BarSeriesSpec(name='U.S. Large Cap Stocks', color=Color.Blue),
+        BarSeriesSpec(name='U.S. Core Bonds', color=Color.Blue)
+    ]),
+    overlay_series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Avg Drawdown', color=Color.Gray, marker=MarkerSymbol.DiamondMarker, data_labels=True),
+        LineSeriesSpec(name='Avg Drawdown', color=Color.Gray, marker=MarkerSymbol.DiamondMarker, data_labels=True),
+        LineSeriesSpec(name='Avg Drawdown', color=Color.Gray, marker=MarkerSymbol.DiamondMarker, data_labels=True),
+        LineSeriesSpec(name='Avg Drawdown', color=Color.Gray, marker=MarkerSymbol.DiamondMarker, data_labels=True)
+    ])
+)(btc_ann, gld_ann, spy_ann, agg_ann, overlays=(btc_dd, gld_dd, spy_dd, agg_dd))

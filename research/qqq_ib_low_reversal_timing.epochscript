@@ -1,0 +1,106 @@
+# =============================================================================
+# WHEN DO IB LOW REVERSALS WORK BEST?
+# =============================================================================
+# Same trigger as probability study: broke IB low AND prior day low.
+# Win = close above IB midpoint. Focus here: day-of-week timing.
+# Stacked bars = win/loss counts. Win rate bars = probability per day.
+# =============================================================================
+
+src = market_data_source(timeframe=5Min)()
+close = src.c
+high = src.h
+low = src.l
+bar_idx = index()
+
+# === INITIAL BALANCE (9:30-10:30 ET) ===
+ib_sw = session_window(session=Session(start='09:30', end='10:30', tz='America/New_York'))(src.o, high, low, close)
+ib_high = ffill_day(ib_sw.high)
+ib_low = ffill_day(ib_sw.low)
+ib_mid = (ib_high + ib_low) / 2
+
+# === PRIOR DAY'S LOW ===
+prev_hl = previous_high_low(type=SessionTimeframe.day)(src.h, src.l)
+prior_day_low = prev_hl.previous_low
+
+# === RTH SESSION ===
+rth_sw = session_window(session=SessionType.EquityRTHSession)(src.o, high, low, close)
+session_low = rth_sw.low
+session_close = rth_sw.close
+
+# === EOD DETECTION ===
+eod_sw = session_window(session=Session(start='15:55', end='16:00', tz='America/New_York'))(src.o, high, low, close)
+is_eod = eod_sw.closed
+eod_flag = 1.0 if is_eod else 0.0
+eod_filter = eod_flag / eod_flag
+
+# === TRIGGER ===
+broke_ib_low = session_low < ib_low
+broke_prior_low = session_low < prior_day_low
+is_triggered = is_eod and broke_ib_low and broke_prior_low
+close_above_ib_mid = session_close > ib_mid
+is_win = is_triggered and close_above_ib_mid
+is_loss = is_triggered and (close_above_ib_mid == False)
+
+# === DENSE COUNTS (NaN-guarded to 0 everywhere for Sum aggregation) ===
+win_count_raw = (1.0 if is_win else 0.0) * eod_filter
+win_count = win_count_raw if is_valid(win_count_raw) else 0.0
+
+loss_count_raw = (1.0 if is_loss else 0.0) * eod_filter
+loss_count = loss_count_raw if is_valid(loss_count_raw) else 0.0
+
+# === SPARSE WIN RATE (NaN on non-triggered bars for Mean) ===
+triggered_flag = 1.0 if is_triggered else 0.0
+triggered_filter_raw = triggered_flag / triggered_flag
+triggered_filter = triggered_filter_raw if is_valid(triggered_filter_raw) else 0.0 / 0.0
+win_rate_triggered = (1.0 if is_win else 0.0) * triggered_filter
+
+# === DAY OF WEEK ===
+dow = datetime_extract(component=DatetimeExtractionType.day_of_week, timezone='America/New_York')(bar_idx)
+
+# Per-day win rates (named series for Chart 2)
+mon_wr = win_rate_triggered if dow == 0 else 0.0 / 0.0
+tue_wr = win_rate_triggered if dow == 1 else 0.0 / 0.0
+wed_wr = win_rate_triggered if dow == 2 else 0.0 / 0.0
+thu_wr = win_rate_triggered if dow == 3 else 0.0 / 0.0
+fri_wr = win_rate_triggered if dow == 4 else 0.0 / 0.0
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- Chart 1: Stacked Wins vs Losses by Day of Week ---
+xy_bars(
+    title='Triggered Days Are Evenly Spread Across the Week',
+    category='Timing',
+    agg=AggregationType.Sum,
+    y_axis_label='Count',
+    x_category_type=CategoryAxisType.DayOfWeek,
+    stack_type=StackType.NormalStack,
+    data_labels=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Wins (Close > IB Mid)', color=Color.Blue),
+        BarSeriesSpec(name='Losses (Close <= IB Mid)', color=Color.Gray)
+    ])
+)(win_count, loss_count, label=dow)
+
+# --- Chart 2: Win Rate by Day of Week ---
+xy_bars(
+    title='Monday Reversals Succeed Most Often at 54%',
+    category='Timing',
+    agg=AggregationType.Mean,
+    y_axis_label='P(Close > IB Mid)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    data_labels=True,
+    color_by_value=True,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.5, color=Color.Gray, dash_style=DashStyle.Dash, title='50% (Coin Flip)')
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Monday'),
+        BarSeriesSpec(name='Tuesday'),
+        BarSeriesSpec(name='Wednesday'),
+        BarSeriesSpec(name='Thursday'),
+        BarSeriesSpec(name='Friday')
+    ])
+)(mon_wr, tue_wr, wed_wr, thu_wr, fri_wr)

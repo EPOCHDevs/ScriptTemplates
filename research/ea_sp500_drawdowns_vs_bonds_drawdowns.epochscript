@@ -1,0 +1,48 @@
+# =============================================================================
+# BOND VS STOCK HISTORICAL DRAWDOWNS
+# =============================================================================
+# Question: How do the worst drawdowns in bonds compare to the worst drawdowns
+#   in stocks over the same time period?
+#
+# Chart: xy_lines
+#   - X-axis: Date (timestamp index)
+#   - Y-axis: Maximum drawdown (percent)
+#   - Series: Bonds / Bloomberg Agg (sky), Stocks / S&P 500 (blue)
+#   - Overlay: Reference line at 0%
+#
+# Dataset:
+#   - market_data_source (SPY-Stocks, 1D)
+#   - common_reference_stocks (AGG)
+# =============================================================================
+
+# Bond vs Stock Historical Drawdowns
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# SPY drawdown
+spy_max = cumulative(agg=AggregationType.Max)(close)
+spy_dd = (close - spy_max) / spy_max
+
+# AGG via reference
+agg_o, agg_h, agg_l, agg_c, agg_v, agg_vw, agg_n = common_reference_stocks(ticker=ReferenceStock.AGG)()
+agg = ffill(agg_c)
+agg_max = cumulative(agg=AggregationType.Max)(agg)
+agg_dd = (agg - agg_max) / agg_max
+
+bar_ts = index()
+
+xy_lines(
+    title='Bond vs Stock Historical Drawdowns',
+    category='1. Drawdown Comparison',
+    area=False,
+    y_axis_label='Maximum Drawdown (%)',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Solid, title='0%')
+    ]),
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Bonds (Bloomberg Agg)', color=Color.Sky),
+        LineSeriesSpec(name='Stocks (S&P 500)', color=Color.Blue)
+    ])
+)(bar_ts, agg_dd, spy_dd)

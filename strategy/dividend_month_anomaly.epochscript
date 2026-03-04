@@ -25,11 +25,11 @@ div = dividends(dividend_type=DividendType.CD)()
 
 # Fill forward the pay_date and frequency from last dividend
 last_div_pay_date = ffill(div.pay_date)
-last_div_month = datetime_extract(component='month')(last_div_pay_date)
+last_div_month = datetime_extract(component=DatetimeExtractionType.month)(last_div_pay_date)
 freq = ffill(div.frequency)
 
 # Current month from index
-current_month = datetime_extract(component='month')(index())
+current_month = datetime_extract(component=DatetimeExtractionType.month)(index())
 
 # =============================================================================
 # 2. PREDICT DIVIDEND MONTH BASED ON HISTORICAL PAY_DATE

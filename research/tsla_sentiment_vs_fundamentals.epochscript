@@ -1,0 +1,159 @@
+# =============================================================================
+# SENTIMENT VS FUNDAMENTAL DETERIORATION
+# =============================================================================
+# Hypothesis: Sentiment shocks (analyst downgrades) mean-revert,
+# fundamental deterioration (earnings miss, margin contraction) persists
+# Chart 1 (bar): avg post-20d return by event type
+# Chart 2 (table): window breakdown for 3 event types
+# =============================================================================
+
+src = market_data_source(timeframe=1D)()
+close = src.c
+
+# =============================================================================
+# ANALYST RATINGS (SENTIMENT PROXY)
+# =============================================================================
+
+ratings = analyst_ratings()()
+rating_action = ratings.rating_action
+is_downgrade = rating_action == "downgrades"
+
+# =============================================================================
+# EARNINGS DATA
+# =============================================================================
+
+earnings_data = earnings()()
+surprise_pct = earnings_data.eps_surprise_percent
+is_earnings_miss = is_valid(surprise_pct) and (surprise_pct < -0.02)
+
+# =============================================================================
+# MARGIN DATA
+# =============================================================================
+
+inc_data = income_statement(period=ReportingPeriod.quarterly)()
+op_income = inc_data.operating_income
+revenue = inc_data.revenue
+op_margin_raw = op_income / revenue
+had_filing = is_valid(op_margin_raw)
+prior_op_margin = valuewhen(occurrence=1)(had_filing, op_margin_raw)
+is_margin_contraction = had_filing and is_valid(prior_op_margin) and (op_margin_raw < prior_op_margin)
+
+# =============================================================================
+# CONCORDANCE DETECTION
+# =============================================================================
+
+bars_since_miss = barssince(is_earnings_miss)
+bars_since_contraction = barssince(is_margin_contraction)
+raw_recent_fund = (bars_since_miss < 30) or (bars_since_contraction < 30)
+has_recent_fund = raw_recent_fund if is_valid(raw_recent_fund) else False
+
+is_concordant_downgrade = is_downgrade and has_recent_fund
+is_pure_sentiment = is_downgrade and not has_recent_fund
+
+# Counters
+raw_sent = 1.0 if is_pure_sentiment else 0.0
+sent_count = raw_sent if is_valid(raw_sent) else 0.0
+raw_miss = 1.0 if is_earnings_miss else 0.0
+miss_count = raw_miss if is_valid(raw_miss) else 0.0
+raw_margin = 1.0 if is_margin_contraction else 0.0
+margin_count = raw_margin if is_valid(raw_margin) else 0.0
+
+# =============================================================================
+# WINDOW-SPECIFIC RETURNS
+# =============================================================================
+
+event_day = (close - (close >> 1)) / (close >> 1)
+post_5d = ((close << 5) - close) / close
+post_10d = ((close << 10) - close) / close
+post_20d = ((close << 20) - close) / close
+
+# =============================================================================
+# REGIME-FILTERED SERIES
+# =============================================================================
+
+sent_post20 = where(is_pure_sentiment, post_20d)
+miss_post20 = where(is_earnings_miss, post_20d)
+margin_post20 = where(is_margin_contraction, post_20d)
+
+sent_day = where(is_pure_sentiment, event_day)
+miss_day = where(is_earnings_miss, event_day)
+margin_day = where(is_margin_contraction, event_day)
+
+sent_post5 = where(is_pure_sentiment, post_5d)
+miss_post5 = where(is_earnings_miss, post_5d)
+margin_post5 = where(is_margin_contraction, post_5d)
+
+sent_post10 = where(is_pure_sentiment, post_10d)
+miss_post10 = where(is_earnings_miss, post_10d)
+margin_post10 = where(is_margin_contraction, post_10d)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+cards(
+    layout=CardLayout(
+        title='TSLA Event Breakdown',
+        cells=[
+            ColumnSpec(title='Pure Sentiment (Downgrades)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
+            ColumnSpec(title='Earnings Misses', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(title='Margin Contractions', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+        ]
+    ),
+    category='Sentiment vs Fundamentals'
+)(sent_count, miss_count, margin_count)
+
+xy_bars(
+    title='Do Sentiment Shocks Reverse While Fundamental Damage Persists?',
+    category='Sentiment vs Fundamentals',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    color_by_value=True,
+    y_axis_label='Avg Post-20d Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=2,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Analyst Downgrade (Sentiment)'),
+        BarSeriesSpec(name='Earnings Miss (Fundamental)'),
+        BarSeriesSpec(name='Margin Contraction (Fundamental)')
+    ])
+)(sent_post20, miss_post20, margin_post20)
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='Return Profile by Event Type and Window',
+        row_size=3,
+        col_size=4,
+        row_headers=['Analyst Downgrade', 'Earnings Miss', 'Margin Contraction'],
+        col_headers=['Event Day', 'Post-5d', 'Post-10d', 'Post-20d'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+        ]
+    ),
+    category='Sentiment vs Fundamentals'
+)(sent_day, sent_post5, sent_post10, sent_post20, miss_day, miss_post5, miss_post10, miss_post20, margin_day, margin_post5, margin_post10, margin_post20)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='TSLA Negative Events',
+        icon=Icon.AlertTriangleIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Post-20d Return', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_pure_sentiment or is_earnings_miss or is_margin_contraction, coalesce(sent_post20, coalesce(miss_post20, margin_post20)))

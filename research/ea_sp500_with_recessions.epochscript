@@ -1,0 +1,38 @@
+# =============================================================================
+# S&P 500 WITH RECESSION PERIODS
+# =============================================================================
+# Question: How has the S&P 500 performed through recessions over the
+#   long term?
+#
+# Chart: xy_lines
+#   - X-axis: Date (timestamp index)
+#   - Y-axis: S&P 500 Index price (log scale)
+#   - Series: S&P 500 price line (blue), recession period shading (gray band)
+#   - Overlay: None
+#
+# Dataset:
+#   - common_reference_stocks (SPY)
+#   - common_economic_indicators (RecessionProb)
+# =============================================================================
+
+# S&P 500 with Recession Periods
+spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
+
+rec_obs, rec_val, rec_rev = common_economic_indicators(category=MacroEconomicsIndicator.RecessionProb)()
+rec_filled = ffill(rec_val)
+
+is_recession = rec_filled > 30
+rec_shade = 1000000.0 if is_recession else 0.0 / 0.0
+
+bar_ts = index()
+
+xy_lines(
+    title='S&P 500 with Recession Periods Shaded',
+    category='1. S&P 500 with Recessions',
+    y_axis_label='S&P 500 Index (Log Scale)',
+    log_scale=True,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='S&P 500', color=Color.Blue),
+        LineSeriesSpec(name='Recession Periods', color=Color.Gray, is_band=true)
+    ])
+)(bar_ts, spy_c, rec_shade)

@@ -1,0 +1,107 @@
+# =============================================================================
+# ASSET CLASS RETURNS IN 2026
+# =============================================================================
+# Question: How are different asset classes performing year-to-date in 2026,
+#   and which are leading or lagging?
+#
+# Chart: xy_bars
+#   - X-axis: Asset class name (bar label from series spec)
+#   - Y-axis: Total Return (%)
+#   - Series: Gold (GLD), EM Equities (EEM), Intl Developed (EFA),
+#             S&P 500 (SPY), Commodities (DBC), Mid Cap (MDY),
+#             Real Estate (VNQ), Small Cap (IWM), Bonds (AGG),
+#             Growth (IVW), T-Bills (BIL), Bitcoin (IBIT)
+#   - Overlay: None
+#
+# Dataset:
+#   - common_reference_stocks (SPY, GLD, IWM, AGG)
+#   - reference_stocks (EEM, EFA, DBC, MDY, VNQ, IVW, BIL, IBIT)
+# =============================================================================
+
+# Asset Class Returns - Load all via reference_stocks
+spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
+gld_o, gld_h, gld_l, gld_c, gld_v, gld_vw, gld_n = common_reference_stocks(ticker=ReferenceStock.GLD)()
+eem_o, eem_h, eem_l, eem_c, eem_v, eem_vw, eem_n = reference_stocks(ticker='EEM')()
+efa_o, efa_h, efa_l, efa_c, efa_v, efa_vw, efa_n = reference_stocks(ticker='EFA')()
+dbc_o, dbc_h, dbc_l, dbc_c, dbc_v, dbc_vw, dbc_n = reference_stocks(ticker='DBC')()
+mdy_o, mdy_h, mdy_l, mdy_c, mdy_v, mdy_vw, mdy_n = reference_stocks(ticker='MDY')()
+vnq_o, vnq_h, vnq_l, vnq_c, vnq_v, vnq_vw, vnq_n = reference_stocks(ticker='VNQ')()
+iwm_o, iwm_h, iwm_l, iwm_c, iwm_v, iwm_vw, iwm_n = common_reference_stocks(ticker=ReferenceStock.IWM)()
+agg_o, agg_h, agg_l, agg_c, agg_v, agg_vw, agg_n = common_reference_stocks(ticker=ReferenceStock.AGG)()
+ivw_o, ivw_h, ivw_l, ivw_c, ivw_v, ivw_vw, ivw_n = reference_stocks(ticker='IVW')()
+bil_o, bil_h, bil_l, bil_c, bil_v, bil_vw, bil_n = reference_stocks(ticker='BIL')()
+ibit_o, ibit_h, ibit_l, ibit_c, ibit_v, ibit_vw, ibit_n = reference_stocks(ticker='IBIT')()
+
+# Compute YTD total return for each: (last close - first open) / first open
+# Using 1YE timeframe to get annual aggregation
+spy_src = downsample(how='last', target_timeframe=1YE)(spy_c)
+spy_open = downsample(how='first', target_timeframe=1YE)(spy_o)
+spy_ret = (spy_src - spy_open) / spy_open
+
+gld_src = downsample(how='last', target_timeframe=1YE)(gld_c)
+gld_open = downsample(how='first', target_timeframe=1YE)(gld_o)
+gld_ret = (gld_src - gld_open) / gld_open
+
+eem_src = downsample(how='last', target_timeframe=1YE)(eem_c)
+eem_open = downsample(how='first', target_timeframe=1YE)(eem_o)
+eem_ret = (eem_src - eem_open) / eem_open
+
+efa_src = downsample(how='last', target_timeframe=1YE)(efa_c)
+efa_open = downsample(how='first', target_timeframe=1YE)(efa_o)
+efa_ret = (efa_src - efa_open) / efa_open
+
+dbc_src = downsample(how='last', target_timeframe=1YE)(dbc_c)
+dbc_open = downsample(how='first', target_timeframe=1YE)(dbc_o)
+dbc_ret = (dbc_src - dbc_open) / dbc_open
+
+mdy_src = downsample(how='last', target_timeframe=1YE)(mdy_c)
+mdy_open = downsample(how='first', target_timeframe=1YE)(mdy_o)
+mdy_ret = (mdy_src - mdy_open) / mdy_open
+
+vnq_src = downsample(how='last', target_timeframe=1YE)(vnq_c)
+vnq_open = downsample(how='first', target_timeframe=1YE)(vnq_o)
+vnq_ret = (vnq_src - vnq_open) / vnq_open
+
+iwm_src = downsample(how='last', target_timeframe=1YE)(iwm_c)
+iwm_open = downsample(how='first', target_timeframe=1YE)(iwm_o)
+iwm_ret = (iwm_src - iwm_open) / iwm_open
+
+agg_src = downsample(how='last', target_timeframe=1YE)(agg_c)
+agg_open = downsample(how='first', target_timeframe=1YE)(agg_o)
+agg_ret = (agg_src - agg_open) / agg_open
+
+ivw_src = downsample(how='last', target_timeframe=1YE)(ivw_c)
+ivw_open = downsample(how='first', target_timeframe=1YE)(ivw_o)
+ivw_ret = (ivw_src - ivw_open) / ivw_open
+
+bil_src = downsample(how='last', target_timeframe=1YE)(bil_c)
+bil_open = downsample(how='first', target_timeframe=1YE)(bil_o)
+bil_ret = (bil_src - bil_open) / bil_open
+
+ibit_src = downsample(how='last', target_timeframe=1YE)(ibit_c)
+ibit_open = downsample(how='first', target_timeframe=1YE)(ibit_o)
+ibit_ret = (ibit_src - ibit_open) / ibit_open
+
+xy_bars(
+    title='YTD Asset Class Returns',
+    category='1. Asset Class Returns',
+    agg=AggregationType.Last,
+    y_axis_label='Total Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    color_by_value=True,
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Gold (GLD)', color=Color.Yellow),
+        BarSeriesSpec(name='EM Equities (EEM)', color=Color.Green),
+        BarSeriesSpec(name='Intl Developed (EFA)', color=Color.Blue),
+        BarSeriesSpec(name='S&P 500 (SPY)', color=Color.Blue),
+        BarSeriesSpec(name='Commodities (DBC)', color=Color.Orange),
+        BarSeriesSpec(name='Mid Cap (MDY)', color=Color.Purple),
+        BarSeriesSpec(name='Real Estate (VNQ)', color=Color.Bronze),
+        BarSeriesSpec(name='Small Cap (IWM)', color=Color.Red),
+        BarSeriesSpec(name='Bonds (AGG)', color=Color.Gray),
+        BarSeriesSpec(name='Growth (IVW)', color=Color.Cyan),
+        BarSeriesSpec(name='T-Bills (BIL)', color=Color.Silver),
+        BarSeriesSpec(name='Bitcoin (IBIT)', color=Color.Orange)
+    ])
+)(gld_ret, eem_ret, efa_ret, spy_ret, dbc_ret, mdy_ret, vnq_ret, iwm_ret, agg_ret, ivw_ret, bil_ret, ibit_ret)

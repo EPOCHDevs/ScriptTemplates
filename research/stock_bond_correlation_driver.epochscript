@@ -1,0 +1,75 @@
+# =============================================================================
+# WHAT DRIVES STOCK-BOND CORRELATION TO FLIP?
+# =============================================================================
+# Inflation uncertainty (CPI vol) vs stock-bond correlation
+# Scatter = evidence, regime bars = verdict
+# =============================================================================
+
+spy_src = market_data_source()()
+close_spy = spy_src.c
+
+tlt_src = reference_stocks(ticker='TLT')()
+close_tlt = tlt_src.c
+
+# Daily returns
+ret_spy = returns(period=1)(close_spy)
+ret_tlt = returns(period=1)(close_tlt)
+
+# 1-year rolling stock-bond correlation (~252 trading days)
+sbc = rolling_corr(window=252, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_tlt)
+
+# Inflation uncertainty: rolling 1-year vol of YoY CPI
+# CPI is monthly, so period=12 for YoY change, stddev over 12 months
+cpi_date, cpi_data, cpi_rev = common_economic_indicators(category=MacroEconomicsIndicator.CPI)()
+cpi_yoy = returns(period=12)(cpi_data)
+inflation_vol = stddev(period=12)(cpi_yoy)
+
+# Regime classification: above/below median inflation uncertainty
+inflation_vol_median = cumulative(agg=AggregationType.Median)(inflation_vol)
+high_inflation_flag = inflation_vol > inflation_vol_median
+
+# Split correlation by regime for named bars
+sbc_low = where(inflation_vol <= inflation_vol_median, sbc)
+sbc_high = where(inflation_vol > inflation_vol_median, sbc)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# Chart 1: Scatter — does higher inflation uncertainty push correlation positive?
+xy_scatter(
+    title='Higher Inflation Uncertainty Pushes Correlation Positive',
+    category='Inflation Driver',
+    x_axis_label='Inflation Uncertainty (2Y CPI Vol)',
+    x_axis_format=AxisValueFormat.PercentFormat,
+    x_axis_dp=1,
+    y_axis_label='Stock-Bond Correlation',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=2,
+    show_trend_line=True,
+    series=ScatterSeriesSchema(series=[
+        ScatterSeriesSpec(name='Daily Observations', color=Color.Blue)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, title='Diversification Threshold', color=Color.Gray, dash_style=DashStyle.Dash)
+    ])
+)(x=inflation_vol, y_values=sbc)
+
+# Chart 2: Regime bars — the verdict
+xy_bars(
+    title='Inflation Uncertainty Drives the Diversification Breakdown',
+    category='Inflation Driver',
+    agg=AggregationType.Mean,
+    data_labels=True,
+    color_by_value=True,
+    y_axis_label='Avg Stock-Bond Correlation',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=3,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=BarSeriesSchema(series=[
+        BarSeriesSpec(name='Low Inflation Uncertainty'),
+        BarSeriesSpec(name='High Inflation Uncertainty')
+    ])
+)(sbc_low, sbc_high)

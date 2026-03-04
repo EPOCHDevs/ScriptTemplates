@@ -1,0 +1,48 @@
+# =============================================================================
+# AVERAGE CALENDAR-YEAR PATH OF THE S&P 500
+# =============================================================================
+# Question: How does the S&P 500's performance in 2026 compare to the average
+#   calendar-year path since 1950?
+#
+# Chart: xy_lines
+#   - X-axis: Day of year (1-365)
+#   - Y-axis: Year-to-date return (percent)
+#   - Series: 2026 S&P 500 Path (blue), Average S&P 500 Path (gray, mean)
+#   - Overlay: Reference line at 0%
+#
+# Dataset:
+#   - market_data_source (SPY-Stocks, 1D)
+# =============================================================================
+
+# Average Calendar-Year Path of the S&P 500
+src = market_data_source(timeframe=1D)()
+close = src.c
+year_num = datetime_extract(component=DatetimeExtractionType.year)(index())
+day_of_year = datetime_extract(component=DatetimeExtractionType.day_of_year)(index())
+
+# Year-open price via forward fill
+is_yr1 = year_num != (year_num >> 1)
+yr_open = ffill(close if is_yr1 else 0.0 / 0.0)
+ytd = close / yr_open - 1
+
+is_c = year_num == 2026
+c_ytd = where(is_c, ytd)
+h_ytd = where(not is_c and year_num >= 2004, ytd)
+
+xy_lines(
+    title='Average Calendar-Year Path of the S&P 500',
+    category='1. Calendar Year Path',
+    y_axis_label='2026 S&P 500 Path vs 2004-2025 Average S&P 500 Path',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    x_category_type=CategoryAxisType.DayOfYear,
+    smooth=True,
+    data_labels=False,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dash)
+    ]),
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='2026 S&P 500 Path', color=Color.Blue, agg=AggregationType.Last),
+        LineSeriesSpec(name='Average S&P 500 Path', color=Color.Gray, agg=AggregationType.Mean)
+    ])
+)(day_of_year, c_ytd, h_ytd)
