@@ -38,7 +38,7 @@ is_win = is_win_raw if is_valid(is_win_raw) else False
 is_loss_raw = triggered and raw_return < 0
 is_loss = is_loss_raw if is_valid(is_loss_raw) else False
 
-# Counts for cards (NaN-guarded)
+# Counts for summary table (NaN-guarded)
 win_count_raw = 1 if is_win else 0
 win_count = win_count_raw if is_valid(win_count_raw) else 0
 triggered_count_raw = 1 if triggered else 0

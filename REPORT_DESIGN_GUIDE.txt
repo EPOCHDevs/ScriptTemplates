@@ -3,7 +3,7 @@ REPORT DESIGN GUIDE
 Rules for research and strategy report definitions.
 Derived from 99 Exhibit A reference charts and 53 EpochScript implementations.
 
-13 rules. 13 violations. 1:1 paired.
+12 rules. 12 violations. 1:1 paired.
 
 
 ================================================================================
@@ -168,63 +168,42 @@ RULES
 </rule>
 
 
-<rule id="8" name="Cards Must Earn Their Space">
+<rule id="8" name="Summary Tables for Key Metrics">
   <summary>
-    Only add a card if it shows information no chart already
-    displays. If the chart has data_labels=True, the chart IS
-    the card.
+    Use summary_table for key metrics. If the chart has data_labels=True,
+    the chart IS the summary — don't duplicate numbers in a separate table.
+    Summary tables earn their space only when they show information no
+    chart already displays.
   </summary>
   <rationale>
-    Cards occupy prime dashboard real estate. Redundant cards
-    add noise, not value.
+    A summary_table packs 5-20 metrics into a single compact component,
+    with rows, columns, and context. But redundant tables waste space.
   </rationale>
-  <useful>
-    - Standalone metrics absent from any chart (e.g., "10Y Yield: 4.5%")
-    - Cross-domain context that frames the story
-    - Status / verdict indicators (e.g., "Signal: Overvalued")
-  </useful>
+  <when_to_use_summary_table>
+    - Multiple related metrics (P/E, P/S, EV/EBITDA → one table)
+    - Before/after comparisons (pre-event vs post-event)
+    - Multi-asset snapshots (metric rows × asset columns)
+    - Distribution stats (median, 25th, 75th, current)
+    - Hero metrics or verdicts (e.g., "Regime: Goldilocks")
+  </when_to_use_summary_table>
   <not_useful>
     - Restating what a labeled bar chart already shows
     - Showing the endpoint of a line chart
     - Summary stats that could be a reference line
   </not_useful>
   <example>
-    <bad>  cards(Earnings: +3.1%) + xy_bars(data_labels=True)(earnings=+3.1%)</bad>
+    <bad>  summary_table(Earnings: +3.1%) + xy_bars(data_labels=True)(earnings=+3.1%)</bad>
     <good> xy_bars(data_labels=True) alone -- the chart IS the summary</good>
-    <good> cards(10Y Yield: 4.5%) on equity definition -- yield not in any chart</good>
+    <good> summary_table(P/E, P/S, EV/EBITDA, Margin) -- one compact table</good>
   </example>
   <enforcement>
-    For each card ask: "If I removed this card, would the reader
-    miss information?" If no, delete it.
+    For each summary_table ask: "Does any chart already show this?"
+    If yes, remove the table.
   </enforcement>
 </rule>
 
 
-<rule id="9" name="Cards Must Be Self-Qualifying">
-  <summary>
-    Every card title specifies what, when, and how. A bare number
-    with no context is meaningless.
-  </summary>
-  <rationale>
-    "P/E Ratio: 43.5" could be current, last quarter, 5-year
-    average, or study-window end. Cards using card_agg=Last show
-    the last value in the study period, not a live figure.
-  </rationale>
-  <example>
-    <bad>  "P/E Ratio: 43.5"</bad>
-    <bad>  "EPS Growth: 0.4%"</bad>
-    <good> "P/E (TTM, Dec '24): 43.5"</good>
-    <good> "EPS Growth YoY (Q4 '24): 0.4%"</good>
-    <good> "Signal: Overvalued"</good>
-  </example>
-  <enforcement>
-    Every card title must contain a time qualifier or be a
-    categorical verdict.
-  </enforcement>
-</rule>
-
-
-<rule id="10" name="Distributions Need Summary Stats">
+<rule id="9" name="Distributions Need Summary Stats">
   <summary>
     Every histogram or distribution chart has companion summary
     numbers: median, percentiles, current value.
@@ -249,7 +228,7 @@ RULES
 </rule>
 
 
-<rule id="11" name="No Redundant Visualizations">
+<rule id="10" name="No Redundant Visualizations">
   <summary>
     Each metric appears in ONE format. Don't show the same number
     as a bar chart AND a line chart AND a table.
@@ -268,7 +247,7 @@ RULES
 </rule>
 
 
-<rule id="12" name="Two Categories Maximum">
+<rule id="11" name="Two Categories Maximum">
   <summary>
     Organize charts by narrative arc (setup -> evidence -> conclusion),
     not by data type.
@@ -289,7 +268,7 @@ RULES
 </rule>
 
 
-<rule id="13" name="Guard NaN in Conditionals">
+<rule id="12" name="Guard NaN in Conditionals">
   <summary>
     EpochScript's X if cond else Y returns NaN when cond is NaN,
     not Y. Always guard sparse conditionals with is_valid().
@@ -324,13 +303,12 @@ Each violation maps 1:1 to its rule. Use as a review checklist.
 <violation id="4"  name="No Framing Question"        rule="1,5"  smell="Description lists computations, not a question" />
 <violation id="5"  name="No Reference Lines"         rule="4"    smell="Chart transform has no reference_lines=" />
 <violation id="6"  name="Too Many Series"            rule="7"    smell="Chart has 4+ SeriesSpec entries" />
-<violation id="7"  name="Redundant Charts"           rule="11"   smell="Same metric in 2+ chart types" />
+<violation id="7"  name="Redundant Charts"           rule="10"   smell="Same metric in 2+ chart types" />
 <violation id="8"  name="Generic / Technical Title"  rule="5"    smell="Title contains Z-Score, Rolling, Distribution" />
-<violation id="9"  name="Category Sprawl"            rule="12"   smell="Definition has 3+ category sections" />
-<violation id="10" name="Reflexive Card Dump"        rule="8"    smell="Card value duplicates labeled bar or line endpoint" />
-<violation id="11" name="Unqualified Card Metric"    rule="9"    smell="Card title has no time qualifier or context" />
-<violation id="12" name="Stats-Free Distribution"    rule="10"   smell="Histogram with no median/percentile reference" />
-<violation id="13" name="NaN-Poisoned Conditional"   rule="13"   smell="X if sparse else Y without is_valid() guard" />
+<violation id="9"  name="Category Sprawl"            rule="11"   smell="Definition has 3+ category sections" />
+<violation id="10" name="Redundant Summary Table"    rule="8"    smell="Summary table duplicating bar chart labels or line endpoints" />
+<violation id="11" name="Stats-Free Distribution"    rule="9"    smell="Histogram with no median/percentile reference" />
+<violation id="12" name="NaN-Poisoned Conditional"   rule="12"   smell="X if sparse else Y without is_valid() guard" />
 
 
 ================================================================================
@@ -376,10 +354,9 @@ PRE-SUBMIT CHECKLIST
   [ ] data_labels=True on every bar chart?
   [ ] Reference lines on every chart?
   [ ] Title hints at the answer, not the data type?
-  [ ] No redundancy between charts and cards?
+  [ ] No redundancy between charts and tables?
   [ ] 3 series max per chart?
   [ ] 2 categories max?
-  [ ] Cards show something charts don't already display?
-  [ ] Cards are qualified with time/context?
+  [ ] Summary tables show something charts don't already display?
   [ ] Distributions have median/percentile stats?
   [ ] Sparse conditionals guarded with is_valid()?

@@ -2,7 +2,7 @@
   {
     "id": "aapl_analyst_rating_drift",
     "name": "AAPL Analyst Rating Asymmetry",
-    "description": "LOAD AAPL daily bars and analyst ratings data\nDETECT price target raises (upgrades) and cuts (downgrades) via adjusted_pt_current > adjusted_pt_prior\nCLASSIFY as Upgrade vs Downgrade\nCOMPUTE day-of and post-5/10/20d returns by direction\nDASHBOARD shows event counts (cards), asymmetry bar chart, window breakdown table, and event markers with PT change details",
+    "description": "LOAD AAPL daily bars and analyst ratings data\nDETECT price target raises (upgrades) and cuts (downgrades) via adjusted_pt_current > adjusted_pt_prior\nCLASSIFY as Upgrade vs Downgrade\nCOMPUTE day-of and post-5/10/20d returns by direction\nDASHBOARD shows event counts (summary table), asymmetry bar chart, window breakdown table, and event markers with PT change details",
     "tags": {
       "asset_class": [
         "equities"
@@ -20,7 +20,7 @@
   {
     "id": "aapl_gross_margin_drift",
     "name": "AAPL Gross Margin Expansion vs Contraction Drift",
-    "description": "LOAD AAPL daily bars and quarterly income_statement data\nDETECT quarterly filings via is_valid(gross_profit)\nCLASSIFY as Expanding (current gross margin > prior quarter) vs Contracting\nCOMPUTE day-of and post-5/10/20d returns by regime\nDASHBOARD shows event counts (cards), expansion vs contraction bar chart, window breakdown table, and event markers with margin details",
+    "description": "LOAD AAPL daily bars and quarterly income_statement data\nDETECT quarterly filings via is_valid(gross_profit)\nCLASSIFY as Expanding (current gross margin > prior quarter) vs Contracting\nCOMPUTE day-of and post-5/10/20d returns by regime\nDASHBOARD shows event counts (summary table), expansion vs contraction bar chart, window breakdown table, and event markers with margin details",
     "tags": {
       "asset_class": [
         "equities"
@@ -38,7 +38,7 @@
   {
     "id": "aapl_post_earnings_drift",
     "name": "AAPL Post-Earnings Drift with Analyst Confirmation",
-    "description": "LOAD AAPL daily bars, quarterly earnings, and analyst ratings\nDETECT earnings events via eps_surprise_percent\nCLASSIFY as Confirmed Beat (surprise > 0 + PT raise within 5 days), Confirmed Miss (surprise < 0 + PT cut), or Unconfirmed\nCOMPUTE day-of and post-5/10/20d returns by regime\nDASHBOARD shows event counts (cards), regime comparison bar chart, window breakdown table, and event markers",
+    "description": "LOAD AAPL daily bars, quarterly earnings, and analyst ratings\nDETECT earnings events via eps_surprise_percent\nCLASSIFY as Confirmed Beat (surprise > 0 + PT raise within 5 days), Confirmed Miss (surprise < 0 + PT cut), or Unconfirmed\nCOMPUTE day-of and post-5/10/20d returns by regime\nDASHBOARD shows event counts (summary table), regime comparison bar chart, window breakdown table, and event markers",
     "tags": {
       "asset_class": [
         "equities"
@@ -161,7 +161,7 @@
   {
     "id": "ct_es_volume_range_distributions",
     "name": "CT Market Stats: Volume & Range Distributions -- ES Futures",
-    "description": "LOAD ES-Futures 1Min continuous contract with RTH, ETH, and IB session windows aggregating volume\nCALCULATE session-level volume (RTH and ETH) and range (RTH, ETH, IB) per day\nCOMPUTE mean, median, and standard deviation for each range distribution\nDASHBOARD shows sample/range statistics cards, RTH and ETH volume histograms, RTH and ETH range histograms, and IB range histogram",
+    "description": "LOAD ES-Futures 1Min continuous contract with RTH, ETH, and IB session windows aggregating volume\nCALCULATE session-level volume (RTH and ETH) and range (RTH, ETH, IB) per day\nCOMPUTE mean, median, and standard deviation for each range distribution\nDASHBOARD shows sample/range statistics table, RTH and ETH volume histograms, RTH and ETH range histograms, and IB range histogram",
     "tags": {
       "asset_class": [
         "futures"
@@ -176,7 +176,7 @@
   {
     "id": "ct_ib_close_analysis",
     "name": "CT IB & Close Analysis",
-    "description": "LOAD SPY-Stocks 5Min bars as ES futures proxy with RTH and 30-min IB session windows\nCALCULATE IB break probabilities: at-least-one, both, neither, only-IBH, only-IBL, IB-within-prior-IB\nCALCULATE conditional close location after single IBH or IBL break (closes above/below IBH/IBL/MID)\nCALCULATE close stats: bearish/bullish engulfing, closes within IB on neutral day, within prior IB/range\nDASHBOARD shows overview cards, IB Break Probabilities table, Close After Single IB Break table, and Close Statistics table",
+    "description": "LOAD SPY-Stocks 5Min bars as ES futures proxy with RTH and 30-min IB session windows\nCALCULATE IB break probabilities: at-least-one, both, neither, only-IBH, only-IBL, IB-within-prior-IB\nCALCULATE conditional close location after single IBH or IBL break (closes above/below IBH/IBL/MID)\nCALCULATE close stats: bearish/bullish engulfing, closes within IB on neutral day, within prior IB/range\nDASHBOARD shows overview table, IB Break Probabilities table, Close After Single IB Break table, and Close Statistics table",
     "tags": {
       "asset_class": [
         "equities"
@@ -207,7 +207,7 @@
   {
     "id": "ct_session_structure",
     "name": "CT Session Structure",
-    "description": "LOAD SPY-Stocks 5Min extended-hours bars with RTH, pre-market, and IB session windows\nCOMPUTE harmonic rotations via zigzag swing detection: up/down rotation sizes, counts per session, session efficiency\nCALCULATE auction day type: neutral day rate, neutral-follows-neutral probability, neutral extreme day rate\nCALCULATE RTH and pre-market volume/range distributions plus IB range distributions\nDASHBOARD shows summary cards, rotation histograms (up/down/efficiency/count), auction cards, volume histograms and stats, range histograms with boxplot comparison",
+    "description": "LOAD SPY-Stocks 5Min extended-hours bars with RTH, pre-market, and IB session windows\nCOMPUTE harmonic rotations via zigzag swing detection: up/down rotation sizes, counts per session, session efficiency\nCALCULATE auction day type: neutral day rate, neutral-follows-neutral probability, neutral extreme day rate\nCALCULATE RTH and pre-market volume/range distributions plus IB range distributions\nDASHBOARD shows summary table, rotation histograms (up/down/efficiency/count), auction table, volume histograms and stats, range histograms with boxplot comparison",
     "tags": {
       "asset_class": [
         "equities"
@@ -1144,7 +1144,7 @@
   {
     "id": "eng600_currency_commodity_correlations",
     "name": "Currency-Commodity Correlations Analysis",
-    "description": "LOAD FX pair (AUDUSD/USDCAD/USDCHF/USDJPY) daily data plus Gold (GLD), Oil (WTI), Iron Ore, and Silver reference series\nCALCULATE 20-day rolling Pearson correlations between the FX pair and each commodity\nVALIDATE reported correlations (e.g., AUDUSD/Gold ~0.80, CAD/Oil ~-0.87) against computed values\nDASHBOARD shows four time-series charts (Gold, Oil, Iron Ore, Silver rolling correlations) with reference lines at reported values, plus summary cards with mean/min/max correlation stats",
+    "description": "LOAD FX pair (AUDUSD/USDCAD/USDCHF/USDJPY) daily data plus Gold (GLD), Oil (WTI), Iron Ore, and Silver reference series\nCALCULATE 20-day rolling Pearson correlations between the FX pair and each commodity\nVALIDATE reported correlations (e.g., AUDUSD/Gold ~0.80, CAD/Oil ~-0.87) against computed values\nDASHBOARD shows four time-series charts (Gold, Oil, Iron Ore, Silver rolling correlations) with reference lines at reported values, plus summary table with mean/min/max correlation stats",
     "tags": {
       "asset_class": [
         "fx",
@@ -1180,7 +1180,7 @@
   {
     "id": "eurusd_seasonality",
     "name": "EUR/USD Monthly and Day-of-Week Seasonality",
-    "description": "QUESTION Does EUR/USD have exploitable monthly or day-of-week seasonality?\nLOAD EUR/USD daily and monthly bars\nCOMPUTE monthly returns and intraweek returns\nAGGREGATE average return by month, year-by-year heatmap, and day-of-week breakdown\nDASHBOARD shows monthly seasonality bars, year\u00d7month heatmap, day-of-week bars, and win rate cards",
+    "description": "QUESTION Does EUR/USD have exploitable monthly or day-of-week seasonality?\nLOAD EUR/USD daily and monthly bars\nCOMPUTE monthly returns and intraweek returns\nAGGREGATE average return by month, year-by-year heatmap, and day-of-week breakdown\nDASHBOARD shows monthly seasonality bars, year\u00d7month heatmap, day-of-week bars, and win rate table",
     "tags": {
       "asset_class": [
         "fx"
@@ -1220,7 +1220,7 @@
   {
     "id": "gc_nfp_reaction",
     "name": "Gold Daily Reaction to Strong vs Weak NFP",
-    "description": "LOAD GC futures daily bars and NFP data from common_economic_indicators\nDETECT NFP releases via valuewhen for prior reading\nCLASSIFY as Strong (change > 200K) vs Weak (< 100K)\nCOMPUTE day-of and post-20d returns by regime with cumulative event returns\nDASHBOARD shows event counts (cards), regime comparison bars, window breakdown table, and event markers",
+    "description": "LOAD GC futures daily bars and NFP data from common_economic_indicators\nDETECT NFP releases via valuewhen for prior reading\nCLASSIFY as Strong (change > 200K) vs Weak (< 100K)\nCOMPUTE day-of and post-20d returns by regime with cumulative event returns\nDASHBOARD shows event counts (summary table), regime comparison bars, window breakdown table, and event markers",
     "tags": {
       "asset_class": [
         "futures",
@@ -1304,7 +1304,7 @@
   {
     "id": "qqq_ib_low_reversal_probability",
     "name": "QQQ Failed IB Low Break Reversal Probability",
-    "description": "LOAD QQQ 5Min bars with session_window for IB (9:30-10:30) and RTH\nDETECT failed downside breaks: price broke IB low AND prior day low\nDEFINE win as close above IB midpoint\nCOMPUTE cumulative win rate line showing edge evolution over time\nDASHBOARD shows win rate (cards), cumulative win rate line, return distribution histogram, and event markers on reversals",
+    "description": "LOAD QQQ 5Min bars with session_window for IB (9:30-10:30) and RTH\nDETECT failed downside breaks: price broke IB low AND prior day low\nDEFINE win as close above IB midpoint\nCOMPUTE cumulative win rate line showing edge evolution over time\nDASHBOARD shows win rate (summary table), cumulative win rate line, return distribution histogram, and event markers on reversals",
     "tags": {
       "asset_class": [
         "equities"
@@ -1362,7 +1362,7 @@
   {
     "id": "spy_claims_yield_curve",
     "name": "SPY Reaction to Claims Spikes Conditioned on Yield Curve",
-    "description": "LOAD SPY daily bars, InitialClaims and Spread10Y2Y from common_economic_indicators\nDETECT claims spikes (> 10% above 3-reading average)\nCLASSIFY as Spike + Inverted Curve vs Spike + Normal Curve\nCOMPUTE day-of and post-20d returns by regime with cumulative compounding\nDASHBOARD shows event counts (cards), regime comparison bars, window breakdown table, and event markers",
+    "description": "LOAD SPY daily bars, InitialClaims and Spread10Y2Y from common_economic_indicators\nDETECT claims spikes (> 10% above 3-reading average)\nCLASSIFY as Spike + Inverted Curve vs Spike + Normal Curve\nCOMPUTE day-of and post-20d returns by regime with cumulative compounding\nDASHBOARD shows event counts (summary table), regime comparison bars, window breakdown table, and event markers",
     "tags": {
       "asset_class": [
         "equities"
@@ -1383,7 +1383,7 @@
   {
     "id": "spy_dividend_exdate",
     "name": "SPY Dividend Ex-Date Drop and Recovery",
-    "description": "LOAD SPY daily bars and dividend data via dividends(dividend_type=CD)\nDETECT cash dividend ex-dates\nCLASSIFY by yield tier: High (> 0.4%) vs Low\nCOMPUTE drop ratio (actual drop / expected dividend), ex-date day and post-5/10d returns\nDASHBOARD shows yield tier counts (cards), recovery bars by tier, window breakdown table, and event markers with drop ratio",
+    "description": "LOAD SPY daily bars and dividend data via dividends(dividend_type=CD)\nDETECT cash dividend ex-dates\nCLASSIFY by yield tier: High (> 0.4%) vs Low\nCOMPUTE drop ratio (actual drop / expected dividend), ex-date day and post-5/10d returns\nDASHBOARD shows yield tier counts (summary table), recovery bars by tier, window breakdown table, and event markers with drop ratio",
     "tags": {
       "asset_class": [
         "equities"
@@ -1401,7 +1401,7 @@
   {
     "id": "spy_fed_rate_reaction",
     "name": "SPY Reaction to Fed Rate Hikes vs Cuts",
-    "description": "LOAD SPY daily bars and FedFunds from common_economic_indicators\nDETECT FOMC decisions via rate changes (valuewhen for prior rate)\nCLASSIFY as Hike (>= 20bps), Cut (>= 20bps), or Hold\nCOMPUTE day-of and post-20d returns by regime with cumulative compounding\nDASHBOARD shows event counts (cards), regime comparison bars, window breakdown table, and event markers",
+    "description": "LOAD SPY daily bars and FedFunds from common_economic_indicators\nDETECT FOMC decisions via rate changes (valuewhen for prior rate)\nCLASSIFY as Hike (>= 20bps), Cut (>= 20bps), or Hold\nCOMPUTE day-of and post-20d returns by regime with cumulative compounding\nDASHBOARD shows event counts (summary table), regime comparison bars, window breakdown table, and event markers",
     "tags": {
       "asset_class": [
         "equities"
@@ -1444,7 +1444,7 @@
   {
     "id": "spy_ism_reaction",
     "name": "SPY Daily Reaction to Improving vs Deteriorating ISM",
-    "description": "LOAD SPY daily bars and ISM Manufacturing from common_economic_indicators\nDETECT ISM releases via valuewhen for prior reading\nCLASSIFY as Improving (current > prior) vs Deteriorating\nCOMPUTE day-of and post-20d returns by regime with cumulative event returns\nDASHBOARD shows event counts (cards), regime comparison bars, window breakdown table, and event markers",
+    "description": "LOAD SPY daily bars and ISM Manufacturing from common_economic_indicators\nDETECT ISM releases via valuewhen for prior reading\nCLASSIFY as Improving (current > prior) vs Deteriorating\nCOMPUTE day-of and post-20d returns by regime with cumulative event returns\nDASHBOARD shows event counts (summary table), regime comparison bars, window breakdown table, and event markers",
     "tags": {
       "asset_class": [
         "equities"
@@ -1465,7 +1465,7 @@
   {
     "id": "spy_morning_dip_reversal",
     "name": "SPY Morning Dip Mean-Reversion Strategy",
-    "description": "LOAD SPY 5Min bars with session_window for RTH and 9:45-10:30 trade window\nDETECT morning dip: price at 9:45 < 9:30 open\nTRADE entry at 9:45, exit at 10:30 when triggered\nCOMPUTE cumulative equity curve, return distribution, and day-of-week breakdown\nDASHBOARD shows win rate (cards), equity curve line, return histogram, and day-of-week performance bars",
+    "description": "LOAD SPY 5Min bars with session_window for RTH and 9:45-10:30 trade window\nDETECT morning dip: price at 9:45 < 9:30 open\nTRADE entry at 9:45, exit at 10:30 when triggered\nCOMPUTE cumulative equity curve, return distribution, and day-of-week breakdown\nDASHBOARD shows win rate (summary table), equity curve line, return histogram, and day-of-week performance bars",
     "tags": {
       "asset_class": [
         "equities"
@@ -1484,7 +1484,7 @@
   {
     "id": "spy_opening_range_extension",
     "name": "SPY Opening Range Extension Analysis",
-    "description": "LOAD SPY 1Min bars with session_window for OR (9:30-9:45), RTH, and EOD\nCOMPUTE opening range high/low, then measure upside and downside extension beyond OR boundaries\nANALYZE distribution of extension distances via boxplot and histogram\nDASHBOARD shows median extension (cards), upside vs downside boxplots, extension distance histogram with analytics",
+    "description": "LOAD SPY 1Min bars with session_window for OR (9:30-9:45), RTH, and EOD\nCOMPUTE opening range high/low, then measure upside and downside extension beyond OR boundaries\nANALYZE distribution of extension distances via boxplot and histogram\nDASHBOARD shows median extension (summary table), upside vs downside boxplots, extension distance histogram with analytics",
     "tags": {
       "asset_class": [
         "equities"
@@ -1540,7 +1540,7 @@
   {
     "id": "spy_yield_curve_inversion",
     "name": "SPY Reaction to Yield Curve Inversions and Un-Inversions",
-    "description": "LOAD SPY daily bars and 10Y-2Y spread from common_economic_indicators\nDETECT zero-crossings: new inversion (spread crosses below 0) and un-inversion (crosses back above)\nCOMPUTE event day and post-60/126/252d returns by crossing type\nDASHBOARD shows crossing counts (cards), 1-year post-event bar chart, long-window breakdown table, and event markers",
+    "description": "LOAD SPY daily bars and 10Y-2Y spread from common_economic_indicators\nDETECT zero-crossings: new inversion (spread crosses below 0) and un-inversion (crosses back above)\nCOMPUTE event day and post-60/126/252d returns by crossing type\nDASHBOARD shows crossing counts (summary table), 1-year post-event bar chart, long-window breakdown table, and event markers",
     "tags": {
       "asset_class": [
         "equities"
@@ -1603,7 +1603,7 @@
   {
     "id": "tlt_cpi_reaction",
     "name": "Bond Reaction to Hot vs Cool CPI",
-    "description": "LOAD TLT daily bars and CPI from common_economic_indicators\nDETECT CPI releases via valuewhen for prior readings\nCLASSIFY as Hot (MoM acceleration: current change > prior change) vs Cool (deceleration)\nCOMPUTE day-of and post-20d returns by regime with cumulative event compounding\nDASHBOARD shows event counts (cards), regime comparison bars, window breakdown table, and event markers",
+    "description": "LOAD TLT daily bars and CPI from common_economic_indicators\nDETECT CPI releases via valuewhen for prior readings\nCLASSIFY as Hot (MoM acceleration: current change > prior change) vs Cool (deceleration)\nCOMPUTE day-of and post-20d returns by regime with cumulative event compounding\nDASHBOARD shows event counts (summary table), regime comparison bars, window breakdown table, and event markers",
     "tags": {
       "asset_class": [
         "bonds"
@@ -1624,7 +1624,7 @@
   {
     "id": "tsla_sentiment_vs_fundamentals",
     "name": "TSLA Sentiment Shock vs Fundamental Deterioration",
-    "description": "LOAD TSLA daily bars, analyst ratings, quarterly earnings, and income_statement data\nDETECT 3 event types: analyst downgrades, earnings misses (surprise < -2%), and margin contractions\nCLASSIFY downgrades as pure sentiment (no recent fundamental event) vs concordant using barssince\nCOMPUTE day-of and post-5/10/20d returns by event type\nDASHBOARD shows event counts (cards), mean-reversion vs persistence bar chart, window breakdown table, and event markers",
+    "description": "LOAD TSLA daily bars, analyst ratings, quarterly earnings, and income_statement data\nDETECT 3 event types: analyst downgrades, earnings misses (surprise < -2%), and margin contractions\nCLASSIFY downgrades as pure sentiment (no recent fundamental event) vs concordant using barssince\nCOMPUTE day-of and post-5/10/20d returns by event type\nDASHBOARD shows event counts (summary table), mean-reversion vs persistence bar chart, window breakdown table, and event markers",
     "tags": {
       "asset_class": [
         "equities"
@@ -1643,7 +1643,7 @@
   {
     "id": "tsla_short_squeeze_earnings",
     "name": "TSLA Short Interest Amplification of Post-Earnings Drift",
-    "description": "LOAD TSLA daily bars, quarterly earnings, and short_interest data\nDETECT earnings events via eps_surprise_percent\nCLASSIFY into 4 regimes: High SI Beat, Low SI Beat, High SI Miss, Low SI Miss (DTC > 3 threshold)\nCOMPUTE earnings day and post-5/10/20d returns by regime\nDASHBOARD shows event counts (cards), 4-way regime comparison bars, window breakdown table, and event markers with surprise + DTC details",
+    "description": "LOAD TSLA daily bars, quarterly earnings, and short_interest data\nDETECT earnings events via eps_surprise_percent\nCLASSIFY into 4 regimes: High SI Beat, Low SI Beat, High SI Miss, Low SI Miss (DTC > 3 threshold)\nCOMPUTE earnings day and post-5/10/20d returns by regime\nDASHBOARD shows event counts (summary table), 4-way regime comparison bars, window breakdown table, and event markers with surprise + DTC details",
     "tags": {
       "asset_class": [
         "equities"
@@ -1662,7 +1662,7 @@
   {
     "id": "tsla_short_volume_spike",
     "name": "TSLA Short Volume Spike Reversal by Price Context",
-    "description": "LOAD TSLA daily bars and short_volume data\nDETECT short volume spikes: ratio > 1.15\u00d7 its 20-day SMA\nCLASSIFY by price context: Bullish (price > 50-SMA) vs Bearish\nCOMPUTE spike day and post-5/10/20d returns by context\nDASHBOARD shows context counts (cards), reversal comparison bars, window breakdown table, and event markers with short vol ratio",
+    "description": "LOAD TSLA daily bars and short_volume data\nDETECT short volume spikes: ratio > 1.15\u00d7 its 20-day SMA\nCLASSIFY by price context: Bullish (price > 50-SMA) vs Bearish\nCOMPUTE spike day and post-5/10/20d returns by context\nDASHBOARD shows context counts (summary table), reversal comparison bars, window breakdown table, and event markers with short vol ratio",
     "tags": {
       "asset_class": [
         "equities"
