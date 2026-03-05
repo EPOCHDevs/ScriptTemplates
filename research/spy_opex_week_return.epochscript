@@ -50,16 +50,21 @@ opex_count = 1.0 if is_opex else 0.0
 # =============================================================================
 
 # --- Cards: stats not visible on charts ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='OPEX Week Overview',
+        row_size=1,
+        col_size=2,
+        row_headers=['OPEX Week Overview'],
+        col_headers=['Win Rate (% Positive Weeks)', 'OPEX Events Sampled'],
         cells=[
-            ColumnSpec(title='Win Rate (% Positive Weeks)', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='OPEX Events Sampled', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='Seasonality'
-)(opex_win_filtered, opex_count)
+)
+(opex_win_filtered, opex_count)
 
 # --- Chart 1: Avg OPEX Week Return by Quarter ---
 xy_bars(

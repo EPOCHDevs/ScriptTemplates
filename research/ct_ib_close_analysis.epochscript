@@ -166,19 +166,24 @@ closes_within_ib_neutral = (1.0 if (s_close >= ib_l and s_close <= ib_h) else 0.
 # =============================================================================
 
 # --- 0. Summary ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='CT IB & Close Overview',
+        row_size=1,
+        col_size=5,
+        row_headers=['CT IB & Close Overview'],
+        col_headers=['At Least One IB Broke', 'Only IBH Broken', 'Only IBL Broken', 'Both Broken', 'Closes Within pRange'],
         cells=[
-            ColumnSpec(title='At Least One IB Broke', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero, card_color=Color.Warning),
-            ColumnSpec(title='Only IBH Broken', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_color=Color.Success),
-            ColumnSpec(title='Only IBL Broken', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_color=Color.Error),
-            ColumnSpec(title='Both Broken', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_color=Color.Info),
-            ColumnSpec(title='Closes Within pRange', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, grid_color=Color.Warning),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, grid_color=Color.Success),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, grid_color=Color.Error),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, grid_color=Color.Info),
+            ColumnSpec(grid_row=0, grid_col=4, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1)
         ]
     ),
     category='0. Summary'
-)(at_least_one_ib, only_ibh_broken, only_ibl_broken, both_ib_broken, closes_within_prange)
+)
+(at_least_one_ib, only_ibh_broken, only_ibl_broken, both_ib_broken, closes_within_prange)
 
 # --- 1. Initial Balance (IB) ---
 summary_table(

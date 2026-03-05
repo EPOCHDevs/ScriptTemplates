@@ -78,16 +78,21 @@ c_pre5 = where(is_cool, pre_5d)
 # =============================================================================
 
 # --- Cards: event counts ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='CPI Events',
+        row_size=1,
+        col_size=2,
+        row_headers=['CPI Events'],
+        col_headers=['Hot CPI Events (Accelerating)', 'Cool CPI Events (Decelerating)'],
         cells=[
-            ColumnSpec(title='Hot CPI Events (Accelerating)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Cool CPI Events (Decelerating)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='CPI Impact'
-)(hot_count_clean, cool_count_clean)
+)
+(hot_count_clean, cool_count_clean)
 
 # --- Chart 1: Day-of + Post-20d Return Snapshot ---
 xy_bars(

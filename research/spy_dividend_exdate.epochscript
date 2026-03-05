@@ -69,16 +69,21 @@ ev_post10 = where(had_div, post_10d)
 # REPORTS
 # =============================================================================
 
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='SPY Dividend Ex-Date',
+        row_size=1,
+        col_size=2,
+        row_headers=['SPY Dividend Ex-Date'],
+        col_headers=['High Yield Ex-Dates (>0.4%)', 'Low Yield Ex-Dates'],
         cells=[
-            ColumnSpec(title='High Yield Ex-Dates (>0.4%)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Low Yield Ex-Dates', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='Dividend Ex-Date'
-)(high_count, low_count)
+)
+(high_count, low_count)
 
 xy_bars(
     title='Does SPY Recover After Ex-Date Drops?',

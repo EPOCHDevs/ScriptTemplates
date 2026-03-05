@@ -72,16 +72,21 @@ s_pre5 = where(is_strong, pre_5d)
 # =============================================================================
 
 # --- Cards: event counts (not on any chart) ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='NFP Events',
+        row_size=1,
+        col_size=2,
+        row_headers=['NFP Events'],
+        col_headers=['Strong NFP Events (>200K)', 'Weak NFP Events (<100K)'],
         cells=[
-            ColumnSpec(title='Strong NFP Events (>200K)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Weak NFP Events (<100K)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='NFP Impact'
-)(strong_count, weak_count)
+)
+(strong_count, weak_count)
 
 # --- Chart 1: Day-of + Post-20d Return Snapshot ---
 xy_bars(

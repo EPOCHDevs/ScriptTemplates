@@ -167,33 +167,43 @@ neutral_day_rate = neutral_day_flag
 # =============================================================================
 
 # --- 0. Summary ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='CT Session Structure Overview',
+        row_size=1,
+        col_size=5,
+        row_headers=['CT Session Structure Overview'],
+        col_headers=['Neutral Day %', 'Avg Rotations/Sess', 'RTH Avg Range', 'IB Avg Width', 'Avg Efficiency'],
         cells=[
-            ColumnSpec(title='Neutral Day %', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero, card_color=Color.Warning),
-            ColumnSpec(title='Avg Rotations/Sess', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1),
-            ColumnSpec(title='RTH Avg Range', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
-            ColumnSpec(title='IB Avg Width', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
-            ColumnSpec(title='Avg Efficiency', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, grid_color=Color.Warning),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=4, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3)
         ]
     ),
     category='0. Summary'
-)(neutral_day_rate, total_rotations_eod, range_eod, ib_width_eod, efficiency)
+)
+(neutral_day_rate, total_rotations_eod, range_eod, ib_width_eod, efficiency)
 
 # --- 1. Harmonic Rotations ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='Harmonic Rotation Metrics',
+        row_size=1,
+        col_size=4,
+        row_headers=['Harmonic Rotation Metrics'],
+        col_headers=['Avg Rotations/Session', 'Avg Up Rotation (pts)', 'Avg Down Rotation (pts)', 'Avg Efficiency'],
         cells=[
-            ColumnSpec(title='Avg Rotations/Session', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1, card_slot=CardSlot.Hero, card_color=Color.Teal),
-            ColumnSpec(title='Avg Up Rotation (pts)', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3),
-            ColumnSpec(title='Avg Down Rotation (pts)', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3),
-            ColumnSpec(title='Avg Efficiency', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1, grid_color=Color.Teal),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=3)
         ]
     ),
     category='1. Harmonic Rotations'
-)(total_rotations_eod, avg_up_eod, avg_down_eod, efficiency)
+)
+(total_rotations_eod, avg_up_eod, avg_down_eod, efficiency)
 
 histogram(
     title='Up Rotation Sizes (Swing Low to Swing High)',
@@ -236,17 +246,22 @@ histogram(
 )(total_rotations_eod)
 
 # --- 2. Auction ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='Auction Day Type (CT Page 1)',
+        row_size=1,
+        col_size=3,
+        row_headers=['Auction Day Type (CT Page 1)'],
+        col_headers=['Neutral Day', 'Neutral Follows Neutral', 'Neutral Extreme Day'],
         cells=[
-            ColumnSpec(title='Neutral Day', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, card_slot=CardSlot.Hero, card_color=Color.Warning),
-            ColumnSpec(title='Neutral Follows Neutral', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, card_color=Color.Info),
-            ColumnSpec(title='Neutral Extreme Day', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, card_color=Color.Error)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, grid_color=Color.Warning),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, grid_color=Color.Info),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, grid_color=Color.Error)
         ]
     ),
     category='2. Auction'
-)(neutral_day_rate, neutral_follows_neutral, neutral_extreme_rate)
+)
+(neutral_day_rate, neutral_follows_neutral, neutral_extreme_rate)
 
 # --- 3. Volume (CT Page 4) ---
 histogram(
@@ -269,18 +284,23 @@ histogram(
     y_axis_label='Frequency'
 )(pm_vol_eod)
 
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='Volume Statistics',
+        row_size=1,
+        col_size=4,
+        row_headers=['Volume Statistics'],
+        col_headers=['RTH Mean Vol', 'RTH Median Vol', 'Pre-Mkt Mean Vol', 'Pre-Mkt Median Vol'],
         cells=[
-            ColumnSpec(title='RTH Mean Vol', card_agg=AggregationType.Mean, type=CardRenderType.IntegerFormat),
-            ColumnSpec(title='RTH Median Vol', card_agg=AggregationType.Median, type=CardRenderType.IntegerFormat),
-            ColumnSpec(title='Pre-Mkt Mean Vol', card_agg=AggregationType.Mean, type=CardRenderType.IntegerFormat),
-            ColumnSpec(title='Pre-Mkt Median Vol', card_agg=AggregationType.Median, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Median, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Median, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='3. Volume'
-)(vol_eod, vol_eod, pm_vol_eod, pm_vol_eod)
+)
+(vol_eod, vol_eod, pm_vol_eod, pm_vol_eod)
 
 # --- 4. Range (CT Page 4) ---
 histogram(
@@ -313,19 +333,24 @@ histogram(
     y_axis_label='Frequency'
 )(ib_width_eod)
 
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='Range Statistics',
+        row_size=1,
+        col_size=5,
+        row_headers=['Range Statistics'],
+        col_headers=['RTH Mean Range', 'RTH Median Range', 'Pre-Mkt Mean Range', 'IB Mean Range', 'IB Median Range'],
         cells=[
-            ColumnSpec(title='RTH Mean Range', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
-            ColumnSpec(title='RTH Median Range', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2),
-            ColumnSpec(title='Pre-Mkt Mean Range', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
-            ColumnSpec(title='IB Mean Range', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
-            ColumnSpec(title='IB Median Range', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=4, grid_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2)
         ]
     ),
     category='4. Range'
-)(range_eod, range_eod, pm_range_eod, ib_width_eod, ib_width_eod)
+)
+(range_eod, range_eod, pm_range_eod, ib_width_eod, ib_width_eod)
 
 boxplot(
     title='Range Comparison: RTH vs Pre-Mkt vs IB',

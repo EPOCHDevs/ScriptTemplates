@@ -72,17 +72,22 @@ cum_win_rate = cum_win_rate_raw if is_valid(cum_win_rate_raw) else 0.0 / 0.0
 # =============================================================================
 
 # --- Cards: summary stats not on the chart ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='IB Low Reversal',
+        row_size=1,
+        col_size=3,
+        row_headers=['IB Low Reversal'],
+        col_headers=['P(Close > IB Mid)', 'Triggered Days', 'Avg Return from IB Low'],
         cells=[
-            ColumnSpec(title='P(Close > IB Mid)', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Triggered Days', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
-            ColumnSpec(title='Avg Return from IB Low', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2)
         ]
     ),
     category='Reversal Probability'
-)(win_rate_triggered, triggered_count, return_from_ib_low)
+)
+(win_rate_triggered, triggered_count, return_from_ib_low)
 
 # --- Chart 1: Cumulative Win Rate Over Time ---
 xy_lines(

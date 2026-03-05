@@ -41,16 +41,21 @@ monthly_year = datetime_extract(component=DatetimeExtractionType.year)(monthly_i
 # =============================================================================
 
 # --- Cards: stats not on any chart ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='EUR/USD Seasonality',
+        row_size=1,
+        col_size=2,
+        row_headers=['EUR/USD Seasonality'],
+        col_headers=['Monthly Win Rate', 'Months Sampled'],
         cells=[
-            ColumnSpec(title='Monthly Win Rate', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Months Sampled', card_agg=AggregationType.Count, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Count, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='Seasonality'
-)(is_positive, monthly_ret)
+)
+(is_positive, monthly_ret)
 
 # --- Chart 1: Avg Monthly Return by Calendar Month ---
 xy_bars(

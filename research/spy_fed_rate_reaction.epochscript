@@ -72,17 +72,22 @@ c_pre5 = where(is_cut, pre_5d)
 # =============================================================================
 
 # --- Cards: event counts ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='FOMC Events',
+        row_size=1,
+        col_size=3,
+        row_headers=['FOMC Events'],
+        col_headers=['Rate Hikes', 'Rate Cuts', 'Rate Cuts'],
         cells=[
-            ColumnSpec(title='Rate Hikes', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Rate Cuts', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
-            ColumnSpec(title='Rate Cuts', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='Fed Impact'
-)(hike_clean, cut_clean)
+)
+(hike_clean, cut_clean)
 
 # --- Chart 1: Day-of + Post-20d Return Snapshot ---
 xy_bars(

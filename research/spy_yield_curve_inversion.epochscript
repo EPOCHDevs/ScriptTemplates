@@ -64,16 +64,21 @@ ev_post252 = coalesce(where(is_new_inversion, post_252d), where(is_un_inversion,
 # REPORTS
 # =============================================================================
 
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='Yield Curve Crossings',
+        row_size=1,
+        col_size=2,
+        row_headers=['Yield Curve Crossings'],
+        col_headers=['New Inversions', 'Un-Inversions'],
         cells=[
-            ColumnSpec(title='New Inversions', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Un-Inversions', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='Yield Curve Inversion'
-)(inv_count, uninv_count)
+)
+(inv_count, uninv_count)
 
 xy_bars(
     title='How Does SPY Perform 1 Year After Yield Curve Crossings?',

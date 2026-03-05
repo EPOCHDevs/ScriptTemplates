@@ -92,16 +92,21 @@ ev_post20 = where(had_earnings, post_20d)
 # REPORTS
 # =============================================================================
 
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='TSLA Short Squeeze Setup',
+        row_size=1,
+        col_size=2,
+        row_headers=['TSLA Short Squeeze Setup'],
+        col_headers=['Total Earnings Events', 'High SI Events (DTC>3)'],
         cells=[
-            ColumnSpec(title='Total Earnings Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='High SI Events (DTC>3)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='Short Squeeze'
-)(earnings_count, hsb_count)
+)
+(earnings_count, hsb_count)
 
 xy_bars(
     title='Does High Short Interest Amplify Post-Earnings Drift?',

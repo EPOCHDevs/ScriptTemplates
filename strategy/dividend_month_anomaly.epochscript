@@ -108,11 +108,3 @@ position_size(type=SizeType.percent)(size=weights * 100, rebalance_on=is_new_mon
 
 # Count of positions using if/else
 position_count = 1.0 if held_long else 0.0
-
-timeseries_lines(
-    title="Position Count Over Time",
-    category="Strategy Monitoring",
-    series=LineSeriesSchema(series=[
-        LineSeriesSpec(name="Positions Held", color=Color.Blue)
-    ])
-)(position_count)

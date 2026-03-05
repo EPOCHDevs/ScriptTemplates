@@ -42,15 +42,20 @@ yq_label = (year_num * 100 + qtr_end_month) * nan_flag
 # =============================================================================
 
 # Card: valuation context — growth is decelerating, but what is the market paying?
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='MSFT Earnings Momentum',
+        row_size=1,
+        col_size=1,
+        row_headers=['MSFT Earnings Momentum'],
+        col_headers=['Last P/E Ratio'],
         cells=[
-            ColumnSpec(title='Last P/E Ratio', card_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1, card_slot=CardSlot.Hero)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=1)
         ]
     ),
     category='Earnings Momentum'
-)(pe)
+)
+(pe)
 
 # Quarterly growth rate bars — bar heights tell the acceleration story
 xy_bars(

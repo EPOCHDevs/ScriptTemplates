@@ -68,16 +68,21 @@ d_pre5 = where(is_deteriorating, pre_5d)
 # =============================================================================
 
 # --- Cards: event counts ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='ISM Events',
+        row_size=1,
+        col_size=2,
+        row_headers=['ISM Events'],
+        col_headers=['Improving Events', 'Deteriorating Events'],
         cells=[
-            ColumnSpec(title='Improving Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Deteriorating Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='ISM Impact'
-)(imp_clean, det_clean)
+)
+(imp_clean, det_clean)
 
 # --- Chart 1: Day-of + Post-20d Return Snapshot ---
 xy_bars(

@@ -47,24 +47,29 @@ day_count = where(eth_valid, 1.0)
 # =============================================================================
 
 # --- Sample Count & Range Summary ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='Sample & Range Statistics',
+        row_size=1,
+        col_size=10,
+        row_headers=['Sample & Range Statistics'],
+        col_headers=['Number of Sample Days', 'RTH Mean Range (pts)', 'RTH Median Range', 'RTH StdDev', 'ETH Mean Range (pts)', 'ETH Median Range', 'ETH StdDev', 'IB Mean Range (pts)', 'IB Median Range', 'IB StdDev'],
         cells=[
-            ColumnSpec(title='Number of Sample Days', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Primary),
-            ColumnSpec(title='RTH Mean Range (pts)', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
-            ColumnSpec(title='RTH Median Range', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2),
-            ColumnSpec(title='RTH StdDev', card_agg=AggregationType.Std, type=CardRenderType.DecimalFormat, dp=2),
-            ColumnSpec(title='ETH Mean Range (pts)', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
-            ColumnSpec(title='ETH Median Range', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2),
-            ColumnSpec(title='ETH StdDev', card_agg=AggregationType.Std, type=CardRenderType.DecimalFormat, dp=2),
-            ColumnSpec(title='IB Mean Range (pts)', card_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
-            ColumnSpec(title='IB Median Range', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2),
-            ColumnSpec(title='IB StdDev', card_agg=AggregationType.Std, type=CardRenderType.DecimalFormat, dp=2)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Primary),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Std, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=4, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=5, grid_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=6, grid_agg=AggregationType.Std, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=7, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=8, grid_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=9, grid_agg=AggregationType.Std, type=CardRenderType.DecimalFormat, dp=2)
         ]
     ),
     category='Volume & Range Distributions'
-)(day_count, rth_range, rth_range, rth_range, eth_range, eth_range, eth_range, ib_range, ib_range, ib_range)
+)
+(day_count, rth_range, rth_range, rth_range, eth_range, eth_range, eth_range, ib_range, ib_range, ib_range)
 
 histogram(
     title='Daily Session Volume (RTH)',

@@ -76,16 +76,21 @@ ev_post20 = where(had_filing, post_20d)
 # =============================================================================
 
 # --- Cards: sample size (not on any chart) ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='AAPL Gross Margin Drift',
+        row_size=1,
+        col_size=2,
+        row_headers=['AAPL Gross Margin Drift'],
+        col_headers=['Expanding Quarters', 'Contracting Quarters'],
         cells=[
-            ColumnSpec(title='Expanding Quarters', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Contracting Quarters', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='Gross Margin Drift'
-)(exp_count, con_count)
+)
+(exp_count, con_count)
 
 # --- Chart 1: The Verdict — avg post-20d return by regime ---
 xy_bars(

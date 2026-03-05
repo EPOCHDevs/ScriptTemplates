@@ -58,15 +58,20 @@ prob_decline = cum_elev_declined / cum_elevated if cum_elevated > 0 else 0.0
 # =============================================================================
 
 # --- 1. Card: The punchline ---
-cs_cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='Margin Sustainability',
+        row_size=1,
+        col_size=1,
+        row_headers=['Margin Sustainability'],
+        col_headers=['P(Decline | Elevated)'],
         cells=[
-            ColumnSpec(title='P(Decline | Elevated)', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1)
         ]
     ),
     category='1. Sustainability'
-)(prob_decline)
+)
+(prob_decline)
 
 # --- 2. Bar Chart: Which stocks revert most? ---
 cs_bars(

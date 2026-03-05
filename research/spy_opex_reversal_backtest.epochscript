@@ -61,18 +61,23 @@ short_flag = 1.0 if enter_short else 0.0
 # =============================================================================
 
 # --- Cards ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='OPEX Reversal Backtest',
+        row_size=1,
+        col_size=4,
+        row_headers=['OPEX Reversal Backtest'],
+        col_headers=['Cumulative Return', 'Total Trades', 'Long Trades', 'Short Trades'],
         cells=[
-            ColumnSpec(title='Cumulative Return', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Total Trades', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
-            ColumnSpec(title='Long Trades', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
-            ColumnSpec(title='Short Trades', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=2, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='Backtest'
-)(cum_return, trade_flag, long_flag, short_flag)
+)
+(cum_return, trade_flag, long_flag, short_flag)
 
 # --- Chart 1: Equity Curve ---
 xy_lines(

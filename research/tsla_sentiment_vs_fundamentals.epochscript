@@ -91,17 +91,22 @@ margin_post10 = where(is_margin_contraction, post_10d)
 # REPORTS
 # =============================================================================
 
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='TSLA Event Breakdown',
+        row_size=1,
+        col_size=3,
+        row_headers=['TSLA Event Breakdown'],
+        col_headers=['Pure Sentiment (Downgrades)', 'Earnings Misses', 'Margin Contractions'],
         cells=[
-            ColumnSpec(title='Pure Sentiment (Downgrades)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Earnings Misses', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
-            ColumnSpec(title='Margin Contractions', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='Sentiment vs Fundamentals'
-)(sent_count, miss_count, margin_count)
+)
+(sent_count, miss_count, margin_count)
 
 xy_bars(
     title='Do Sentiment Shocks Reverse While Fundamental Damage Persists?',

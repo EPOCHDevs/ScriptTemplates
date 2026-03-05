@@ -57,18 +57,23 @@ downside_ratio = downside_ext_safe / or_width_safe
 # =============================================================================
 
 # --- Cards: summary stats not shown on charts ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='Extension Summary',
+        row_size=1,
+        col_size=4,
+        row_headers=['Extension Summary'],
+        col_headers=['Median Upside Extension (pts)', 'Median Downside Extension (pts)', 'Median Upside (x OR Width)', 'Median Downside (x OR Width)'],
         cells=[
-            ColumnSpec(title='Median Upside Extension (pts)', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Median Downside Extension (pts)', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2),
-            ColumnSpec(title='Median Upside (x OR Width)', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=1),
-            ColumnSpec(title='Median Downside (x OR Width)', card_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=1)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Median, type=CardRenderType.DecimalFormat, dp=1)
         ]
     ),
     category='Extensions'
-)(upside_ext_safe, downside_ext_safe, upside_ratio, downside_ratio)
+)
+(upside_ext_safe, downside_ext_safe, upside_ratio, downside_ratio)
 
 # --- Chart 1: Extension Boxplot (showcase feature) ---
 boxplot(

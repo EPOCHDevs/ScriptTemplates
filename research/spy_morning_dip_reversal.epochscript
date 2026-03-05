@@ -67,17 +67,22 @@ fri_ret = triggered_return if day_of_week == 4 else 0.0 / 0.0
 # =============================================================================
 
 # --- Cards: stats not shown on any chart ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='Morning Dip Reversal',
+        row_size=1,
+        col_size=3,
+        row_headers=['Morning Dip Reversal'],
+        col_headers=['Win Rate', 'Triggered Days', 'Avg Return per Trade'],
         cells=[
-            ColumnSpec(title='Win Rate', card_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Triggered Days', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
-            ColumnSpec(title='Avg Return per Trade', card_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=3)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.PercentFormat, dp=1, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=3)
         ]
     ),
     category='Morning Dip'
-)(win_rate, triggered_count, triggered_return)
+)
+(win_rate, triggered_count, triggered_return)
 
 # --- Chart 1: Equity Curve ---
 xy_lines(

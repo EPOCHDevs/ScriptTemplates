@@ -86,16 +86,21 @@ sn_pre5 = where(is_spike_normal, pre_5d)
 # =============================================================================
 
 # --- Cards: event counts ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='Claims Spike Events',
+        row_size=1,
+        col_size=2,
+        row_headers=['Claims Spike Events'],
+        col_headers=['Spike + Inverted Curve', 'Spike + Normal Curve'],
         cells=[
-            ColumnSpec(title='Spike + Inverted Curve', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Spike + Normal Curve', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='Claims + Yield Curve'
-)(si_clean, sn_clean)
+)
+(si_clean, sn_clean)
 
 # --- Chart 1: Day-of + Post-20d Return Snapshot ---
 xy_bars(

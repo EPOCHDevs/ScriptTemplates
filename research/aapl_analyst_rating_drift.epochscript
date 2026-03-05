@@ -69,16 +69,21 @@ ev_post20 = where(has_rating, post_20d)
 # =============================================================================
 
 # --- Cards: sample size (not on any chart) ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='AAPL Analyst Rating Drift',
+        row_size=1,
+        col_size=2,
+        row_headers=['AAPL Analyst Rating Drift'],
+        col_headers=['Upgrade Events (PT Raised)', 'Downgrade Events (PT Lowered)'],
         cells=[
-            ColumnSpec(title='Upgrade Events (PT Raised)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Downgrade Events (PT Lowered)', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='Analyst Rating Drift'
-)(upgrade_count, downgrade_count)
+)
+(upgrade_count, downgrade_count)
 
 # --- Chart 1: The Verdict — avg post-20d return by direction ---
 xy_bars(

@@ -87,16 +87,21 @@ det_em_full = where(w_full.closed and is_deteriorating, r_full)
 # =============================================================================
 
 # --- Cards: event counts ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='ISM Intraday Events',
+        row_size=1,
+        col_size=2,
+        row_headers=['ISM Intraday Events'],
+        col_headers=['Improving ISM Events', 'Deteriorating ISM Events'],
         cells=[
-            ColumnSpec(title='Improving ISM Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Deteriorating ISM Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='ISM Intraday'
-)(imp_count, det_count)
+)
+(imp_count, det_count)
 
 # --- Chart 1: Return by Window (Spike -> Digestion -> Persistence) ---
 xy_bars(

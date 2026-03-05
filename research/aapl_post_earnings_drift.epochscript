@@ -96,16 +96,21 @@ ev_post20 = where(had_earnings, post_20d)
 # =============================================================================
 
 # --- Cards: sample size + confirmation rate (not on any chart) ---
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='AAPL Post-Earnings Drift',
+        row_size=1,
+        col_size=2,
+        row_headers=['AAPL Post-Earnings Drift'],
+        col_headers=['Earnings Events', 'Analyst-Confirmed Events'],
         cells=[
-            ColumnSpec(title='Earnings Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Analyst-Confirmed Events', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='Post-Earnings Drift'
-)(earnings_count, confirmed_count)
+)
+(earnings_count, confirmed_count)
 
 # --- Chart 1: The Verdict — avg post-20d return by regime ---
 xy_bars(

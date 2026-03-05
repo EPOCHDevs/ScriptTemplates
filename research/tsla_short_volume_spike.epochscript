@@ -69,16 +69,21 @@ ev_post20 = where(is_spike, post_20d)
 # REPORTS
 # =============================================================================
 
-cards(
-    layout=CardLayout(
+summary_table(
+    layout=SummaryTableLayout(
         title='TSLA Short Volume Spikes',
+        row_size=1,
+        col_size=2,
+        row_headers=['TSLA Short Volume Spikes'],
+        col_headers=['Bullish Context Spikes', 'Bearish Context Spikes'],
         cells=[
-            ColumnSpec(title='Bullish Context Spikes', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, card_slot=CardSlot.Hero, card_color=Color.Blue),
-            ColumnSpec(title='Bearish Context Spikes', card_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Blue),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat)
         ]
     ),
     category='Short Volume Spike'
-)(bull_count, bear_count)
+)
+(bull_count, bear_count)
 
 xy_bars(
     title='Does TSLA Reverse After Short Volume Spikes?',
