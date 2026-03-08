@@ -1701,5 +1701,26 @@
       ],
       "intraday": true
     }
+  },
+  {
+    "id": "corn_soybean_ratio_term_structure",
+    "name": "Corn/Soybean Ratio & Term Structure Dashboard",
+    "description": "LOAD ZC futures with NoAdjustment continuation and ZS via reference_futures piped through futures_continuation\nCOMPUTE C/S price ratio, 20d MA, seasonal norm (expanding mean per calendar month), seasonal deviation\nEXTRACT term structure via cont.carry (front/back - 1) and cont.spread (M1 - M2 via spread_depth=1)\nDASHBOARD shows snapshot summary table (current/high/low for ratio, seasonal, term structure), ratio line chart with MA and seasonal norm, carry and spread charts, and monthly seasonal bar chart",
+    "tags": {
+      "asset_class": [
+        "futures",
+        "commodities"
+      ],
+      "data_source": [
+        "reference_futures",
+        "futures_continuation"
+      ],
+      "methodology": [
+        "cross_commodity_ratio",
+        "seasonal_analysis",
+        "term_structure"
+      ],
+      "intraday": false
+    }
   }
 ]

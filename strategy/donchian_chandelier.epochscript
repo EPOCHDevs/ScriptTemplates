@@ -24,8 +24,8 @@ close = src.c
 
 # 20-Day Donchian Channel (highest high / lowest low over 20 days)
 donchian = donchian_channel(window=20)()
-upper_band = donchian.bbands_upper
-lower_band = donchian.bbands_lower
+upper_band = donchian.donchian_upper
+lower_band = donchian.donchian_lower
 
 # Lag bands by 1 bar to avoid look-ahead bias
 # Today's high/low contributes to today's channel — compare against PRIOR bar
