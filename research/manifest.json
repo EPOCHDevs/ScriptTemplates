@@ -1722,5 +1722,67 @@
       ],
       "intraday": false
     }
+  },
+  {
+    "id": "audnzd_macro_fair_value",
+    "name": "AUDNZD Macro Fair Value Model",
+    "description": "LOAD AUDNZD spot and 7 global macro factors (US 2Y/10Y yields, 5Y breakeven, VIX, WTI oil, AU-NZ rate differential, iron ore) via common_economic_indicators and economic_indicators\nSTANDARDIZE via expanding ml_zscore (252-day min)\nEXTRACT 4 principal components via expanding PCA\nREGRESS AUDNZD on PC1-PC4 via 252-day rolling OLS\nCOMPUTE fair value (spot - residual), % deviation, 12m z-score signal\nDASHBOARD shows spot vs fair value line chart, % deviation with \u00b12.5% bands, z-score area chart with \u00b12\u03c3 signals, and summary table",
+    "tags": {
+      "asset_class": [
+        "fx"
+      ],
+      "data_source": [
+        "economic_indicators",
+        "common_economic_indicators"
+      ],
+      "methodology": [
+        "pca",
+        "rolling_regression",
+        "fair_value_model"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "em_carry_calendar_shift",
+    "name": "EM Carry: Oil Rip & FX Response with DXY Regime",
+    "description": "LOAD EM FX pairs (USDBRL, USDMXN, USDZAR) and CL futures + UUP (DXY proxy)\nDETECT oil rip events (10%+ quarterly gain via calendar_shift 91D)\nSPLIT by USD regime (weak vs strong dollar during rip)\nCOMPUTE quarterly EM FX returns inverted (positive = EM appreciation)\nDASHBOARD shows oil quarterly return area chart, cross-sectional FX impact table by regime, event markers for weak/strong USD rips",
+    "tags": {
+      "asset_class": [
+        "fx"
+      ],
+      "data_source": [
+        "reference_futures",
+        "reference_stocks"
+      ],
+      "methodology": [
+        "event_study",
+        "cross_asset",
+        "regime_analysis"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "spy_tlt_correlation_regime",
+    "name": "SPY/TLT Correlation Flip: Gold, Dollar & VIX Response",
+    "description": "LOAD SPY daily bars, TLT/UUP via reference_stocks, GC via reference_futures, VIX via FRED\nCOMPUTE 60-day rolling Pearson correlation between SPY and TLT returns\nDETECT correlation flip events (crossover from negative to positive)\nCOMPUTE +20d forward returns for gold and dollar, VIX level change\nSPLIT by era (Taper Tantrum 2013-14, Post-2021, Other)\nDASHBOARD shows correlation area chart, cumulative +20d returns, era comparison table, event markers",
+    "tags": {
+      "asset_class": [
+        "equities",
+        "multi_asset"
+      ],
+      "data_source": [
+        "reference_futures",
+        "reference_stocks",
+        "common_economic_indicators"
+      ],
+      "methodology": [
+        "event_study",
+        "correlation_analysis",
+        "regime_analysis"
+      ],
+      "intraday": false
+    }
   }
 ]

@@ -1,0 +1,147 @@
+
+# =============================================================================
+# OIL RIP & EM FX: DO BRL, MXN, ZAR STRENGTHEN WHEN CRUDE SURGES?
+# =============================================================================
+# Event: WTI crude oil gains 10%+ over a quarter (91 calendar days)
+# FX convention: USDBRL/USDMXN/USDZAR = USD per EM unit
+#   -> Falling pair = EM currency strengthening
+#   -> Invert return so positive = EM currency appreciation vs USD
+# DXY regime: split oil rips by whether dollar strengthened or weakened
+# Uses calendar_shift + ffill for cross-asset calendar consistency
+# =============================================================================
+
+src = market_data_source()()
+close_fx = src.c
+bar_idx = index()
+
+# =============================================================================
+# CRUDE OIL DATA (CL FUTURES)
+# =============================================================================
+
+cl_raw = reference_futures(ticker="CL")()
+cl_cont = futures_continuation(
+    s_rollover_method=RolloverType.FirstOfMonth,
+    s_adjustment_method=AdjustmentType.BackwardRatio
+)(cl_raw.o, cl_raw.h, cl_raw.l, cl_raw.c, cl_raw.v, cl_raw.oi, cl_raw.s)
+cl_close = ffill(cl_cont.c)
+
+# =============================================================================
+# DOLLAR INDEX DATA (UUP ETF as DXY proxy)
+# =============================================================================
+
+uup_raw = reference_stocks(ticker="UUP")()
+uup_close = ffill(uup_raw.c)
+
+# =============================================================================
+# QUARTERLY RETURNS via calendar_shift (91D ≈ 63 trading days)
+# =============================================================================
+
+cl_91d_ago = calendar_shift(period=91D)(cl_close)
+uup_91d_ago = calendar_shift(period=91D)(uup_close)
+fx_91d_ago = calendar_shift(period=91D)(close_fx)
+
+oil_q_ret = (cl_close - cl_91d_ago) / cl_91d_ago
+dxy_q_ret = (uup_close - uup_91d_ago) / uup_91d_ago
+fx_q_ret_raw = (close_fx - fx_91d_ago) / fx_91d_ago
+fx_q_ret = -1.0 * fx_q_ret_raw
+
+# =============================================================================
+# EVENT DETECTION: Oil rip = 10%+ quarterly gain at quarter boundaries
+# =============================================================================
+
+is_q_start = is_period_boundary(period=PeriodType.quarter, boundary=BoundaryType.start)(bar_idx)
+is_oil_rip = is_q_start and is_valid(oil_q_ret) and (oil_q_ret > 0.10)
+is_non_rip = is_q_start and is_valid(oil_q_ret) and (oil_q_ret <= 0.10)
+
+# =============================================================================
+# DXY REGIME SPLIT
+# =============================================================================
+
+is_rip_weak_usd = is_oil_rip and is_valid(dxy_q_ret) and (dxy_q_ret <= 0.0)
+is_rip_strong_usd = is_oil_rip and is_valid(dxy_q_ret) and (dxy_q_ret > 0.0)
+
+# =============================================================================
+# EVENT-FILTERED RETURNS
+# =============================================================================
+
+rip_fx_ret = where(is_oil_rip, fx_q_ret)
+non_rip_fx_ret = where(is_non_rip, fx_q_ret)
+rip_oil_ret = where(is_oil_rip, oil_q_ret)
+rip_dxy_ret = where(is_oil_rip, dxy_q_ret)
+
+weak_usd_fx_ret = where(is_rip_weak_usd, fx_q_ret)
+weak_usd_oil_ret = where(is_rip_weak_usd, oil_q_ret)
+weak_usd_dxy_ret = where(is_rip_weak_usd, dxy_q_ret)
+
+strong_usd_fx_ret = where(is_rip_strong_usd, fx_q_ret)
+strong_usd_oil_ret = where(is_rip_strong_usd, oil_q_ret)
+strong_usd_dxy_ret = where(is_rip_strong_usd, dxy_q_ret)
+
+# =============================================================================
+# DASHBOARD: Oil quarterly return with 10% threshold
+# =============================================================================
+
+xy_lines(
+    title='WTI Quarterly Return (91D Rolling)',
+    category='Oil Rip Impact',
+    y_axis_label='Quarterly Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    y_axis_dp=1,
+    area=True,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Oil Quarterly Return', color=Color.Orange),
+        LineSeriesSpec(name='DXY Quarterly Return', color=Color.Blue)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0.10, title='10% Threshold', color=Color.Red, dash_style=DashStyle.Dash),
+        ReferenceLine(value=0.0, color=Color.Gray, dash_style=DashStyle.Dot)
+    ]),
+    order=0
+)(bar_idx, oil_q_ret, dxy_q_ret)
+
+cs_summary_table(
+    title='Oil Rip FX Impact: Overall & by Dollar Regime',
+    category='Oil Rip Impact',
+    agg=AggregationType.Mean,
+    schema=TableReportSchema(
+        title='Oil Rip FX Impact',
+        include_timestamp=False,
+        columns=[
+            ColumnSpec(title='Avg FX Return (All Rips)', type=CardRenderType.PercentFormat, dp=2, grid_agg=AggregationType.Mean),
+            ColumnSpec(title='Avg FX Return (Weak USD)', type=CardRenderType.PercentFormat, dp=2, grid_agg=AggregationType.Mean),
+            ColumnSpec(title='Avg FX Return (Strong USD)', type=CardRenderType.PercentFormat, dp=2, grid_agg=AggregationType.Mean),
+            ColumnSpec(title='Avg FX Return (Non-Rip)', type=CardRenderType.PercentFormat, dp=2, grid_agg=AggregationType.Mean)
+        ]
+    ),
+    order=1
+)(rip_fx_ret, weak_usd_fx_ret, strong_usd_fx_ret, non_rip_fx_ret)
+
+# =============================================================================
+# EVENT MARKERS: Weak-USD oil rips (TrendingUp) vs Strong-USD oil rips (TrendingDown)
+# =============================================================================
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Oil Rip + Weak USD',
+        icon=Icon.TrendingUpIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Oil Quarterly Return', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='DXY Quarterly Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='FX Return (vs USD)', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_rip_weak_usd, weak_usd_oil_ret, weak_usd_dxy_ret, weak_usd_fx_ret)
+
+event_marker(
+    schema=EventMarkerSchema(
+        title='Oil Rip + Strong USD',
+        icon=Icon.TrendingDownIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Oil Quarterly Return', type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='DXY Quarterly Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='FX Return (vs USD)', type=CardRenderType.PercentFormat, dp=2)
+        ]
+    )
+)(is_rip_strong_usd, strong_usd_oil_ret, strong_usd_dxy_ret, strong_usd_fx_ret)

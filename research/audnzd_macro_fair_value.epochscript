@@ -1,0 +1,167 @@
+# AUDNZD Macro Fair Value Model (BMO-inspired)
+# PCA on Global Macro Factors → 12m Rolling OLS → Fair Value + Z-Score Signal
+#
+# Methodology (from BMO FICC Macro Strategy, Mark McCormick):
+# 1. Collect 7 global macro series spanning growth, inflation, rates, terms of trade, risk
+# 2. Extract 4 principal components via expanding PCA (min 252 samples)
+# 3. Regress AUDNZD spot on PC1-PC4 via 252-day rolling OLS
+# 4. Fair value = regression predicted value; signal = z-score of % deviation
+#
+# Factor Categories:
+#   Rates:          US 2Y, US 10Y Treasury yields
+#   Inflation:      US 5Y breakeven inflation
+#   Risk sentiment: CBOE VIX
+#   Energy:         WTI crude oil
+#   Rate carry:     AU-NZ 3M interbank rate differential
+#   Terms of trade: Iron ore price (AU export proxy)
+
+# ============================================================================
+# DATA SOURCES
+# ============================================================================
+
+# AUDNZD spot price (base asset)
+src = market_data_source()()
+audnzd = src.c
+
+# --- Global Macro Factors (Daily) ---
+
+# US Treasury 2Y yield
+t2y_date, t2y_raw, t2y_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury2Y)()
+t2y = ffill(t2y_raw)
+
+# US Treasury 10Y yield
+t10y_date, t10y_raw, t10y_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury10Y)()
+t10y = ffill(t10y_raw)
+
+# US 5Y breakeven inflation
+be5y_date, be5y_raw, be5y_rev = common_economic_indicators(category=MacroEconomicsIndicator.Breakeven5Y)()
+be5y = ffill(be5y_raw)
+
+# CBOE VIX
+vix_date, vix_raw, vix_rev = common_economic_indicators(category=MacroEconomicsIndicator.VIX)()
+vix = ffill(vix_raw)
+
+# WTI crude oil (daily)
+oil_src = economic_indicators(series_id='DCOILWTICO', use_alfred=False)()
+oil = ffill(oil_src.result)
+
+# --- AU/NZ Specific Factors (Monthly → Daily) ---
+
+# AU-NZ 3M interbank rate differential (carry)
+ir_aud_src = economic_indicators(series_id='IR3TIB01AUM156N')()
+ir_nzd_src = economic_indicators(series_id='IR3TIB01NZM156N')()
+rate_diff = ffill(ir_aud_src.result) - ffill(ir_nzd_src.result)
+
+# Iron ore price (AU terms of trade proxy)
+iron_src = economic_indicators(series_id='PIORECRUSDM')()
+iron = ffill(iron_src.result)
+
+# ============================================================================
+# STANDARDIZE: Z-score scaling (expanding window)
+# ============================================================================
+
+scaled = ml_zscore(window_size=252, window_type='expanding', min_training_samples=252)(t2y, t10y, be5y, vix, oil, rate_diff, iron)
+
+# ============================================================================
+# PCA: 7 Scaled Factors → 4 Principal Components (expanding window)
+# ============================================================================
+
+pca_out = pca(n_components=4, window_size=252, window_type='expanding', min_training_samples=252)(scaled.result)
+
+pc1 = pca_out.components[0]
+pc2 = pca_out.components[1]
+pc3 = pca_out.components[2]
+pc4 = pca_out.components[3]
+
+# ============================================================================
+# ROLLING OLS: AUDNZD = f(PC1, PC2, PC3, PC4) over 252-day window
+# ============================================================================
+
+reg = multi_linear_fit(num_vars=4, window=252)(audnzd, pc1, pc2, pc3, pc4)
+
+# Fair value = predicted from regression (spot minus residual)
+fair_value = audnzd - reg.residual
+
+# % deviation: how far spot is from macro-implied fair value
+pct_dev_raw = reg.residual / fair_value * 100
+
+# Clamp extreme deviations from bad regression fits (matching BMO's ±10% visual range)
+pct_dev = winsorize(lower_limit=0.01, upper_limit=0.99)(pct_dev_raw)
+
+# Z-score of deviation (12-month rolling window)
+z_score = zscore(window=252)(pct_dev)
+
+# R-squared for model quality tracking
+r2 = reg.r_squared
+
+# ============================================================================
+# CHARTS
+# ============================================================================
+
+idx = index()()
+
+# Chart 1: Spot vs Fair Value
+xy_lines(
+    title='Is AUDNZD Overvalued? Spot vs Macro Fair Value',
+    category='1. Fair Value Model',
+    x_axis_label='Date',
+    y_axis_label='AUDNZD',
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='AUDNZD Spot', color=Color.Gray),
+        LineSeriesSpec(name='Implied Fair Value', color=Color.Blue)
+    ])
+)(x_values=idx, y_values=(audnzd, fair_value))
+
+# Chart 2: % Deviation from Fair Value
+xy_lines(
+    title='% Deviation from Macro Fair Value',
+    category='1. Fair Value Model',
+    x_axis_label='Date',
+    y_axis_label='Deviation (%)',
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, title='Fair Value', color=Color.Gray, dash_style=DashStyle.Dash),
+        ReferenceLine(value=2.5, title='+2.5%', color=Color.Red, dash_style=DashStyle.Dot),
+        ReferenceLine(value=-2.5, title='-2.5%', color=Color.Green, dash_style=DashStyle.Dot)
+    ]),
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='% Deviation', color=Color.Red)
+    ])
+)(x_values=idx, y_values=pct_dev)
+
+# Chart 3: Z-Score Signal (area fill, matching BMO style)
+xy_lines(
+    title='Deviation Z-Score: When to Fade the Move',
+    category='1. Fair Value Model',
+    x_axis_label='Date',
+    y_axis_label='Z-Score (12m)',
+    area=True,
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, title='Neutral', color=Color.Gray, dash_style=DashStyle.Dash),
+        ReferenceLine(value=2, title='+2σ Sell', color=Color.Red, dash_style=DashStyle.Dot),
+        ReferenceLine(value=-2, title='-2σ Buy', color=Color.Green, dash_style=DashStyle.Dot)
+    ]),
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Z-Score (12m)', color=Color.Gray)
+    ])
+)(x_values=idx, y_values=z_score)
+
+# ============================================================================
+# SUMMARY CARD
+# ============================================================================
+
+summary_table(
+    layout=SummaryTableLayout(
+        title='AUDNZD Macro Fair Value',
+        row_size=1,
+        col_size=4,
+        row_headers=['Latest'],
+        col_headers=['R²', 'Fair Value', 'Deviation %', 'Z-Score'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=4),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Last, type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    ),
+    category='2. Model Summary'
+)(r2, fair_value, pct_dev, z_score)

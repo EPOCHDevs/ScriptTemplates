@@ -1,0 +1,221 @@
+# =============================================================================
+# CORRELATION FLIP EVENT STUDY: GOLD, DOLLAR & VIX AFTER SPY/TLT REGIME CHANGE
+# =============================================================================
+# Event: 60-day rolling Pearson correlation between SPY & TLT crosses above 0
+#        (stocks and bonds stop diversifying each other)
+# Reaction assets: Gold (GC futures), US Dollar (UUP as DXY proxy), VIX
+# Forward window: 20 trading days
+# =============================================================================
+
+# --- Primary Asset ---
+spy_src = market_data_source()()
+close_spy = spy_src.c
+
+# --- Reference Data (shared context, reindexed to SPY calendar) ---
+tlt_src = reference_stocks(ticker='TLT')()
+close_tlt = tlt_src.c
+
+# Gold via GC futures continuation
+gc_ref = reference_futures(ticker='GC')()
+gc_cont = futures_continuation(s_rollover_method=RolloverType.FirstOfMonth, s_adjustment_method=AdjustmentType.BackwardPanamaCanal)(gc_ref.o, gc_ref.h, gc_ref.l, gc_ref.c, gc_ref.v, gc_ref.oi, gc_ref.s)
+close_gc = ffill(gc_cont.c)
+
+# Dollar Index proxy (UUP ETF)
+uup_src = reference_stocks(ticker='UUP')()
+close_uup = uup_src.c
+
+# VIX via FRED (VIXCLS) — full history from 1990
+vix_date, vix_raw, vix_rev = common_economic_indicators(category=MacroEconomicsIndicator.VIX)()
+close_vix = ffill(vix_raw)
+
+idx = index()
+
+# =============================================================================
+# CORRELATION & FLIP DETECTION
+# =============================================================================
+
+ret_spy = returns(period=1)(close_spy)
+ret_tlt = returns(period=1)(close_tlt)
+
+corr_60d = rolling_corr(window=60, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_tlt)
+
+is_flip = crossover(corr_60d, 0)
+flip_count = 1.0 if is_flip else 0.0
+
+# =============================================================================
+# FORWARD RETURNS (20d) FOR GOLD, DOLLAR, VIX
+# =============================================================================
+
+gc_post20 = ((close_gc << 20) - close_gc) / close_gc
+uup_post20 = ((close_uup << 20) - close_uup) / close_uup
+
+gc_post20_flip = where(is_flip, gc_post20)
+uup_post20_flip = where(is_flip, uup_post20)
+
+gc_hit = where(is_flip, 1.0 if gc_post20 > 0 else 0.0)
+uup_hit = where(is_flip, 1.0 if uup_post20 > 0 else 0.0)
+
+# VIX: level at flip & absolute change over +20d
+vix_at_flip = where(is_flip, close_vix)
+vix_change_20d = (close_vix << 20) - close_vix
+vix_change_20d_flip = where(is_flip, vix_change_20d)
+vix_fell_hit = where(is_flip, 1.0 if vix_change_20d < 0 else 0.0)
+
+# =============================================================================
+# ERA CLASSIFICATION
+# =============================================================================
+
+yr = datetime_extract(component=DatetimeExtractionType.year)(idx)
+
+is_taper = (yr >= 2013) and (yr <= 2014)
+is_post21 = yr >= 2022
+is_other_era = (is_taper == False) and (is_post21 == False)
+
+gc_post20_taper = where(is_flip and is_taper, gc_post20)
+gc_post20_post21 = where(is_flip and is_post21, gc_post20)
+gc_post20_other = where(is_flip and is_other_era, gc_post20)
+
+gc_hit_taper = where(is_flip and is_taper, 1.0 if gc_post20 > 0 else 0.0)
+gc_hit_post21 = where(is_flip and is_post21, 1.0 if gc_post20 > 0 else 0.0)
+gc_hit_other = where(is_flip and is_other_era, 1.0 if gc_post20 > 0 else 0.0)
+
+uup_post20_taper = where(is_flip and is_taper, uup_post20)
+uup_post20_post21 = where(is_flip and is_post21, uup_post20)
+uup_post20_other = where(is_flip and is_other_era, uup_post20)
+
+vix_at_taper = where(is_flip and is_taper, close_vix)
+vix_at_post21 = where(is_flip and is_post21, close_vix)
+vix_at_other = where(is_flip and is_other_era, close_vix)
+vix_chg_taper = where(is_flip and is_taper, vix_change_20d)
+vix_chg_post21 = where(is_flip and is_post21, vix_change_20d)
+vix_chg_other = where(is_flip and is_other_era, vix_change_20d)
+
+flip_taper = where(is_flip and is_taper, 1.0)
+flip_post21 = where(is_flip and is_post21, 1.0)
+flip_other = where(is_flip and is_other_era, 1.0)
+
+# =============================================================================
+# CUMULATIVE +20d RETURNS (each step = one flip event's outcome)
+# =============================================================================
+
+gc_post20_clean = gc_post20 if is_flip else 0.0
+gc_post20_clean2 = gc_post20_clean if is_valid(gc_post20_clean) else 0.0
+cum_gc_20d = cumulative()(gc_post20_clean2)
+
+uup_post20_clean = uup_post20 if is_flip else 0.0
+uup_post20_clean2 = uup_post20_clean if is_valid(uup_post20_clean) else 0.0
+cum_uup_20d = cumulative()(uup_post20_clean2)
+
+corr_at_flip = where(is_flip, corr_60d)
+
+# Correlation chart: split into positive/negative for area fill
+corr_positive = where(corr_60d >= 0, corr_60d)
+corr_negative = where(corr_60d < 0, corr_60d)
+
+# =============================================================================
+# REPORTS
+# =============================================================================
+
+# --- Main Summary Table ---
+summary_table(
+    layout=SummaryTableLayout(
+        title='Correlation Flip Impact (Neg to Pos)',
+        row_size=3,
+        col_size=3,
+        row_headers=['Gold (GC)', 'Dollar (UUP)', 'VIX'],
+        col_headers=['Avg +20d', 'Hit Rate', 'Events'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, grid_color=Color.Gold),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Gold),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, grid_color=Color.Slate),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=1, grid_col=2, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Slate),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1, grid_color=Color.Amber),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=2, grid_col=2, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Amber)
+        ]
+    ),
+    category='Correlation Flip Study',
+    order=0
+)(gc_post20_flip, gc_hit, flip_count, uup_post20_flip, uup_hit, flip_count, vix_at_flip, vix_fell_hit, flip_count)
+
+# --- Chart 1: Rolling 60d SPY/TLT Correlation ---
+xy_lines(
+    title='SPY/TLT 60d Rolling Correlation',
+    category='Correlation Flip Study',
+    y_axis_label='Rolling 60d Correlation',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=2,
+    area=True,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Positive (Moving Together)', color=Color.Gray),
+        LineSeriesSpec(name='Negative (Diversifying)', color=Color.Blue)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, title='Zero', color=Color.Slate, dash_style=DashStyle.Solid)
+    ]),
+    order=1
+)(idx, corr_positive, corr_negative)
+
+# --- Chart 2: Cumulative +20d Returns (each step = one flip event) ---
+xy_lines(
+    title='Cumulative +20d Returns After Each Flip',
+    category='Correlation Flip Study',
+    y_axis_label='Cumulative +20d Return',
+    y_axis_format=AxisValueFormat.PercentFormat,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='Gold (GC)', color=Color.Gold),
+        LineSeriesSpec(name='Dollar (UUP)', color=Color.Slate)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.Gray, dash_style=DashStyle.Dash, title='Breakeven')
+    ]),
+    order=2
+)(idx, cum_gc_20d, cum_uup_20d)
+
+# --- Era Comparison Summary Table ---
+summary_table(
+    layout=SummaryTableLayout(
+        title='Era Comparison: Correlation Flip Response',
+        row_size=3,
+        col_size=5,
+        row_headers=['Taper Tantrum (2013-14)', 'Post-2021 (2022+)', 'Other (2006-12, 2015-21)'],
+        col_headers=['Events', 'Gold Avg +20d', 'Gold Hit Rate', 'Avg VIX Level', 'VIX Avg +20d Chg'],
+        cells=[
+            ColumnSpec(grid_row=0, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Gold),
+            ColumnSpec(grid_row=0, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, grid_color=Color.Gold),
+            ColumnSpec(grid_row=0, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=0, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=0, grid_col=4, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=1, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Amber),
+            ColumnSpec(grid_row=1, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, grid_color=Color.Amber),
+            ColumnSpec(grid_row=1, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=1, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=1, grid_col=4, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2),
+            ColumnSpec(grid_row=2, grid_col=0, grid_agg=AggregationType.Sum, type=CardRenderType.IntegerFormat, grid_color=Color.Slate),
+            ColumnSpec(grid_row=2, grid_col=1, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=2, grid_color=Color.Slate),
+            ColumnSpec(grid_row=2, grid_col=2, grid_agg=AggregationType.Mean, type=CardRenderType.PercentFormat, dp=1),
+            ColumnSpec(grid_row=2, grid_col=3, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(grid_row=2, grid_col=4, grid_agg=AggregationType.Mean, type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    ),
+    category='Era Comparison',
+    order=3
+)(flip_taper, gc_post20_taper, gc_hit_taper, vix_at_taper, vix_chg_taper, flip_post21, gc_post20_post21, gc_hit_post21, vix_at_post21, vix_chg_post21, flip_other, gc_post20_other, gc_hit_other, vix_at_other, vix_chg_other)
+
+# --- Event Markers ---
+event_marker(
+    schema=EventMarkerSchema(
+        title='Correlation Flip (Neg to Pos)',
+        icon=Icon.ShuffleIcon,
+        schemas=[
+            ColumnSpec(type=CardRenderType.BooleanFormat, table_is_filter=True),
+            ColumnSpec(card_slot=CardSlot.Hero, title='Correlation', type=CardRenderType.DecimalFormat, dp=3),
+            ColumnSpec(card_slot=CardSlot.Details, title='Gold +20d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='Dollar +20d Return', type=CardRenderType.PercentFormat, dp=2),
+            ColumnSpec(card_slot=CardSlot.Details, title='VIX Level', type=CardRenderType.DecimalFormat, dp=1),
+            ColumnSpec(card_slot=CardSlot.Details, title='VIX +20d Change', type=CardRenderType.DecimalFormat, dp=2)
+        ]
+    )
+)(is_flip, corr_at_flip, gc_post20_flip, uup_post20_flip, vix_at_flip, vix_change_20d_flip)
