@@ -1180,7 +1180,7 @@
   {
     "id": "eurusd_seasonality",
     "name": "EUR/USD Monthly and Day-of-Week Seasonality",
-    "description": "QUESTION Does EUR/USD have exploitable monthly or day-of-week seasonality?\nLOAD EUR/USD daily and monthly bars\nCOMPUTE monthly returns and intraweek returns\nAGGREGATE average return by month, year-by-year heatmap, and day-of-week breakdown\nDASHBOARD shows monthly seasonality bars, year\u00d7month heatmap, day-of-week bars, and win rate table",
+    "description": "QUESTION Does EUR/USD have exploitable monthly or day-of-week seasonality?\nLOAD EUR/USD daily and monthly bars\nCOMPUTE monthly returns and intraweek returns\nAGGREGATE average return by month, year-by-year heatmap, and day-of-week breakdown\nDASHBOARD shows monthly seasonality bars, year×month heatmap, day-of-week bars, and win rate table",
     "tags": {
       "asset_class": [
         "fx"
@@ -1242,7 +1242,7 @@
   {
     "id": "msft_earnings_trajectory",
     "name": "Is MSFT's Earnings Growth Accelerating or Decelerating?",
-    "description": "QUESTION Is MSFT's earnings growth accelerating or decelerating?\nCARD Last P/E Ratio \u2014 valuation context\nCHART xy_bars showing quarterly YoY EPS growth rate with color_by_value and zero reference line\nDATASET market_data_source (MSFT-Stocks, 1D) + income_statement (TTM diluted EPS)\nKEY INSIGHT Rising bars = growth accelerating, shrinking bars = growth decelerating \u2014 tracks earnings momentum over time",
+    "description": "QUESTION Is MSFT's earnings growth accelerating or decelerating?\nCARD Last P/E Ratio — valuation context\nCHART xy_bars showing quarterly YoY EPS growth rate with color_by_value and zero reference line\nDATASET market_data_source (MSFT-Stocks, 1D) + income_statement (TTM diluted EPS)\nKEY INSIGHT Rising bars = growth accelerating, shrinking bars = growth decelerating — tracks earnings momentum over time",
     "tags": {
       "asset_class": [
         "equities"
@@ -1262,7 +1262,7 @@
   {
     "id": "msft_rate_sensitivity",
     "name": "Does MSFT Sell Off When Real Rates Rise?",
-    "description": "QUESTION Does MSFT underperform when real rates rise?\nCHART 1 xy_lines showing MSFT price path colored by rate regime (rates falling = Blue, rates rising = Gray)\nCHART 2 xy_bars showing cumulative MSFT return during each regime\nDATASET market_data_source (MSFT-Stocks, 1D) + economic_indicators (DFII10 \u2014 10Y TIPS real yield)\nKEY INSIGHT Segments MSFT returns by whether 10Y TIPS real yield is above or below its 60-day SMA, capturing the full 2020-2024 rate cycle",
+    "description": "QUESTION Does MSFT underperform when real rates rise?\nCHART 1 xy_lines showing MSFT price path colored by rate regime (rates falling = Blue, rates rising = Gray)\nCHART 2 xy_bars showing cumulative MSFT return during each regime\nDATASET market_data_source (MSFT-Stocks, 1D) + economic_indicators (DFII10 — 10Y TIPS real yield)\nKEY INSIGHT Segments MSFT returns by whether 10Y TIPS real yield is above or below its 60-day SMA, capturing the full 2020-2024 rate cycle",
     "tags": {
       "asset_class": [
         "equities"
@@ -1282,8 +1282,8 @@
   },
   {
     "id": "msft_return_drivers",
-    "name": "What's Driving MSFT's Returns \u2014 Earnings, Rates, or Sentiment?",
-    "description": "QUESTION What's driving MSFT's returns \u2014 earnings growth, rate changes, or sentiment?\nCHART 1 xy_bars showing cumulative contribution from each driver (Earnings Growth, Rate Impact, Sentiment)\nCHART 2 xy_lines showing cumulative attribution over time\nDATASET market_data_source (MSFT-Stocks, 1D) + income_statement (TTM) + economic_indicators (DFII10)\nKEY INSIGHT Decomposes returns using Price = EPS \u00d7 P/E identity with rolling 60-day beta to real yield changes",
+    "name": "What's Driving MSFT's Returns — Earnings, Rates, or Sentiment?",
+    "description": "QUESTION What's driving MSFT's returns — earnings growth, rate changes, or sentiment?\nCHART 1 xy_bars showing cumulative contribution from each driver (Earnings Growth, Rate Impact, Sentiment)\nCHART 2 xy_lines showing cumulative attribution over time\nDATASET market_data_source (MSFT-Stocks, 1D) + income_statement (TTM) + economic_indicators (DFII10)\nKEY INSIGHT Decomposes returns using Price = EPS × P/E identity with rolling 60-day beta to real yield changes",
     "tags": {
       "asset_class": [
         "equities"
@@ -1342,7 +1342,7 @@
   {
     "id": "sp500_margin_sustainability",
     "name": "When Margins Are Elevated, How Often Do They Persist?",
-    "description": "QUESTION When margins are elevated (z>1 vs own 1Y history), how often do they decline the next quarter?\nCARD P(Decline | Elevated) \u2014 cross-sectional mean across 30 mega-cap stocks\nCHART cs_bars showing P(Decline) ranked by stock\nTABLE cs_summary_table with Op Margin, 1Y Avg, Z-Score, QoQ change, P(Decline) for 30 stocks\nDATASET market_data_source (30 mega-cap S&P 500 stocks, 1D) + income_statement (TTM)\nKEY INSIGHT Tests Fama & French (1999) finding on margin mean reversion across sector-diverse mega-caps",
+    "description": "QUESTION When margins are elevated (z>1 vs own 1Y history), how often do they decline the next quarter?\nCARD P(Decline | Elevated) — cross-sectional mean across 30 mega-cap stocks\nCHART cs_bars showing P(Decline) ranked by stock\nTABLE cs_summary_table with Op Margin, 1Y Avg, Z-Score, QoQ change, P(Decline) for 30 stocks\nDATASET market_data_source (30 mega-cap S&P 500 stocks, 1D) + income_statement (TTM)\nKEY INSIGHT Tests Fama & French (1999) finding on margin mean reversion across sector-diverse mega-caps",
     "tags": {
       "asset_class": [
         "equities"
@@ -1522,7 +1522,7 @@
   {
     "id": "spy_opex_week_return",
     "name": "SPY Quarterly OPEX Week Return Pattern",
-    "description": "QUESTION Is there a reliable SPY return pattern around quarterly OPEX?\nLOAD SPY daily bars\nDETECT quarterly OPEX Fridays via is_period_boundary (3rd Friday of Mar/Jun/Sep/Dec)\nCOMPUTE 5-day return on OPEX weeks, aggregate by quarter and year\nDASHBOARD shows average return by quarter bars, year-by-year totals, quarter\u00d7year heatmap",
+    "description": "QUESTION Is there a reliable SPY return pattern around quarterly OPEX?\nLOAD SPY daily bars\nDETECT quarterly OPEX Fridays via is_period_boundary (3rd Friday of Mar/Jun/Sep/Dec)\nCOMPUTE 5-day return on OPEX weeks, aggregate by quarter and year\nDASHBOARD shows average return by quarter bars, year-by-year totals, quarter×year heatmap",
     "tags": {
       "asset_class": [
         "equities"
@@ -1662,7 +1662,7 @@
   {
     "id": "tsla_short_volume_spike",
     "name": "TSLA Short Volume Spike Reversal by Price Context",
-    "description": "LOAD TSLA daily bars and short_volume data\nDETECT short volume spikes: ratio > 1.15\u00d7 its 20-day SMA\nCLASSIFY by price context: Bullish (price > 50-SMA) vs Bearish\nCOMPUTE spike day and post-5/10/20d returns by context\nDASHBOARD shows context counts (summary table), reversal comparison bars, window breakdown table, and event markers with short vol ratio",
+    "description": "LOAD TSLA daily bars and short_volume data\nDETECT short volume spikes: ratio > 1.15× its 20-day SMA\nCLASSIFY by price context: Bullish (price > 50-SMA) vs Bearish\nCOMPUTE spike day and post-5/10/20d returns by context\nDASHBOARD shows context counts (summary table), reversal comparison bars, window breakdown table, and event markers with short vol ratio",
     "tags": {
       "asset_class": [
         "equities"
@@ -1726,7 +1726,7 @@
   {
     "id": "audnzd_macro_fair_value",
     "name": "AUDNZD Macro Fair Value Model",
-    "description": "LOAD AUDNZD spot and 7 global macro factors (US 2Y/10Y yields, 5Y breakeven, VIX, WTI oil, AU-NZ rate differential, iron ore) via common_economic_indicators and economic_indicators\nSTANDARDIZE via expanding ml_zscore (252-day min)\nEXTRACT 4 principal components via expanding PCA\nREGRESS AUDNZD on PC1-PC4 via 252-day rolling OLS\nCOMPUTE fair value (spot - residual), % deviation, 12m z-score signal\nDASHBOARD shows spot vs fair value line chart, % deviation with \u00b12.5% bands, z-score area chart with \u00b12\u03c3 signals, and summary table",
+    "description": "LOAD AUDNZD spot and 7 global macro factors (US 2Y/10Y yields, 5Y breakeven, VIX, WTI oil, AU-NZ rate differential, iron ore) via common_economic_indicators and economic_indicators\nSTANDARDIZE via expanding ml_zscore (252-day min)\nEXTRACT 4 principal components via expanding PCA\nREGRESS AUDNZD on PC1-PC4 via 252-day rolling OLS\nCOMPUTE fair value (spot - residual), % deviation, 12m z-score signal\nDASHBOARD shows spot vs fair value line chart, % deviation with ±2.5% bands, z-score area chart with ±2σ signals, and summary table",
     "tags": {
       "asset_class": [
         "fx"
@@ -1781,6 +1781,47 @@
         "event_study",
         "correlation_analysis",
         "regime_analysis"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "bmo_fx_mood_correlation",
+    "name": "BMO FX Correlations to Risk Appetite (MOOD Proxy)",
+    "description": "LOAD 21 FX pairs (G10 + EM + Gold) and VIX as MOOD risk appetite proxy\nCOMPUTE 6m rolling correlation of USDCCY weekly returns vs negated VIX weekly changes\nCOMPUTE 3m-ago lagged correlations for directional comparison\nDASHBOARD shows bar chart with current correlations + diamond overlay markers for 3m-ago values, sorted by correlation strength",
+    "tags": {
+      "asset_class": [
+        "fx",
+        "multi_asset"
+      ],
+      "data_source": [
+        "fx_pairs",
+        "common_economic_indicators"
+      ],
+      "methodology": [
+        "rolling_correlation",
+        "risk_appetite_proxy"
+      ],
+      "intraday": false
+    }
+  },
+  {
+    "id": "bmo_global_risk_sentiment_mood",
+    "name": "BMO Global Risk Sentiment MOOD Index",
+    "description": "LOAD SPY, HY spread, VIX, 10Y-2Y slope, Trade-weighted USD\nCOMPUTE rolling z-scores (252d) for each component, invert where needed\nCOMPUTE equally weighted composite as MOOD Index (smoothed) and Momentum (raw)\nDASHBOARD shows MOOD Momentum as area fill + MOOD Index as line overlay on single chart",
+    "tags": {
+      "asset_class": [
+        "multi_asset"
+      ],
+      "data_source": [
+        "reference_stocks",
+        "common_economic_indicators",
+        "economic_indicators"
+      ],
+      "methodology": [
+        "zscore",
+        "composite_index",
+        "risk_appetite"
       ],
       "intraday": false
     }

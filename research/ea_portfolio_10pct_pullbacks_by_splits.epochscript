@@ -23,21 +23,21 @@ agg_o, agg_h, agg_l, agg_c, agg_v, agg_vw, agg_n = common_reference_stocks(ticke
 agg = ffill(agg_c)
 
 # Daily returns
-spy_ret = (close - (close >> 1)) / (close >> 1)
-agg_ret = (agg - (agg >> 1)) / (agg >> 1)
+spy_ret = returns()(close)
+agg_ret = returns()(agg)
 
 # Portfolio cumulative values for each split
-cum_100 = cumulative(agg=AggregationType.Sum)(spy_ret) + 1
-cum_90 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.9 + agg_ret * 0.1) + 1
-cum_80 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.8 + agg_ret * 0.2) + 1
-cum_70 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.7 + agg_ret * 0.3) + 1
-cum_60 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.6 + agg_ret * 0.4) + 1
-cum_50 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.5 + agg_ret * 0.5) + 1
-cum_40 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.4 + agg_ret * 0.6) + 1
-cum_30 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.3 + agg_ret * 0.7) + 1
-cum_20 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.2 + agg_ret * 0.8) + 1
-cum_10 = cumulative(agg=AggregationType.Sum)(spy_ret * 0.1 + agg_ret * 0.9) + 1
-cum_00 = cumulative(agg=AggregationType.Sum)(agg_ret) + 1
+cum_100 = returns(type=ReturnsType.cumulative)(close) + 1
+cum_90 = cumulative(agg=AggregationType.Product)(1 + spy_ret * 0.9 + agg_ret * 0.1)
+cum_80 = cumulative(agg=AggregationType.Product)(1 + spy_ret * 0.8 + agg_ret * 0.2)
+cum_70 = cumulative(agg=AggregationType.Product)(1 + spy_ret * 0.7 + agg_ret * 0.3)
+cum_60 = cumulative(agg=AggregationType.Product)(1 + spy_ret * 0.6 + agg_ret * 0.4)
+cum_50 = cumulative(agg=AggregationType.Product)(1 + spy_ret * 0.5 + agg_ret * 0.5)
+cum_40 = cumulative(agg=AggregationType.Product)(1 + spy_ret * 0.4 + agg_ret * 0.6)
+cum_30 = cumulative(agg=AggregationType.Product)(1 + spy_ret * 0.3 + agg_ret * 0.7)
+cum_20 = cumulative(agg=AggregationType.Product)(1 + spy_ret * 0.2 + agg_ret * 0.8)
+cum_10 = cumulative(agg=AggregationType.Product)(1 + spy_ret * 0.1 + agg_ret * 0.9)
+cum_00 = returns(type=ReturnsType.cumulative)(agg) + 1
 
 # Expanding (all-time) high watermark for each portfolio
 pk_100 = cumulative(agg=AggregationType.Max)(cum_100)

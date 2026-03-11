@@ -18,7 +18,7 @@
 # Growth of $1 in the S&P 500 missing the worst days
 spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
 
-daily_ret = (spy_c - (spy_c >> 1)) / (spy_c >> 1)
+daily_ret = returns()(spy_c)
 
 # Identify the worst 50 and 100 days by daily return (global scan)
 is_worst50 = nsmallest(n=50)(daily_ret)
@@ -29,7 +29,7 @@ ret_skip50 = boolean_select_number(is_worst50, 0, daily_ret)
 ret_skip100 = boolean_select_number(is_worst100, 0, daily_ret)
 
 # Compound growth of $1: cumprod(1 + daily_return)
-growth_full = cumulative(agg=AggregationType.Product)(1 + daily_ret)
+growth_full = returns(type=ReturnsType.cumulative)(spy_c) + 1
 growth_skip50 = cumulative(agg=AggregationType.Product)(1 + ret_skip50)
 growth_skip100 = cumulative(agg=AggregationType.Product)(1 + ret_skip100)
 

@@ -20,8 +20,6 @@ src = market_data_source()()
 close = src.c
 prev_close = close >> 1
 
-# Daily price return (no dividends)
-daily_price_ret = (close - prev_close) / prev_close
 
 # Load dividend data (sparse: only fires on ex-dividend dates)
 div_data = dividends()()
@@ -35,7 +33,7 @@ div_today = div_amt if has_div else 0.0
 daily_total_ret = (close + div_today - prev_close) / prev_close
 
 # Growth of $1: cumulative product of (1 + daily return)
-price_growth = cumulative(agg=AggregationType.Product)(1 + daily_price_ret)
+price_growth = returns(type=ReturnsType.cumulative)(close) + 1
 total_growth = cumulative(agg=AggregationType.Product)(1 + daily_total_ret)
 
 bar_ts = index()

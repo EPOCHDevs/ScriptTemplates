@@ -1,0 +1,69 @@
+# ==========================================================================
+# BMO REPRODUCTION: GLOBAL RISK SENTIMENT - MOOD INDEX
+# ==========================================================================
+# Source: BMO FX Macro Report, Mar 9 2026, Page 3
+# Original: MOOD Index - equally weighted composite of cross-asset risk
+# appetite across equities, credit, vol, rates, and FX
+#
+# Proxy components (z-scored, 252-day rolling window):
+#   1. Equities: SPY weekly returns (positive = risk-on)
+#   2. Credit: HY spread inverted (tight spreads = risk-on)
+#   3. Vol: VIX inverted (low vol = risk-on)
+#   4. Rates: 10Y-2Y spread (steep curve = risk-on)
+#   5. FX: Trade-weighted USD inverted (weak USD = risk-on)
+# ==========================================================================
+
+# --- 1. EQUITIES: SPY momentum ---
+spy = reference_stocks(ticker='SPY')()
+spy_ret = returns(period=5)(spy.c)
+eq_z = zscore(window=252)(spy_ret)
+
+# --- 2. CREDIT: High Yield spread (inverted) ---
+hy_d, hy_r, hy_v = common_economic_indicators(category=MacroEconomicsIndicator.HighYieldSpread)()
+hy = ffill(hy_r)
+credit_z = zscore(window=252)(hy) * -1
+
+# --- 3. VOL: VIX (inverted) ---
+vix_d, vix_r, vix_v = common_economic_indicators(category=MacroEconomicsIndicator.VIX)()
+vix = ffill(vix_r)
+vol_z = zscore(window=252)(vix) * -1
+
+# --- 4. RATES: 10Y-2Y yield curve slope ---
+spread_d, spread_r, spread_v = common_economic_indicators(category=MacroEconomicsIndicator.Spread10Y2Y)()
+spread = ffill(spread_r)
+rates_z = zscore(window=252)(spread)
+
+# --- 5. FX: Trade-weighted USD (inverted) ---
+usd_d, usd_r, usd_v = economic_indicators(series_id='DTWEXBGS')()
+usd = ffill(usd_r)
+fx_z = zscore(window=252)(usd) * -1
+
+# --- MOOD Composite (equally weighted) ---
+mood_raw = (eq_z + credit_z + vol_z + rates_z + fx_z) / 5.0
+
+# MOOD Index: smoothed composite (20-day SMA)
+mood_index = sma(period=20)(mood_raw)
+
+# MOOD Momentum: the raw (unsmoothed) composite itself
+# BMO's momentum appears to be the unsmoothed signal vs the smoothed index
+mood_momentum = mood_raw
+
+ts = index()
+
+# ==========================================================================
+# CHART: MOOD Momentum (area) + MOOD Index (line) on same chart
+# ==========================================================================
+xy_lines(
+    title='Global Risk Sentiment',
+    category='MOOD Index',
+    y_axis_label='Z-Score',
+    y_axis_format=AxisValueFormat.DecimalFormat,
+    y_axis_dp=1,
+    series=LineSeriesSchema(series=[
+        LineSeriesSpec(name='MOOD Momentum', color=Color.Sky, area=True),
+        LineSeriesSpec(name='MOOD Index', color=Color.White)
+    ]),
+    reference_lines=ReferenceLineSchema(lines=[
+        ReferenceLine(value=0, color=Color.White, dash_style=DashStyle.Dash)
+    ])
+)(ts, mood_momentum, mood_index)

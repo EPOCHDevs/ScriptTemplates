@@ -22,14 +22,14 @@ agg_o, agg_h, agg_l, agg_c, agg_v, agg_vw, agg_n = common_reference_stocks(ticke
 agg = ffill(agg_c)
 
 # Daily returns
-spy_ret = (close - (close >> 1)) / (close >> 1)
-agg_ret = (agg - (agg >> 1)) / (agg >> 1)
+spy_ret = returns()(close)
+agg_ret = returns()(agg)
 
 # 60/40 portfolio daily return
 port_ret = spy_ret * 0.6 + agg_ret * 0.4
 
 # Cumulative portfolio value (growth of $1)
-cum_port = cumulative(agg=AggregationType.Sum)(port_ret) + 1
+cum_port = cumulative(agg=AggregationType.Product)(1 + port_ret)
 
 year_num = datetime_extract(component=DatetimeExtractionType.year)(index())
 
