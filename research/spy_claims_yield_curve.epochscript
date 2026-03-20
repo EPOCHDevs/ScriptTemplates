@@ -13,24 +13,27 @@ bar_idx = index()
 
 # =============================================================================
 # INITIAL CLAIMS DATA & SPIKE DETECTION
+# No verified release_id for ICSA, so detect new data via is_valid on raw.
+# ffill() propagates the last known value for downstream use.
 # =============================================================================
 
-claims_data = common_economic_indicators(category=MacroEconomicsIndicator.InitialClaims)()
-claims = claims_data.result
-had_claims = is_valid(claims)
-prior_claims = valuewhen(occurrence=1)(had_claims, claims)
-prior2_claims = valuewhen(occurrence=2)(had_claims, claims)
-prior3_claims = valuewhen(occurrence=3)(had_claims, claims)
+claims_data = economic_indicators(series_id='ICSA')()
+claims_raw = claims_data.result
+claims = ffill(claims_raw)
+had_claims = is_valid(claims_raw)
+prior_claims = valuewhen(occurrence=1)(had_claims, claims_raw)
+prior2_claims = valuewhen(occurrence=2)(had_claims, claims_raw)
+prior3_claims = valuewhen(occurrence=3)(had_claims, claims_raw)
 
 # Spike = current claims > 1.1 * avg of prior 3 readings
 prior_avg = (prior_claims + prior2_claims + prior3_claims) / 3.0
-is_spike = had_claims and is_valid(prior_avg) and (claims > prior_avg * 1.1)
+is_spike = had_claims and is_valid(prior_avg) and (claims_raw > prior_avg * 1.1)
 
 # =============================================================================
 # YIELD CURVE REGIME (FORWARD-FILLED)
 # =============================================================================
 
-spread_data = common_economic_indicators(category=MacroEconomicsIndicator.Spread10Y2Y)()
+spread_data = economic_indicators(series_id='T10Y2Y')()
 spread = spread_data.result
 spread_filled = ffill(spread)
 is_curve_inverted = is_valid(spread_filled) and (spread_filled < 0.0)
@@ -87,6 +90,7 @@ sn_pre5 = where(is_spike_normal, pre_5d)
 
 # --- Cards: event counts ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Claims Spike Events',
         row_size=1,
@@ -104,6 +108,7 @@ summary_table(
 
 # --- Chart 1: Day-of + Post-20d Return Snapshot ---
 xy_bars(
+    mode=BarMode.series,
     title='Claims Spikes Hit Harder When the Curve Is Inverted',
     category='Claims + Yield Curve',
     agg=AggregationType.Mean,

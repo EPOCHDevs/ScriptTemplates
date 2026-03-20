@@ -1,48 +1,29 @@
-# =============================================================================
-# A LOOK AT THE U.S. TREASURY YIELD CURVE
-# =============================================================================
-# Question: What does the current shape of the U.S. Treasury yield curve look
-#   like, and how has it changed from a year ago?
-#
-# Chart: labeled_lines + xy_lines
-#   - X-axis: Maturity tenor (1M to 30Y) for yield curve; Date for trends
-#   - Y-axis: Yield (%)
-#   - Series: Current yield curve vs 1 Year Ago (labeled_lines);
-#             3M, 2Y, 5Y, 10Y, 30Y over time (xy_lines)
-#   - Overlay: None
-#
-# Dataset:
-#   - common_economic_indicators (Treasury1M, Treasury3M, Treasury6M,
-#     Treasury1Y, Treasury2Y, Treasury3Y, Treasury5Y, Treasury7Y,
-#     Treasury10Y, Treasury20Y, Treasury30Y)
-# =============================================================================
-
 # U.S. Treasury Yield Curve
 
 # Load all available Treasury maturities
-m1_obs, m1_val, m1_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury1M)()
-m3_obs, m3_val, m3_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury3M)()
-m6_obs, m6_val, m6_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury6M)()
-y1_obs, y1_val, y1_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury1Y)()
-y2_obs, y2_val, y2_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury2Y)()
-y3_obs, y3_val, y3_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury3Y)()
-y5_obs, y5_val, y5_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury5Y)()
-y7_obs, y7_val, y7_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury7Y)()
-y10_obs, y10_val, y10_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury10Y)()
-y20_obs, y20_val, y20_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury20Y)()
-y30_obs, y30_val, y30_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury30Y)()
+m1_src = economic_indicators(series_id='DGS1MO')()
+m3_src = economic_indicators(series_id='DGS3MO')()
+m6_src = economic_indicators(series_id='DGS6MO')()
+y1_src = economic_indicators(series_id='DGS1')()
+y2_src = economic_indicators(series_id='DGS2')()
+y3_src = economic_indicators(series_id='DGS3')()
+y5_src = economic_indicators(series_id='DGS5')()
+y7_src = economic_indicators(series_id='DGS7')()
+y10_src = economic_indicators(series_id='DGS10')()
+y20_src = economic_indicators(series_id='DGS20')()
+y30_src = economic_indicators(series_id='DGS30')()
 
-m1 = ffill(m1_val)
-m3 = ffill(m3_val)
-m6 = ffill(m6_val)
-y1 = ffill(y1_val)
-y2 = ffill(y2_val)
-y3 = ffill(y3_val)
-y5 = ffill(y5_val)
-y7 = ffill(y7_val)
-y10 = ffill(y10_val)
-y20 = ffill(y20_val)
-y30 = ffill(y30_val)
+m1 = ffill(m1_src.result)
+m3 = ffill(m3_src.result)
+m6 = ffill(m6_src.result)
+y1 = ffill(y1_src.result)
+y2 = ffill(y2_src.result)
+y3 = ffill(y3_src.result)
+y5 = ffill(y5_src.result)
+y7 = ffill(y7_src.result)
+y10 = ffill(y10_src.result)
+y20 = ffill(y20_src.result)
+y30 = ffill(y30_src.result)
 
 # 1 Year Ago yields (shift by 252 trading days)
 m1_1yr = m1 >> 252

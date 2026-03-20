@@ -9,10 +9,10 @@
 # - Rebalancing: Monthly (first trading day)
 
 # Raw contract data
-src = market_data_source(timeframe=1D)()
+src = market_data_source()()
 
 # Continuation series
-cont = futures_continuation(timeframe=1D, s_rollover_method=RolloverType.FirstOfMonth, s_adjustment_method=AdjustmentType.BackwardPanamaCanal)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+cont = futures_continuation(s_rollover_method=RolloverType.FirstOfMonth, s_adjustment_method=AdjustmentType.BackwardPanamaCanal)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
 
 # Carry signal: positive = backwardation, negative = contango
 carry = cont.carry

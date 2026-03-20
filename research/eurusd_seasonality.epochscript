@@ -42,6 +42,7 @@ monthly_year = datetime_extract(component=DatetimeExtractionType.year)(monthly_i
 
 # --- Cards: stats not on any chart ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='EUR/USD Seasonality',
         row_size=1,
@@ -59,6 +60,7 @@ summary_table(
 
 # --- Chart 1: Avg Monthly Return by Calendar Month ---
 xy_bars(
+    mode=BarMode.labeled,
     title='Which Months Favor EUR/USD Bulls or Bears?',
     category='Seasonality',
     agg=AggregationType.Mean,
@@ -90,6 +92,7 @@ heatmap(
 
 # --- Chart 3: Avg Return by Day of Week ---
 xy_bars(
+    mode=BarMode.labeled,
     title='Is There an Intraweek Pattern in EUR/USD?',
     category='Seasonality',
     agg=AggregationType.Mean,

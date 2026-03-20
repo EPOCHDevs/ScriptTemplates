@@ -80,6 +80,8 @@ score_seasonality = conditional_select(
 # Combined score (0-12)
 total_score = score_12m + score_1m + score_seasonality
 
+# Visualize total score and component breakdown
+
 # Long signal: score > 9 (need strong momentum AND favorable seasonality)
 enter_long_signal = total_score > 9
 
@@ -116,12 +118,9 @@ held_short = hold_until()(enter=enter_short, exit=exit_short)
 # Entry/Exit zones
 long_and_short_zone()(long_entry=held_long, short_entry=held_short)
 
-# Equal weight across selected sectors
-long_weights = equal_weight()(held_long)
-short_weights = equal_weight()(held_short)
+# Equal weight across active positions (long or short)
+is_active = held_long or held_short
+weights = equal_weight()(is_active)
 
-# Net position: positive for long, negative for short
-net_weight = conditional_select(held_long, long_weights, held_short, -short_weights, 0)
-
-# Position sizing - ONLY rebalance on first trading day of month
-position_size(type=SizeType.percent)(size=net_weight * 100, rebalance_on=is_new_month)
+# Position sizing - always positive, direction from long_and_short_zone
+position_size(type=SizeType.percent)(size=weights * 100, rebalance_on=is_new_month)

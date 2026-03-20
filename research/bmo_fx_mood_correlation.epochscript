@@ -15,8 +15,8 @@
 # ==========================================================================
 
 # --- VIX as risk appetite proxy ---
-vix_d, vix_r, vix_v = common_economic_indicators(category=MacroEconomicsIndicator.VIX)()
-vix = ffill(vix_r)
+vix_r_src = economic_indicators(series_id='VIXCLS')()
+vix = ffill(vix_r_src.result)
 vix_chg = returns(period=5)(vix)
 # Negate VIX to create risk appetite proxy: MOOD ≈ -VIX
 # corr(USDCCY, -VIX) = -corr(USDCCY, VIX) which matches BMO sign convention
@@ -33,55 +33,55 @@ mood_ret = vix_chg * -1
 # EUR (CCYUSD → negate to get USDCCY convention)
 eur_fx = fx_pairs(ticker='EURUSD')()
 eur_ret = returns(period=5)(eur_fx.c) * -1
-eur_corr = rolling_corr(window=130)(eur_ret, mood_ret)
+eur_corr = rolling_corr(window=130)(x=eur_ret, y=mood_ret)
 eur_corr_3m = eur_corr >> 65
 
 # GBP (CCYUSD → negate)
 gbp_fx = fx_pairs(ticker='GBPUSD')()
 gbp_ret = returns(period=5)(gbp_fx.c) * -1
-gbp_corr = rolling_corr(window=130)(gbp_ret, mood_ret)
+gbp_corr = rolling_corr(window=130)(x=gbp_ret, y=mood_ret)
 gbp_corr_3m = gbp_corr >> 65
 
 # JPY (inverted: USDJPY, so use directly)
 jpy_fx = fx_pairs(ticker='USDJPY')()
 jpy_ret = returns(period=5)(jpy_fx.c)
-jpy_corr = rolling_corr(window=130)(jpy_ret, mood_ret)
+jpy_corr = rolling_corr(window=130)(x=jpy_ret, y=mood_ret)
 jpy_corr_3m = jpy_corr >> 65
 
 # AUD (CCYUSD → negate)
 aud_fx = fx_pairs(ticker='AUDUSD')()
 aud_ret = returns(period=5)(aud_fx.c) * -1
-aud_corr = rolling_corr(window=130)(aud_ret, mood_ret)
+aud_corr = rolling_corr(window=130)(x=aud_ret, y=mood_ret)
 aud_corr_3m = aud_corr >> 65
 
 # CAD (inverted: USDCAD)
 cad_fx = fx_pairs(ticker='USDCAD')()
 cad_ret = returns(period=5)(cad_fx.c)
-cad_corr = rolling_corr(window=130)(cad_ret, mood_ret)
+cad_corr = rolling_corr(window=130)(x=cad_ret, y=mood_ret)
 cad_corr_3m = cad_corr >> 65
 
 # CHF (inverted: USDCHF)
 chf_fx = fx_pairs(ticker='USDCHF')()
 chf_ret = returns(period=5)(chf_fx.c)
-chf_corr = rolling_corr(window=130)(chf_ret, mood_ret)
+chf_corr = rolling_corr(window=130)(x=chf_ret, y=mood_ret)
 chf_corr_3m = chf_corr >> 65
 
 # NZD (CCYUSD → negate)
 nzd_fx = fx_pairs(ticker='NZDUSD')()
 nzd_ret = returns(period=5)(nzd_fx.c) * -1
-nzd_corr = rolling_corr(window=130)(nzd_ret, mood_ret)
+nzd_corr = rolling_corr(window=130)(x=nzd_ret, y=mood_ret)
 nzd_corr_3m = nzd_corr >> 65
 
 # NOK (inverted: USDNOK)
 nok_fx = fx_pairs(ticker='USDNOK')()
 nok_ret = returns(period=5)(nok_fx.c)
-nok_corr = rolling_corr(window=130)(nok_ret, mood_ret)
+nok_corr = rolling_corr(window=130)(x=nok_ret, y=mood_ret)
 nok_corr_3m = nok_corr >> 65
 
 # SEK (inverted: USDSEK)
 sek_fx = fx_pairs(ticker='USDSEK')()
 sek_ret = returns(period=5)(sek_fx.c)
-sek_corr = rolling_corr(window=130)(sek_ret, mood_ret)
+sek_corr = rolling_corr(window=130)(x=sek_ret, y=mood_ret)
 sek_corr_3m = sek_corr >> 65
 
 # ==========================================================================
@@ -91,67 +91,67 @@ sek_corr_3m = sek_corr >> 65
 # TWD (inverted: USDTWD)
 twd_fx = fx_pairs(ticker='USDTWD')()
 twd_ret = returns(period=5)(twd_fx.c)
-twd_corr = rolling_corr(window=130)(twd_ret, mood_ret)
+twd_corr = rolling_corr(window=130)(x=twd_ret, y=mood_ret)
 twd_corr_3m = twd_corr >> 65
 
 # ZAR (inverted: USDZAR)
 zar_fx = fx_pairs(ticker='USDZAR')()
 zar_ret = returns(period=5)(zar_fx.c)
-zar_corr = rolling_corr(window=130)(zar_ret, mood_ret)
+zar_corr = rolling_corr(window=130)(x=zar_ret, y=mood_ret)
 zar_corr_3m = zar_corr >> 65
 
 # BRL (inverted: USDBRL)
 brl_fx = fx_pairs(ticker='USDBRL')()
 brl_ret = returns(period=5)(brl_fx.c)
-brl_corr = rolling_corr(window=130)(brl_ret, mood_ret)
+brl_corr = rolling_corr(window=130)(x=brl_ret, y=mood_ret)
 brl_corr_3m = brl_corr >> 65
 
 # MXN (inverted: USDMXN)
 mxn_fx = fx_pairs(ticker='USDMXN')()
 mxn_ret = returns(period=5)(mxn_fx.c)
-mxn_corr = rolling_corr(window=130)(mxn_ret, mood_ret)
+mxn_corr = rolling_corr(window=130)(x=mxn_ret, y=mood_ret)
 mxn_corr_3m = mxn_corr >> 65
 
 # KRW (inverted: USDKRW)
 krw_fx = fx_pairs(ticker='USDKRW')()
 krw_ret = returns(period=5)(krw_fx.c)
-krw_corr = rolling_corr(window=130)(krw_ret, mood_ret)
+krw_corr = rolling_corr(window=130)(x=krw_ret, y=mood_ret)
 krw_corr_3m = krw_corr >> 65
 
 # INR (inverted: USDINR)
 inr_fx = fx_pairs(ticker='USDINR')()
 inr_ret = returns(period=5)(inr_fx.c)
-inr_corr = rolling_corr(window=130)(inr_ret, mood_ret)
+inr_corr = rolling_corr(window=130)(x=inr_ret, y=mood_ret)
 inr_corr_3m = inr_corr >> 65
 
 # IDR (inverted: USDIDR)
 idr_fx = fx_pairs(ticker='USDIDR')()
 idr_ret = returns(period=5)(idr_fx.c)
-idr_corr = rolling_corr(window=130)(idr_ret, mood_ret)
+idr_corr = rolling_corr(window=130)(x=idr_ret, y=mood_ret)
 idr_corr_3m = idr_corr >> 65
 
 # CLP (inverted: USDCLP)
 clp_fx = fx_pairs(ticker='USDCLP')()
 clp_ret = returns(period=5)(clp_fx.c)
-clp_corr = rolling_corr(window=130)(clp_ret, mood_ret)
+clp_corr = rolling_corr(window=130)(x=clp_ret, y=mood_ret)
 clp_corr_3m = clp_corr >> 65
 
 # HUF (inverted: USDHUF)
 huf_fx = fx_pairs(ticker='USDHUF')()
 huf_ret = returns(period=5)(huf_fx.c)
-huf_corr = rolling_corr(window=130)(huf_ret, mood_ret)
+huf_corr = rolling_corr(window=130)(x=huf_ret, y=mood_ret)
 huf_corr_3m = huf_corr >> 65
 
 # PLN (inverted: USDPLN)
 pln_fx = fx_pairs(ticker='USDPLN')()
 pln_ret = returns(period=5)(pln_fx.c)
-pln_corr = rolling_corr(window=130)(pln_ret, mood_ret)
+pln_corr = rolling_corr(window=130)(x=pln_ret, y=mood_ret)
 pln_corr_3m = pln_corr >> 65
 
 # CNH (inverted: USDCNH)
 cnh_fx = fx_pairs(ticker='USDCNH')()
 cnh_ret = returns(period=5)(cnh_fx.c)
-cnh_corr = rolling_corr(window=130)(cnh_ret, mood_ret)
+cnh_corr = rolling_corr(window=130)(x=cnh_ret, y=mood_ret)
 cnh_corr_3m = cnh_corr >> 65
 
 # ==========================================================================
@@ -159,7 +159,7 @@ cnh_corr_3m = cnh_corr >> 65
 # ==========================================================================
 gold_fx = fx_pairs(ticker='XAUUSD')()
 gold_ret = returns(period=5)(gold_fx.c) * -1
-gold_corr = rolling_corr(window=130)(gold_ret, mood_ret)
+gold_corr = rolling_corr(window=130)(x=gold_ret, y=mood_ret)
 gold_corr_3m = gold_corr >> 65
 
 # ==========================================================================
@@ -167,6 +167,7 @@ gold_corr_3m = gold_corr >> 65
 # Sorted approximately by BMO chart order (most negative to most positive)
 # ==========================================================================
 xy_bars(
+    mode=BarMode.series,
     title='FX Correlations to Risk Appetite (VIX Proxy)',
     category='FX-VIX Correlation',
     agg=AggregationType.Last,

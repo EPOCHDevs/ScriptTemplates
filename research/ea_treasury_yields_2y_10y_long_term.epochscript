@@ -1,25 +1,9 @@
-# =============================================================================
-# A LONG-TERM VIEW OF U.S. TREASURY YIELDS
-# =============================================================================
-# Question: How have the 2-year and 10-year U.S. Treasury yields behaved over
-#   the past several decades, and where do they stand now?
-#
-# Chart: xy_lines
-#   - X-axis: Date (timestamp index)
-#   - Y-axis: Treasury Yield (%)
-#   - Series: 10-Year Treasury Yield, 2-Year Treasury Yield
-#   - Overlay: None
-#
-# Dataset:
-#   - common_economic_indicators (Treasury2Y, Treasury10Y)
-# =============================================================================
-
 # A Long-Term View Of U.S. Treasury Yields
-y2_obs, y2_val, y2_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury2Y)()
-y10_obs, y10_val, y10_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury10Y)()
+y2_src = economic_indicators(series_id='DGS2')()
+y10_src = economic_indicators(series_id='DGS10')()
 
-y2_filled = ffill(y2_val)
-y10_filled = ffill(y10_val)
+y2_filled = ffill(y2_src.result)
+y10_filled = ffill(y10_src.result)
 
 bar_ts = index()
 

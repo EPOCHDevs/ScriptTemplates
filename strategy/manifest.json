@@ -1,307 +1,531 @@
 [
   {
     "id": "asset_class_trend_following",
-    "name": "Asset Class Trend Following Strategy",
-    "description": "Load daily bars for 5 asset class ETFs: SPY, EFA, BND, VNQ, GSG\nCalculate 10-month SMA (~210 trading days) for each ETF\nHold asset when price > 10-month SMA, otherwise move to cash\nEqual weight 20% per asset when held\nRebalance monthly on first trading day",
-    "tags": {
-      "asset_class": [
-        "equities",
-        "bonds",
-        "commodities"
-      ],
-      "data_source": [
-        "technicals"
-      ],
-      "methodology": [
-        "trend_following"
-      ],
-      "intraday": false
-    }
+    "name": "Asset Class Trend-Following",
+    "type": "strategy",
+    "description": "Tactical asset allocation that holds each asset class only when its price is above the 10-month SMA, rotating to cash otherwise.",
+    "requires_event_markers": false,
+    "requires_multi_assets": true,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "SPY, EFA, BND, VNQ, GSG"
+        ]
+      }
+    ],
+    "compute_hint": "210-day SMA (proxy for 10-month SMA)",
+    "signal_hint": "Price > SMA = hold asset; checked at month boundary; hold_until latches between monthly rebalances",
+    "execution_plugins": [],
+    "tags": [
+      "multi-asset",
+      "trend-following",
+      "tactical-allocation",
+      "SMA"
+    ],
+    "requires_calendar_transforms": false
   },
   {
     "id": "currency_momentum",
     "name": "Currency Momentum Factor",
-    "description": "Load daily bars for 8 major currency pairs vs USD (AUD, EUR, GBP, CAD, JPY, MXN, NZD, CHF)\nCalculate 12-month momentum (252-day rate of change) for each pair\nRank currencies cross-sectionally by momentum\nGo long top 3 currencies, short bottom 3 currencies\nEqual weight within long/short legs, rebalance monthly",
-    "tags": {
-      "asset_class": [
-        "fx"
-      ],
-      "methodology": [
-        "momentum",
-        "cross_sectional"
-      ],
-      "intraday": false
-    }
+    "type": "strategy",
+    "description": "Cross-sectional momentum strategy that goes long the top-3 and short the bottom-3 major currencies ranked by 12-month return.",
+    "requires_event_markers": false,
+    "requires_multi_assets": true,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "AUDUSD, EURUSD, GBPUSD, CADUSD, JPYUSD, MXNUSD, NZDUSD, CHFUSD"
+        ]
+      }
+    ],
+    "compute_hint": "252-day rate of change (12-month momentum)",
+    "signal_hint": "cs_select top 3 (long) and bottom 3 (short) by momentum; hold_until with monthly rebalance",
+    "execution_plugins": [],
+    "tags": [
+      "FX",
+      "momentum",
+      "long-short",
+      "cross-sectional"
+    ],
+    "requires_calendar_transforms": false
   },
   {
     "id": "dividend_month_anomaly",
-    "name": "Dividend Month Anomaly Strategy",
-    "description": "Load daily bars for S&P 500 stocks, filter to top 500 by dollar volume with price > $5\nPredict which stocks will pay dividends this month using historical pay_date and frequency\nMatch quarterly (every 3 months), semi-annual (every 6), and annual (same month) patterns\nGo long predicted dividend payers, equal weight, rebalance monthly\nDashboard: position count timeseries chart",
-    "tags": {
-      "asset_class": [
-        "equities"
-      ],
-      "data_source": [
-        "dividends"
-      ],
-      "event_type": [
-        "calendar_event"
-      ],
-      "methodology": [
-        "seasonality"
-      ],
-      "intraday": false
-    }
+    "name": "Dividend Month Anomaly",
+    "type": "strategy",
+    "description": "Exploits the dividend month premium by going long stocks predicted to pay dividends in the current month based on historical pay-date frequency patterns.",
+    "requires_event_markers": false,
+    "requires_multi_assets": true,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "S&P 500 stocks"
+        ]
+      },
+      {
+        "type": "corporate_events",
+        "fields": [
+          "dividends"
+        ]
+      }
+    ],
+    "compute_hint": "datetime_extract on pay_date and index to get months; month-diff modular matching for quarterly/semi-annual/annual frequency; cs_rank for liquidity top-500 filter",
+    "signal_hint": "Predicted dividend month match AND universe filter (price > $5, top 500 liquidity, has dividend history); monthly hold_until",
+    "execution_plugins": [],
+    "tags": [
+      "equities",
+      "dividend",
+      "anomaly",
+      "calendar-effect"
+    ],
+    "requires_calendar_transforms": true,
+    "data_foundation": "normalized"
   },
   {
     "id": "donchian_chandelier",
-    "name": "Donchian-Chandelier Breakout Strategy",
-    "description": "Load daily bars for GLD, QQQ, and BTCUSD\nCalculate 20-day Donchian Channel (highest high / lowest low) and 5-day ATR\nEnter long when close breaks above prior bar's Donchian upper band\nExit via trailing chandelier stop (3x ATR from highest high) or Donchian lower band breakdown\nPosition size using risk_unit: 2% equity risk per trade with stop distance = 3x ATR(5)\nDashboard: event markers for breakout entries and breakdown exits",
-    "tags": {
-      "asset_class": [
-        "equities",
-        "commodities"
-      ],
-      "data_source": [
-        "technicals"
-      ],
-      "methodology": [
-        "breakout",
-        "trend_following"
-      ],
-      "intraday": false
-    }
+    "name": "Donchian-Chandelier Breakout",
+    "type": "strategy",
+    "description": "Trend-following breakout strategy using 20-day Donchian Channel entries with ATR-based trailing stops for volatility-targeted risk management.",
+    "requires_event_markers": true,
+    "requires_multi_assets": false,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "GLD, QQQ, BTCUSD"
+        ]
+      }
+    ],
+    "compute_hint": "20-day Donchian Channel (upper/lower bands); 5-day ATR; 1-bar lag on bands to avoid look-ahead; stop distance = 3 x ATR(5)",
+    "signal_hint": "Entry: close > prior-bar upper band (breakout); Exit: close < prior-bar lower band (breakdown); hold_until latches",
+    "execution_plugins": [
+      "risk_unit",
+      "trailing_stop"
+    ],
+    "tags": [
+      "breakout",
+      "trend-following",
+      "volatility-targeting",
+      "ATR"
+    ],
+    "requires_calendar_transforms": false
   },
   {
     "id": "fed_model",
-    "name": "FED Model Strategy",
-    "description": "Load daily bars for SPY and SHY, plus 10-Year Treasury yield from FRED\nCalculate 3-month change in Treasury yield and 1-year rolling average yield\nWhen rates falling (> 25bps decrease) or yield below average: go long SPY (equities attractive)\nWhen rates rising (> 25bps increase) and yield above average: go long SHY (bonds attractive)\n100% allocation to selected asset, rebalance monthly",
-    "tags": {
-      "asset_class": [
-        "equities",
-        "bonds"
-      ],
-      "data_source": [
-        "economic_indicators"
-      ],
-      "indicator": [
-        "yield_curve"
-      ],
-      "methodology": [
-        "macro_regime"
-      ],
-      "intraday": false
-    }
+    "name": "FED Model",
+    "type": "strategy",
+    "description": "Market timing strategy that switches between equities and Treasuries based on the yield gap implied by 10-year Treasury rate momentum and level relative to its moving average.",
+    "requires_event_markers": false,
+    "requires_multi_assets": false,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "SPY, SHY"
+        ]
+      },
+      {
+        "type": "macro_economic",
+        "queries": [
+          "10-Year Treasury Constant Maturity Rate"
+        ]
+      }
+    ],
+    "compute_hint": "Forward-filled Treasury yield; 63-day momentum (3-month change); 252-day SMA of yield (1-year average); is_asset_ref for ticker matching",
+    "signal_hint": "Rates falling (> 25bps drop in 3M) or yield below average = long SPY; rates rising AND yield above average = long SHY; monthly hold_until",
+    "execution_plugins": [],
+    "tags": [
+      "macro",
+      "market-timing",
+      "yield-gap",
+      "equities-bonds"
+    ],
+    "requires_calendar_transforms": false,
+    "data_foundation": "normalized"
   },
   {
     "id": "fx_carry_trade",
-    "name": "FX Carry Trade Strategy",
-    "description": "Load daily bars for 8 G8 currency futures (A6, B6, D6, E6, J6, M6, N6, S6)\nLoad 3-month OECD interbank rates from FRED for each country\nMap interest rates to corresponding currency futures as carry signal\nRank cross-sectionally: long top 3 (highest yield), short bottom 3 (lowest yield)\nEqual weight within each leg, monthly rebalance with BackwardPanamaCanal continuation",
-    "tags": {
-      "asset_class": [
-        "fx",
-        "futures"
-      ],
-      "data_source": [
-        "economic_indicators"
-      ],
-      "methodology": [
-        "carry",
-        "cross_sectional"
-      ],
-      "intraday": false
-    }
+    "name": "FX Carry Trade",
+    "type": "strategy",
+    "description": "Classic carry trade that goes long high-yielding and short low-yielding currency futures ranked by 3-month interbank interest rate differentials.",
+    "requires_event_markers": false,
+    "requires_multi_assets": true,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "A6, B6, D6, E6, J6, M6, N6, S6"
+        ]
+      },
+      {
+        "type": "macro_economic",
+        "queries": [
+          "3-Month Interbank Rate Australia",
+          "3-Month Interbank Rate United Kingdom",
+          "3-Month Interbank Rate Canada",
+          "3-Month Interbank Rate Euro Area",
+          "3-Month Interbank Rate Japan",
+          "3-Month Interbank Rate Mexico",
+          "3-Month Interbank Rate New Zealand",
+          "3-Month Interbank Rate Switzerland"
+        ]
+      }
+    ],
+    "compute_hint": "Forward-filled interest rates; conditional_select to map each rate to its futures contract; is_asset_ref for ticker matching",
+    "signal_hint": "cs_select top 3 by carry signal (long) and bottom 3 (short); monthly hold_until",
+    "execution_plugins": [],
+    "tags": [
+      "FX",
+      "carry",
+      "futures",
+      "long-short",
+      "FRED"
+    ],
+    "requires_calendar_transforms": false,
+    "data_foundation": "normalized"
   },
   {
     "id": "low_volatility_factor",
-    "name": "Low Volatility Factor Strategy",
-    "description": "Load daily bars for S&P 500 constituents\nCalculate 3-year annualized historical volatility (756 trading days) for each stock\nSelect bottom decile (lowest 10% volatility) cross-sectionally (~50 stocks)\nGo long selected low-volatility stocks, equal weight\nRebalance monthly on first trading day",
-    "tags": {
-      "asset_class": [
-        "equities"
-      ],
-      "methodology": [
-        "factor",
-        "cross_sectional"
-      ],
-      "intraday": false
-    }
+    "name": "Low Volatility Factor",
+    "type": "strategy",
+    "description": "Exploits the low-volatility anomaly by going long the bottom decile of S&P 500 stocks ranked by 3-year historical volatility.",
+    "requires_event_markers": false,
+    "requires_multi_assets": true,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "S&P 500 stocks"
+        ]
+      }
+    ],
+    "compute_hint": "756-day annualized historical volatility (3-year window)",
+    "signal_hint": "cs_select bottom 10% by volatility (lowest vol stocks); monthly hold_until",
+    "execution_plugins": [],
+    "tags": [
+      "equities",
+      "low-volatility",
+      "factor",
+      "cross-sectional"
+    ],
+    "requires_calendar_transforms": false
   },
   {
     "id": "post_earnings_drift",
-    "name": "Post-Earnings Announcement Drift Strategy",
-    "description": "Load daily bars for S&P 500 stocks with price > $1 and earnings announcement data\nCalculate EPS surprise percent; track bars since last earnings announcement\nWithin 60-day holding window: rank eligible stocks by surprise cross-sectionally\nLong top decile (most positive surprises), short bottom decile (most negative)\nEqual weight 50%/50% long-short, rebalance daily as new earnings arrive",
-    "tags": {
-      "asset_class": [
-        "equities"
-      ],
-      "data_source": [
-        "earnings"
-      ],
-      "event_type": [
-        "corporate_event"
-      ],
-      "methodology": [
-        "event_study",
-        "cross_sectional"
-      ],
-      "intraday": false
-    }
+    "name": "Post-Earnings Announcement Drift",
+    "type": "strategy",
+    "description": "Captures the post-earnings announcement drift by going long stocks with the largest positive EPS surprises and shorting those with the largest negative surprises, held for 60 trading days.",
+    "requires_event_markers": false,
+    "requires_multi_assets": true,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "S&P 500 stocks"
+        ]
+      },
+      {
+        "type": "corporate_events",
+        "fields": [
+          "earnings"
+        ]
+      }
+    ],
+    "compute_hint": "barssince for days since last earnings; ffill of surprise percent; where filter for eligible stocks within 60-day window; price filter > $1",
+    "signal_hint": "cs_select top 10% EPS surprise (long) and bottom 10% (short); 60-day holding window from announcement; daily rebalance",
+    "execution_plugins": [],
+    "tags": [
+      "equities",
+      "earnings",
+      "event-driven",
+      "long-short"
+    ],
+    "requires_calendar_transforms": false,
+    "data_foundation": "normalized"
   },
   {
     "id": "sector_momentum",
-    "name": "Sector Momentum Rotational System",
-    "description": "Load daily bars for 10 US sector ETFs (VNQ, XLK, XLE, XLV, XLF, XLI, XLB, XLY, XLP, XLU)\nCalculate 12-month momentum (252-day rate of change) for each sector\nSelect top 3 sectors by momentum cross-sectionally\nGo long selected sectors, equal weight (1/3 each)\nRebalance monthly on first trading day",
-    "tags": {
-      "asset_class": [
-        "equities"
-      ],
-      "methodology": [
-        "momentum",
-        "cross_sectional"
-      ],
-      "intraday": false
-    }
+    "name": "Sector Momentum",
+    "type": "strategy",
+    "description": "Rotational momentum strategy that goes long the top-3 US sector ETFs ranked by 12-month rate of change.",
+    "requires_event_markers": false,
+    "requires_multi_assets": true,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "VNQ, XLK, XLE, XLV, XLF, XLI, XLB, XLY, XLP, XLU"
+        ]
+      }
+    ],
+    "compute_hint": "252-day rate of change (12-month momentum)",
+    "signal_hint": "cs_select top 3 by momentum; monthly hold_until",
+    "execution_plugins": [],
+    "tags": [
+      "sectors",
+      "momentum",
+      "rotation",
+      "cross-sectional"
+    ],
+    "requires_calendar_transforms": false
   },
   {
     "id": "sector_rotation_monetary_policy",
-    "name": "Sector Rotation Monetary Policy Strategy",
-    "description": "Load daily bars for 8 SPDR sector ETFs and Fed Funds Rate from FRED\nCalculate 3-month change in Fed rate to classify regime: easing, tightening, or neutral\nEasing (rate drop > 25bps): go long cyclical sectors (XLY, XLI, XLF, XLK, XLB)\nTightening (rate rise > 25bps): go long defensive sectors (XLP, XLV, XLU)\nNeutral: equal weight all 8 sectors, rebalance monthly",
-    "tags": {
-      "asset_class": [
-        "equities"
-      ],
-      "data_source": [
-        "economic_indicators"
-      ],
-      "indicator": [
-        "Fed_Funds"
-      ],
-      "methodology": [
-        "macro_regime",
-        "cross_sectional"
-      ],
-      "intraday": false
-    }
+    "name": "Sector Rotation Monetary Policy",
+    "type": "strategy",
+    "description": "Rotates between cyclical and defensive sector ETFs based on Federal Reserve monetary policy regime detected via Fed Funds Rate momentum.",
+    "requires_event_markers": false,
+    "requires_multi_assets": true,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "XLY, XLI, XLF, XLK, XLB, XLP, XLV, XLU"
+        ]
+      },
+      {
+        "type": "macro_economic",
+        "queries": [
+          "Federal Funds Effective Rate"
+        ]
+      }
+    ],
+    "compute_hint": "Forward-filled Fed rate; 63-day momentum (3-month change); is_asset_ref to classify sectors as cyclical vs defensive; 25bps threshold for regime detection",
+    "signal_hint": "Easing (rate drop > 25bps) = select cyclical; Tightening (rate rise > 25bps) = select defensive; Neutral = select all; conditional_select; monthly hold_until",
+    "execution_plugins": [],
+    "tags": [
+      "sectors",
+      "macro",
+      "monetary-policy",
+      "rotation"
+    ],
+    "requires_calendar_transforms": false,
+    "data_foundation": "normalized"
   },
   {
     "id": "sector_seasonality_momentum",
-    "name": "Sector Seasonality Momentum Strategy",
-    "description": "Load daily bars for 9 US sector ETFs (XLB, XLI, XLY, XLP, XLV, XLK, XLU, XLE, XLF)\nScore each sector 0-12: 12-month momentum tercile (0/2/4) + 1-month momentum tercile (0/2/4) + seasonality (0/2/4)\nSeasonality: cyclical sectors favor Nov-Apr, defensive favor May-Oct, neutral score 2 always\nLong if score > 9, short if score < 3, exit when score crosses 6\nEqual weight within long/short legs, rebalance monthly",
-    "tags": {
-      "asset_class": [
-        "equities"
-      ],
-      "methodology": [
-        "momentum",
-        "seasonality",
-        "cross_sectional"
-      ],
-      "intraday": false
-    }
+    "name": "Sector Seasonality Momentum",
+    "type": "strategy",
+    "description": "Combines 12-month and 1-month momentum scores with sector seasonality (cyclical vs defensive half-year bias) into a composite 0-12 scoring system for long-short sector selection.",
+    "requires_event_markers": false,
+    "requires_multi_assets": true,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "XLB, XLI, XLY, XLP, XLV, XLK, XLU, XLE, XLF"
+        ]
+      }
+    ],
+    "compute_hint": "252-day ROC (12M momentum); 21-day ROC (1M momentum); cs_rank for tercile scoring; datetime_extract for month; is_asset_ref for sector classification (cyclical/defensive/neutral); seasonality score by sector type and half-year",
+    "signal_hint": "Total score (0-12) = 12M score + 1M score + seasonality score; Long: score > 9; Short: score < 3; Exit at score crossing 6; monthly hold_until",
+    "execution_plugins": [],
+    "tags": [
+      "sectors",
+      "momentum",
+      "seasonality",
+      "long-short"
+    ],
+    "requires_calendar_transforms": true
   },
   {
     "id": "short_interest_effect",
-    "name": "Short Interest Effect Long-Short Strategy",
-    "description": "Load daily bars for NYSE, AMEX, NASDAQ stocks plus short interest and income statement data\nCalculate short interest ratio = short interest / shares outstanding\nRank cross-sectionally by short interest ratio\nLong bottom decile (lowest 10% short interest), short top decile (highest 10%)\nEqual weight across all active positions, rebalance monthly",
-    "tags": {
-      "asset_class": [
-        "equities"
-      ],
-      "data_source": [
-        "short_interest"
-      ],
-      "methodology": [
-        "factor",
-        "cross_sectional"
-      ],
-      "intraday": false
-    }
+    "name": "Short Interest Effect",
+    "type": "strategy",
+    "description": "Goes long stocks with the lowest short interest ratio (bottom decile) and shorts those with the highest (top decile), exploiting the predictive power of short interest on future returns.",
+    "requires_event_markers": false,
+    "requires_multi_assets": true,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "NYSE, AMEX, NASDAQ stocks"
+        ]
+      },
+      {
+        "type": "corporate_events",
+        "fields": [
+          "short_interest"
+        ]
+      },
+      {
+        "type": "fundamentals",
+        "fields": [
+          "income_statement"
+        ]
+      }
+    ],
+    "compute_hint": "Short interest ratio = short_interest / basic_shares; forward-fill for gaps between data updates",
+    "signal_hint": "cs_select bottom 10% by SI ratio (long) and top 10% (short); monthly hold_until",
+    "execution_plugins": [],
+    "tags": [
+      "equities",
+      "short-interest",
+      "factor",
+      "long-short"
+    ],
+    "requires_calendar_transforms": false,
+    "data_foundation": "normalized"
   },
   {
     "id": "sma_crossover_futures",
-    "name": "SMA Crossover Strategy Multi-Asset",
-    "description": "Load daily bars for 11 assets: futures (ES, NQ, CL, GC, SI, NG), stocks (SPY), crypto (BTC, ETH), FX (EURUSD, GBPUSD)\nBuild continuation series with BackwardPanamaCanal adjustment and FirstOfMonth rollover\nCalculate 50-day and 200-day SMA on adjusted close\nGo long when fast SMA > slow SMA, flat otherwise\nEqual weight (1/N) across active assets",
-    "tags": {
-      "asset_class": [
-        "equities",
-        "futures",
-        "fx",
-        "commodities"
-      ],
-      "data_source": [
-        "technicals"
-      ],
-      "methodology": [
-        "trend_following"
-      ],
-      "intraday": false
-    }
+    "name": "SMA Crossover Multi-Asset",
+    "type": "strategy",
+    "description": "50/200-day SMA crossover trend-following strategy applied across futures, stocks, crypto, and FX with equal-weight allocation to assets in bullish trends.",
+    "requires_event_markers": false,
+    "requires_multi_assets": true,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "ES, NQ, CL, GC, SI, NG, SPY, BTC, ETH, EURUSD, GBPUSD"
+        ]
+      }
+    ],
+    "compute_hint": "50-day SMA (fast) and 200-day SMA (slow) on continuation-adjusted close",
+    "signal_hint": "Bullish when fast SMA > slow SMA; bearish when fast < slow; hold_until latches between crossovers",
+    "execution_plugins": [],
+    "tags": [
+      "multi-asset",
+      "trend-following",
+      "SMA-crossover",
+      "futures"
+    ],
+    "requires_calendar_transforms": false
   },
   {
     "id": "spy_morning_dip",
-    "name": "SPY Morning Dip Strategy",
-    "description": "Load 5-minute intraday bars for SPY\nCapture day's opening price from regular trading hours session\nAt 9:45 AM ET, if price is below the 9:30 open, enter long (mean reversion)\nExit at 10:30 AM ET (time-based exit), 100% position size\nDashboard: event markers for entry signals (with gap from open) and exit signals",
-    "tags": {
-      "asset_class": [
-        "equities"
-      ],
-      "event_type": [
-        "technical_signal"
-      ],
-      "methodology": [
-        "mean_reversion"
-      ],
-      "intraday": true
-    }
+    "name": "SPY Morning Dip",
+    "type": "strategy",
+    "description": "Intraday mean-reversion strategy that buys SPY at 9:45 AM when price gaps below the day's open and exits at 10:30 AM.",
+    "requires_event_markers": true,
+    "requires_multi_assets": false,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "SPY"
+        ]
+      }
+    ],
+    "compute_hint": "session_window (EquityRTHSession) to extract day open price; custom session_window (09:45-10:30 ET) for trade window",
+    "signal_hint": "Entry: trade session opens AND session open price < day open (gap down); Exit: trade session closes (time-based at 10:30); hold_until",
+    "execution_plugins": [],
+    "tags": [
+      "intraday",
+      "mean-reversion",
+      "equities",
+      "session-window"
+    ],
+    "requires_calendar_transforms": false,
+    "data_foundation": "intraday"
   },
   {
     "id": "stock_reversal_within_sectors",
-    "name": "Stock Return Reversal Within Sectors Strategy",
-    "description": "Load daily bars for S&P 500 stocks with price >= $3\nCalculate 1-month return (21 trading days) for each stock\nRank within each GICS industry cross-sectionally\nLong bottom 20% performers within each industry (losers, expect reversal up)\nShort top 20% performers within each industry (winners, expect reversal down)\n50% long + 50% short, equal weight, rebalance monthly",
-    "tags": {
-      "asset_class": [
-        "equities"
-      ],
-      "methodology": [
-        "mean_reversion",
-        "cross_sectional"
-      ],
-      "intraday": false
-    }
+    "name": "Stock Return Reversal Within Sectors",
+    "type": "strategy",
+    "description": "Short-term reversal strategy that goes long within-industry losers and shorts within-industry winners based on 1-month returns, expecting mean reversion.",
+    "requires_event_markers": false,
+    "requires_multi_assets": true,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "S&P 500 stocks"
+        ]
+      }
+    ],
+    "compute_hint": "21-day rate of change (1-month return)",
+    "signal_hint": "cs_select bottom 20% within each GICS industry (long) and top 20% (short) using group_by=industry; monthly hold_until",
+    "execution_plugins": [],
+    "tags": [
+      "equities",
+      "reversal",
+      "industry-neutral",
+      "long-short"
+    ],
+    "requires_calendar_transforms": false
   },
   {
     "id": "term_structure_commodities",
     "name": "Term Structure Effect in Commodities",
-    "description": "Load daily bars for 20 commodity futures (energies, metals, grains, softs, meats)\nBuild continuation series and extract carry signal (front/back contract ratio - 1)\nRank cross-sectionally: long top 4 (highest carry = backwardation), short bottom 4 (lowest carry = contango)\nEqual weight 1/N per leg, 100% long + 100% short gross exposure\nRebalance monthly with BackwardPanamaCanal adjustment and FirstOfMonth rollover",
-    "tags": {
-      "asset_class": [
-        "commodities",
-        "futures"
-      ],
-      "methodology": [
-        "carry",
-        "cross_sectional"
-      ],
-      "intraday": false
-    }
+    "type": "strategy",
+    "description": "Exploits the commodity futures term structure by going long assets in backwardation (positive carry) and shorting those in contango (negative carry).",
+    "requires_event_markers": false,
+    "requires_multi_assets": true,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "CL, HO, RB, NG, GC, SI, HG, PA, PL, ZC, ZW, ZS, ZM, ZL, CT, SB, KC, CC, OJ, LC, LH, FC"
+        ]
+      }
+    ],
+    "compute_hint": "Carry signal from continuation series (front/back contract ratio); cs_select for cross-sectional ranking",
+    "signal_hint": "cs_select top 4 by carry (long - backwardation) and bottom 4 (short - contango); monthly hold_until",
+    "execution_plugins": [],
+    "tags": [
+      "commodities",
+      "futures",
+      "carry",
+      "term-structure",
+      "long-short"
+    ],
+    "requires_calendar_transforms": false
   },
   {
     "id": "value_book_to_market",
-    "name": "Value Book-to-Market Factor Strategy",
-    "description": "Load daily bars for NYSE, AMEX, NASDAQ stocks plus quarterly income statement and balance sheet\nCalculate book-to-market ratio = total equity / (close * shares outstanding)\nFilter for positive B/M values, forward fill between reporting dates\nLong top decile (highest B/M = value stocks), short bottom decile (lowest B/M = growth stocks)\nEqual weight across all active positions, rebalance monthly",
-    "tags": {
-      "asset_class": [
-        "equities"
-      ],
-      "data_source": [
-        "earnings"
-      ],
-      "methodology": [
-        "factor",
-        "cross_sectional"
-      ],
-      "intraday": false
-    }
+    "name": "Value (Book-to-Market) Factor",
+    "type": "strategy",
+    "description": "Classic Fama-French value factor that goes long high book-to-market (value) stocks and shorts low book-to-market (growth) stocks.",
+    "requires_event_markers": false,
+    "requires_multi_assets": true,
+    "asset_universe": [],
+    "data_bundles": [
+      {
+        "type": "market_data",
+        "queries": [
+          "NYSE, AMEX, NASDAQ stocks"
+        ]
+      },
+      {
+        "type": "fundamentals",
+        "fields": [
+          "income_statement",
+          "balance_sheet"
+        ]
+      }
+    ],
+    "compute_hint": "finance_ratio(book_to_market) from total_equity, basic_shares, and close; filter for positive B/M; forward-fill",
+    "signal_hint": "cs_select top 10% by B/M (long - value) and bottom 10% (short - growth); monthly hold_until",
+    "execution_plugins": [],
+    "tags": [
+      "equities",
+      "value",
+      "factor",
+      "long-short",
+      "fundamentals"
+    ],
+    "requires_calendar_transforms": false,
+    "data_foundation": "normalized"
   }
 ]

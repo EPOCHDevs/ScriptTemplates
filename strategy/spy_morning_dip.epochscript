@@ -2,8 +2,8 @@
 # Entry: Buy at 9:45 when price is below 9:30 open
 # Exit: Sell at 10:30 (time-based)
 
-# Intraday 5-minute bars
-src = market_data_source(timeframe=5Min)()
+# Intraday 1-minute bars
+src = market_data_source(timeframe=1Min)()
 close = src.c
 
 # Day's open price (first bar of regular trading hours)
@@ -11,7 +11,7 @@ rth_sw = session_window(session=SessionType.EquityRTHSession)(src.o, src.h, src.
 day_open = rth_sw.open
 
 # 9:45-10:30 trading window
-trade_session = session_window(session=Session(start='09:45', end='10:30', tz='America/New_York'))()
+trade_session = session_window(session=Session(start='09:45', end='10:30', tz='America/New_York'))(src.o, src.h, src.l, src.c)
 
 # Entry signal: session opens AND price is down from open
 entry_signal = trade_session.opened and (trade_session.open < day_open)

@@ -1,21 +1,3 @@
-# =============================================================================
-# MAJOR U.S. INDEX PERFORMANCE PATH THIS YEAR
-# =============================================================================
-# Question: How are the major U.S. stock indices performing so far this year,
-#   and which index is leading or lagging?
-#
-# Chart: xy_lines
-#   - X-axis: Date (bar timestamp)
-#   - Y-axis: Cumulative Return (%)
-#   - Series: S&P 500 (SPY), Dow Jones (DIA), NASDAQ (QQQ)
-#   - Overlay: None
-#
-# Dataset: common_reference_stocks
-#   - common_reference_stocks(ticker=ReferenceStock.SPY)
-#   - common_reference_stocks(ticker=ReferenceStock.DIA)
-#   - common_reference_stocks(ticker=ReferenceStock.QQQ)
-# =============================================================================
-
 # Major U.S. Index Performance Path
 spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
 close = ffill(spy_c)

@@ -1,20 +1,3 @@
-# =============================================================================
-# MAJOR COUNTRY EQUITY PERFORMANCE IN 2025
-# =============================================================================
-# Question: How did major country equity markets perform in 2025, and which
-#   countries delivered the strongest and weakest returns?
-#
-# Chart: xy_bars
-#   - X-axis: Country (10 countries via ETF proxies)
-#   - Y-axis: YTD total return (percent)
-#   - Series: One bar per country showing cumulative return
-#   - Overlay: None
-#
-# Dataset:
-#   - market_data_source (SPY-Stocks, 1D)
-#   - reference_stocks (EWZ, EWA, EWJ, EWU, EWC, EWQ, EWG, FXI, INDA)
-# =============================================================================
-
 # Major Country Equity Performance in 2026
 src = market_data_source(timeframe=1D)()
 spy_c = src.c
@@ -66,6 +49,7 @@ china_cum = cumulative(agg=AggregationType.Sum)(china_ret)
 india_cum = cumulative(agg=AggregationType.Sum)(india_ret)
 
 xy_bars(
+    mode=BarMode.series,
     title='Major Country Equity Performance in 2026',
     category='1. Country Returns',
     agg=AggregationType.Last,

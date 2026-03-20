@@ -12,10 +12,17 @@ close = src.c
 bar_idx = index()
 
 # =============================================================================
-# CPI DATA & ACCELERATION LOGIC
+# CPI RELEASE DATE DETECTION (via economic_calendar)
 # =============================================================================
 
-cpi_data = common_economic_indicators(category=MacroEconomicsIndicator.CPI)()
+cpi_cal = economic_calendar(source=CalendarSource.FRED, release_id=10)()
+is_cpi_day = cpi_cal.is_released
+
+# =============================================================================
+# CPI DATA & ACCELERATION LOGIC (values still from economic_indicators)
+# =============================================================================
+
+cpi_data = economic_indicators(series_id='CPIAUCSL')()
 cpi_value = cpi_data.result
 had_cpi = is_valid(cpi_value)
 
@@ -27,9 +34,13 @@ cpi_change = cpi_value - prior_cpi
 prior2_cpi = valuewhen(occurrence=2)(had_cpi, cpi_value)
 prior_change = prior_cpi - prior2_cpi
 
-# Regime classification
-is_hot = had_cpi and is_valid(cpi_change) and is_valid(prior_change) and (cpi_change > prior_change)
-is_cool = had_cpi and is_valid(cpi_change) and is_valid(prior_change) and (cpi_change <= prior_change)
+# Forward-fill regime values so they're available on calendar release day
+cpi_change_filled = ffill(cpi_change)
+prior_change_filled = ffill(prior_change)
+
+# Regime classification: use is_cpi_day for timing, filled values for regime
+is_hot = is_cpi_day and is_valid(cpi_change_filled) and is_valid(prior_change_filled) and (cpi_change_filled > prior_change_filled)
+is_cool = is_cpi_day and is_valid(cpi_change_filled) and is_valid(prior_change_filled) and (cpi_change_filled <= prior_change_filled)
 
 # Counters
 hot_count = 1.0 if is_hot else 0.0
@@ -79,6 +90,7 @@ c_pre5 = where(is_cool, pre_5d)
 
 # --- Cards: event counts ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='CPI Events',
         row_size=1,
@@ -96,6 +108,7 @@ summary_table(
 
 # --- Chart 1: Day-of + Post-20d Return Snapshot ---
 xy_bars(
+    mode=BarMode.series,
     title='Hot CPI Pressures Bonds; Cool CPI Lifts Them',
     category='CPI Impact',
     agg=AggregationType.Mean,

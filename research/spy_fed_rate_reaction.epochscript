@@ -13,15 +13,18 @@ bar_idx = index()
 
 # =============================================================================
 # FED FUNDS DATA & REGIME CLASSIFICATION
+# No verified release_id for FEDFUNDS, so detect new data via is_valid on raw.
+# ffill() propagates the last known rate for downstream use.
 # =============================================================================
 
-fed_data = common_economic_indicators(category=MacroEconomicsIndicator.FedFunds)()
-fed_value = fed_data.result
-had_fed = is_valid(fed_value)
+fed_data = economic_indicators(series_id='FEDFUNDS')()
+fed_raw = fed_data.result
+fed_value = ffill(fed_raw)
+had_fed = is_valid(fed_raw)
 
 # Prior rate
-prior_fed = valuewhen(occurrence=1)(had_fed, fed_value)
-fed_change = fed_value - prior_fed
+prior_fed = valuewhen(occurrence=1)(had_fed, fed_raw)
+fed_change = fed_raw - prior_fed
 
 # Regime: >=20bps threshold filters daily noise from actual FOMC decisions
 is_hike = had_fed and is_valid(fed_change) and (fed_change >= 0.20)
@@ -73,6 +76,7 @@ c_pre5 = where(is_cut, pre_5d)
 
 # --- Cards: event counts ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='FOMC Events',
         row_size=1,
@@ -91,6 +95,7 @@ summary_table(
 
 # --- Chart 1: Day-of + Post-20d Return Snapshot ---
 xy_bars(
+    mode=BarMode.series,
     title='Hikes Drag SPY Short-Term; Cuts Provide Relief',
     category='Fed Impact',
     agg=AggregationType.Mean,

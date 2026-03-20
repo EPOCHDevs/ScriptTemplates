@@ -39,11 +39,13 @@ held_short = hold_until()(enter=enter_short, exit=exit_short)
 # long_and_short_zone handles direction: long for held_long, short for held_short
 long_and_short_zone()(long_entry=held_long, short_entry=held_short)
 
-# Equal weight across ALL active positions (both long and short)
-# position_size only takes magnitude; direction comes from long_and_short_zone
-is_active = held_long or held_short
-weights = equal_weight()(is_active)
+# Equal weight within each leg, merged with conditional_select
+long_weights = equal_weight()(held_long)
+short_weights = equal_weight()(held_short)
+merged_weight = conditional_select(held_long, long_weights, held_short, short_weights, 0)
 
 # Position sizing - ONLY rebalance on first trading day of month
 # Size is always positive; long_and_short_zone determines direction
-position_size(type=SizeType.percent)(size=weights * 100, rebalance_on=is_new_month)
+# Percent sizing: engine handles unit conversion for FX pairs at all price levels
+# Avoids NullOrNaN stake errors from notional sizing on low-priced pairs (e.g. JPYUSD ~$0.007)
+position_size(type=SizeType.percent)(size=merged_weight * 100, rebalance_on=is_new_month)

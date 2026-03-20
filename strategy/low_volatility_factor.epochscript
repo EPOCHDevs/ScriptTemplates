@@ -15,11 +15,11 @@ close = src.c
 
 # 3-year historical volatility (756 trading days)
 # volatility transform calculates annualized historical volatility
-vol_3y = volatility(period=756)(close)
+vol_3y = volatility(period=252)(close)
 
 # Cross-sectional selection: bottom 10% by volatility (lowest volatility stocks)
 # Using percent mode to select bottom decile
-is_low_vol = cs_select(direction=CSSelectDirection.bottom, mode=CSSelectMode.percent, k=10)(vol_3y)
+is_low_vol = cs_select(direction=CSSelectDirection.bottom, mode=CSSelectMode.count, k=3)(vol_3y)
 
 # Detect first trading day of month
 is_new_month = is_period_boundary(period=PeriodType.month)(index())

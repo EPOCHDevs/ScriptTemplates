@@ -92,6 +92,7 @@ margin_post10 = where(is_margin_contraction, post_10d)
 # =============================================================================
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='TSLA Event Breakdown',
         row_size=1,
@@ -109,6 +110,7 @@ summary_table(
 (sent_count, miss_count, margin_count)
 
 xy_bars(
+    mode=BarMode.series,
     title='Do Sentiment Shocks Reverse While Fundamental Damage Persists?',
     category='Sentiment vs Fundamentals',
     agg=AggregationType.Mean,
@@ -128,6 +130,7 @@ xy_bars(
 )(sent_post20, miss_post20, margin_post20)
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Return Profile by Event Type and Window',
         row_size=3,

@@ -1,19 +1,3 @@
-# =============================================================================
-# MOST YEARS SEE BIG GAINS OR BIG LOSSES
-# =============================================================================
-# Question: How do average gains in up years compare to average losses in down
-#   years for the S&P 500?
-#
-# Chart: xy_bars
-#   - X-axis: Up Year vs Down Year categories
-#   - Y-axis: Average annual return (percent)
-#   - Series: Average Up Year (blue), Average Down Year (white)
-#   - Overlay: Reference line at 0%
-#
-# Dataset:
-#   - market_data_source (SPY-Stocks, 1D)
-# =============================================================================
-
 # Most Years See Big Gains or Big Losses
 src = market_data_source(timeframe=1D)()
 close = src.c
@@ -31,6 +15,7 @@ up_ret = yr_ret if yr_ret > 0 else 0.0 / 0.0
 down_ret = yr_ret if yr_ret < 0 else 0.0 / 0.0
 
 xy_bars(
+    mode=BarMode.series,
     title='Most Years See Big Gains or Big Losses',
     category='1. Average Up and Down Year',
     agg=AggregationType.Mean,

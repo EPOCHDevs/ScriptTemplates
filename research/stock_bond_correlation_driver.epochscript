@@ -20,8 +20,8 @@ sbc = rolling_corr(window=252, window_type=WindowType.rolling, method=Correlatio
 
 # Inflation uncertainty: rolling 1-year vol of YoY CPI
 # CPI is monthly, so period=12 for YoY change, stddev over 12 months
-cpi_date, cpi_data, cpi_rev = common_economic_indicators(category=MacroEconomicsIndicator.CPI)()
-cpi_yoy = returns(period=12)(cpi_data)
+cpi_data_src = economic_indicators(series_id='CPIAUCSL')()
+cpi_yoy = returns(period=12)(cpi_data_src.result)
 inflation_vol = stddev(period=12)(cpi_yoy)
 
 # Regime classification: above/below median inflation uncertainty
@@ -57,6 +57,7 @@ xy_scatter(
 
 # Chart 2: Regime bars — the verdict
 xy_bars(
+    mode=BarMode.series,
     title='Inflation Uncertainty Drives the Diversification Breakdown',
     category='Inflation Driver',
     agg=AggregationType.Mean,

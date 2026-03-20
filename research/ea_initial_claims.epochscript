@@ -1,22 +1,6 @@
-# =============================================================================
-# JOB LOSS IN THE UNITED STATES
-# =============================================================================
-# Question: What do initial unemployment claims tell us about the current state
-#   of the U.S. labor market, and how do they compare historically?
-#
-# Chart: xy_lines
-#   - X-axis: Date (bar timestamp)
-#   - Y-axis: Thousands of Persons (initial unemployment claims)
-#   - Series: Initial Unemployment Claims (weekly ICSA data)
-#   - Overlay: None
-#
-# Dataset: economic_indicators
-#   - economic_indicators(series_id='ICSA') - Initial Claims from FRED
-# =============================================================================
-
 # Job Loss in the United States - Initial Claims
-claims_obs, claims_val, claims_rev = economic_indicators(series_id='ICSA', use_alfred=False)()
-claims_thousands = ffill(claims_val) / 1000
+claims_src = economic_indicators(series_id='ICSA')()
+claims_thousands = ffill(claims_src.result) / 1000
 
 bar_ts = index()
 

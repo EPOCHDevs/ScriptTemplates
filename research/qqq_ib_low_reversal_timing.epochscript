@@ -70,6 +70,7 @@ fri_wr = win_rate_triggered if dow == 4 else 0.0 / 0.0
 
 # --- Chart 1: Stacked Wins vs Losses by Day of Week ---
 xy_bars(
+    mode=BarMode.series,
     title='Triggered Days Are Evenly Spread Across the Week',
     category='Timing',
     agg=AggregationType.Sum,
@@ -85,6 +86,7 @@ xy_bars(
 
 # --- Chart 2: Win Rate by Day of Week ---
 xy_bars(
+    mode=BarMode.series,
     title='Monday Reversals Succeed Most Often at 54%',
     category='Timing',
     agg=AggregationType.Mean,

@@ -29,12 +29,10 @@ balance = balance_sheet(period=ReportingPeriod.quarterly)()
 # B/M = Book Value (total_equity) / Market Cap (close * basic_shares)
 book_to_market = finance_ratio(ratio_type=FinanceRatioType.book_to_market, period=ReportingPeriod.quarterly)(c=close, basic_shares=income_stmt.basic_shares, total_equity=balance.total_equity)
 
-# Filter for valid B/M values (positive)
-bm_valid = book_to_market > 0
-book_to_market_filtered = where(bm_valid, book_to_market)
-
 # Forward fill to handle gaps between data updates
-book_to_market_filled = ffill(book_to_market_filtered)
+book_to_market_filled = ffill(book_to_market)
+
+# Visualize B/M ratio
 
 # =============================================================================
 # CROSS-SECTIONAL SELECTION

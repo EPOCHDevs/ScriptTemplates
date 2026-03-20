@@ -1,20 +1,3 @@
-# =============================================================================
-# BOND VS STOCK HISTORICAL DRAWDOWNS
-# =============================================================================
-# Question: How do the worst drawdowns in bonds compare to the worst drawdowns
-#   in stocks over the same time period?
-#
-# Chart: xy_lines
-#   - X-axis: Date (timestamp index)
-#   - Y-axis: Maximum drawdown (percent)
-#   - Series: Bonds / Bloomberg Agg (sky), Stocks / S&P 500 (blue)
-#   - Overlay: Reference line at 0%
-#
-# Dataset:
-#   - market_data_source (SPY-Stocks, 1D)
-#   - common_reference_stocks (AGG)
-# =============================================================================
-
 # Bond vs Stock Historical Drawdowns
 src = market_data_source(timeframe=1D)()
 close = src.c

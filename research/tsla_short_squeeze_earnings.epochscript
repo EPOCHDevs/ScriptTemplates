@@ -93,6 +93,7 @@ ev_post20 = where(had_earnings, post_20d)
 # =============================================================================
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='TSLA Short Squeeze Setup',
         row_size=1,
@@ -109,6 +110,7 @@ summary_table(
 (earnings_count, hsb_count)
 
 xy_bars(
+    mode=BarMode.series,
     title='Does High Short Interest Amplify Post-Earnings Drift?',
     category='Short Squeeze',
     agg=AggregationType.Mean,
@@ -129,6 +131,7 @@ xy_bars(
 )(hsb_post20, lsb_post20, hsm_post20, lsm_post20)
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Return Profile by SI Regime and Window',
         row_size=4,

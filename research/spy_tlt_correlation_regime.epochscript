@@ -25,8 +25,8 @@ uup_src = reference_stocks(ticker='UUP')()
 close_uup = uup_src.c
 
 # VIX via FRED (VIXCLS) — full history from 1990
-vix_date, vix_raw, vix_rev = common_economic_indicators(category=MacroEconomicsIndicator.VIX)()
-close_vix = ffill(vix_raw)
+vix_src = economic_indicators(series_id='VIXCLS')()
+close_vix = ffill(vix_src.result)
 
 idx = index()
 
@@ -118,6 +118,7 @@ corr_negative = where(corr_60d < 0, corr_60d)
 
 # --- Main Summary Table ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Correlation Flip Impact (Neg to Pos)',
         row_size=3,
@@ -176,6 +177,7 @@ xy_lines(
 
 # --- Era Comparison Summary Table ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Era Comparison: Correlation Flip Response',
         row_size=3,

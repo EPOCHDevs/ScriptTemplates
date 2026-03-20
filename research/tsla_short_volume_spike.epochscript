@@ -70,6 +70,7 @@ ev_post20 = where(is_spike, post_20d)
 # =============================================================================
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='TSLA Short Volume Spikes',
         row_size=1,
@@ -86,6 +87,7 @@ summary_table(
 (bull_count, bear_count)
 
 xy_bars(
+    mode=BarMode.series,
     title='Does TSLA Reverse After Short Volume Spikes?',
     category='Short Volume Spike',
     agg=AggregationType.Mean,
@@ -104,6 +106,7 @@ xy_bars(
 )(bull_post20, bear_post20)
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Return Profile by Context and Window',
         row_size=2,

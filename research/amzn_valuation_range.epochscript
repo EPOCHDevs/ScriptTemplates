@@ -5,10 +5,6 @@
 #
 # Chart 1: Histogram — P/E distribution (shape)
 # Chart 2: Summary table — key stats (median, current, min, max, mean)
-#
-# Dataset:
-#   - market_data_source (AMZN-Stocks, 1D)
-#   - income_statement (TTM)
 # =============================================================================
 
 src = market_data_source(timeframe=1D)()
@@ -38,6 +34,7 @@ histogram(
 
 # --- Chart 2: Summary Stats ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='P/E Distribution Stats',
         row_size=5,

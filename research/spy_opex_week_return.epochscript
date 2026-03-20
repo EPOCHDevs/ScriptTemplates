@@ -51,6 +51,7 @@ opex_count = 1.0 if is_opex else 0.0
 
 # --- Cards: stats not visible on charts ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='OPEX Week Overview',
         row_size=1,
@@ -68,6 +69,7 @@ summary_table(
 
 # --- Chart 1: Avg OPEX Week Return by Quarter ---
 xy_bars(
+    mode=BarMode.labeled,
     title='Which Quarter Has the Strongest OPEX Week Bias?',
     category='Seasonality',
     agg=AggregationType.Mean,
@@ -84,6 +86,7 @@ xy_bars(
 
 # --- Chart 2: Total OPEX Week Return by Year ---
 xy_bars(
+    mode=BarMode.labeled,
     title='Does the OPEX Effect Show Up Every Year?',
     category='Seasonality',
     agg=AggregationType.Sum,

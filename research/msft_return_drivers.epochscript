@@ -4,14 +4,6 @@
 # Decompose total return into: Earnings Growth + Rate Impact + Sentiment
 # Identity: Price = EPS x P/E -> log return = d(ln EPS) + d(ln P/E)
 # d(ln P/E) further split: beta x d(yield) + residual
-#
-# Chart 1: xy_bars — snapshot of each driver's contribution
-# Chart 2: xy_lines — cumulative attribution over time
-#
-# Dataset:
-#   - market_data_source (MSFT-Stocks, 1D)
-#   - income_statement (TTM)
-#   - economic_indicators (DFII10 — 10Y TIPS real yield)
 # =============================================================================
 
 src = market_data_source(timeframe=1D)()
@@ -52,6 +44,7 @@ bar_ts = index()
 
 # Bar chart: snapshot — how much did each driver contribute?
 xy_bars(
+    mode=BarMode.series,
     title='How Much Did Each Driver Contribute to MSFT Returns?',
     category='Return Attribution',
     agg=AggregationType.Last,

@@ -49,6 +49,7 @@ eve_bar = ev_ebitda if is_valid(ev_ebitda) else 0.0
 # =============================================================================
 
 cs_bars(
+    mode=CSBarMode.grouped,
     title='Valuation Multiples at a Glance',
     category='Valuation Snapshot',
     agg=AggregationType.Last,

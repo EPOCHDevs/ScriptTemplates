@@ -1,15 +1,15 @@
 # SMA Crossover Strategy - Multi-Asset (Futures + Stocks + Crypto + FX)
 # 50/200 SMA crossover on continuation-adjusted prices
 # Long when fast SMA > slow SMA, flat otherwise
-# Equal weight allocation across active assets
+# ATR-based risk sizing: 2% equity risk per trade, 3x ATR(14) stop distance
 # Universe: ES, NQ, CL, GC, SI, NG, SPY, BTC, ETH, EURUSD, GBPUSD
 
 # Raw contract data
-src = market_data_source(timeframe=1D)()
+src = market_data_source()()
 
 # Continuation series (BackwardPanamaCanal + FirstOfMonth)
 # Passthrough for stocks/crypto/FX - returns data as-is when no contract chain
-cont = futures_continuation(timeframe=1D, s_rollover_method=RolloverType.FirstOfMonth, s_adjustment_method=AdjustmentType.BackwardPanamaCanal)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+cont = futures_continuation(s_rollover_method=RolloverType.FirstOfMonth, s_adjustment_method=AdjustmentType.BackwardPanamaCanal)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
 close = cont.c
 
 # Fast (50-day) and Slow (200-day) SMA
@@ -23,14 +23,15 @@ is_bearish = fast_sma < slow_sma
 # Hold position between crossover events
 held = hold_until()(enter=is_bullish, exit=is_bearish)
 
-# Equal weight allocation (1/N across active assets)
-weights = equal_weight()(active_mask=held)
-
 # Contract selection - wire front contract to rollover policy
 rollover_policy()(active=cont.s)
 
 # Execution - long only
 long_and_short_zone()(long_entry=held)
 
-# Size as percent of equity based on equal weight
-position_size(type=SizeType.percent)(size=weights.weight * 100)
+# ATR-based risk sizing for futures
+# 2% equity risk per trade, 3x ATR(14) stop distance
+# Engine calculates: contracts = risk_dollars / (ATR * multiplier * atr_mult)
+# Naturally handles all contract multipliers (ES=$50, CL=$1000, etc.)
+atr_val = atr(period=14)(cont.h, cont.l, cont.c)
+risk_unit()(risk_pct=2, stop_distance=atr_val * 3)

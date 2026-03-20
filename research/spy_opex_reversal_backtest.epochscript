@@ -62,6 +62,7 @@ short_flag = 1.0 if enter_short else 0.0
 
 # --- Cards ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='OPEX Reversal Backtest',
         row_size=1,

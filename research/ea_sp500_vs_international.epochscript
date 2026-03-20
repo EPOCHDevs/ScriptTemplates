@@ -1,20 +1,3 @@
-# =============================================================================
-# CYCLES OF INTERNATIONAL VS U.S. PERFORMANCE
-# =============================================================================
-# Question: Do international stocks and U.S. stocks take turns outperforming
-#   each other, and what is the current trend?
-#
-# Chart: xy_lines
-#   - X-axis: Date (timestamp index)
-#   - Y-axis: 1Y rolling return spread (International minus U.S., percent)
-#   - Series: International outperforming (blue area), U.S. outperforming (gray area)
-#   - Overlay: Reference line at 0%
-#
-# Dataset:
-#   - market_data_source (SPY-Stocks, 1D)
-#   - reference_stocks (EFA)
-# =============================================================================
-
 # Cycles of International vs U.S. Performance
 src = market_data_source(timeframe=1D)()
 close = src.c

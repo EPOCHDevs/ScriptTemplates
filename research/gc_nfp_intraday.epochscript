@@ -17,26 +17,23 @@ high = cont.h
 low = cont.l
 open_price = cont.o
 
-# === NFP DAY DETECTION ===
-nfp_data = common_economic_indicators(category=MacroEconomicsIndicator.NonfarmPayrolls)()
-nfp_value = nfp_data.result
-nfp_filled = ffill_day(nfp_value)
-is_nfp_day = is_valid(nfp_filled)
+# === NFP RELEASE DATE DETECTION (via economic_calendar) ===
+nfp_cal = economic_calendar(source=CalendarSource.FRED, release_id=50)()
+is_nfp_day = nfp_cal.is_released
 
-# === FRIDAY DETECTION ===
+# === NFP VALUES (still from economic_indicators) ===
+nfp_data = economic_indicators(series_id='PAYEMS')()
+nfp_value = ffill(nfp_data.result)
 bar_idx = index()
-day_of_week = datetime_extract(component=DatetimeExtractionType.day_of_week)(bar_idx)
-is_friday = day_of_week == 4
-is_nfp_friday = is_nfp_day and is_friday
 
 # === NFP CHANGE & REGIME CLASSIFICATION ===
-had_nfp = is_valid(nfp_value)
-prior_nfp_raw = valuewhen(occurrence=1)(had_nfp, nfp_value)
-nfp_change_raw = nfp_value - prior_nfp_raw
-nfp_change = ffill_day(nfp_change_raw)
+had_nfp = is_valid(nfp_data.result)
+prior_nfp_raw = valuewhen(occurrence=1)(had_nfp, nfp_data.result)
+nfp_change_raw = nfp_data.result - prior_nfp_raw
+nfp_change = ffill(nfp_change_raw)
 
-is_strong = is_nfp_friday and is_valid(nfp_change) and (nfp_change > 200.0)
-is_weak = is_nfp_friday and is_valid(nfp_change) and (nfp_change < 100.0)
+is_strong = is_nfp_day and is_valid(nfp_change) and (nfp_change > 200.0)
+is_weak = is_nfp_day and is_valid(nfp_change) and (nfp_change < 100.0)
 
 # === SESSION WINDOWS ===
 
@@ -97,6 +94,7 @@ weak_em_full = where(w_full.closed and is_weak, r_full)
 
 # --- Cards: event counts ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='NFP Intraday Events',
         row_size=1,
@@ -114,6 +112,7 @@ summary_table(
 
 # --- Chart 1: Return by Window (Spike → Digestion → Persistence) ---
 xy_bars(
+    mode=BarMode.series,
     title='Strong NFP Hits Gold Fast; Does the Weak NFP Lift Persist?',
     category='NFP Intraday',
     agg=AggregationType.Mean,

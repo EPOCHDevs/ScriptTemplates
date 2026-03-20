@@ -1,34 +1,17 @@
-# =============================================================================
-# TRENDS IN CONSUMPTION
-# =============================================================================
-# Question: What do the headline and core PCE inflation measures indicate about
-#   current consumer-level inflationary pressures?
-#
-# Chart: xy_lines
-#   - X-axis: Date (bar timestamp)
-#   - Y-axis: YoY Change (%) in PCE Price Index
-#   - Series: Headline PCE, Core PCE
-#   - Overlay: None
-#
-# Dataset: common_economic_indicators
-#   - common_economic_indicators(category=MacroEconomicsIndicator.PCE)
-#   - common_economic_indicators(category=MacroEconomicsIndicator.CorePCE)
-# =============================================================================
-
 # Trends in Consumption - PCE Inflation
 # YoY change in PCE and Core PCE
 
-pce_obs, pce_val, pce_rev = common_economic_indicators(category=MacroEconomicsIndicator.PCE)()
-core_obs, core_val, core_rev = common_economic_indicators(category=MacroEconomicsIndicator.CorePCE)()
+pce_src = economic_indicators(series_id='PCEPI')()
+core_src = economic_indicators(series_id='PCEPILFE')()
 
-had_pce = is_valid(pce_val)
-had_core = is_valid(core_val)
+had_pce = is_valid(pce_src.result)
+had_core = is_valid(core_src.result)
 
-pce_filled = ffill(pce_val)
-core_filled = ffill(core_val)
+pce_filled = ffill(pce_src.result)
+core_filled = ffill(core_src.result)
 
-pce_12m_ago = valuewhen(occurrence=12)(had_pce, pce_val)
-core_12m_ago = valuewhen(occurrence=12)(had_core, core_val)
+pce_12m_ago = valuewhen(occurrence=12)(had_pce, pce_src.result)
+core_12m_ago = valuewhen(occurrence=12)(had_core, core_src.result)
 
 pce_yoy = (pce_filled - ffill(pce_12m_ago)) / ffill(pce_12m_ago)
 core_yoy = (core_filled - ffill(core_12m_ago)) / ffill(core_12m_ago)

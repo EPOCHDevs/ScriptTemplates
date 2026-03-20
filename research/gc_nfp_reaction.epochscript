@@ -12,20 +12,28 @@ close = src.c
 bar_idx = index()
 
 # =============================================================================
-# NFP DATA & CLASSIFICATION
+# NFP RELEASE DATE DETECTION (via economic_calendar)
 # =============================================================================
 
-nfp_data = common_economic_indicators(category=MacroEconomicsIndicator.NonfarmPayrolls)()
+nfp_cal = economic_calendar(source=CalendarSource.FRED, release_id=50)()
+is_nfp_day = nfp_cal.is_released
+
+# =============================================================================
+# NFP DATA & CLASSIFICATION (values still from economic_indicators)
+# =============================================================================
+
+nfp_data = economic_indicators(series_id='PAYEMS')()
 nfp_value = nfp_data.result
 had_nfp = is_valid(nfp_value)
 
 # NFP change from prior release
 prior_nfp = valuewhen(occurrence=1)(had_nfp, nfp_value)
 nfp_change = nfp_value - prior_nfp
+nfp_change_filled = ffill(nfp_change)
 
-# Regime classification
-is_strong = had_nfp and is_valid(prior_nfp) and (nfp_change > 200.0)
-is_weak = had_nfp and is_valid(prior_nfp) and (nfp_change < 100.0)
+# Regime classification: use is_nfp_day for timing, filled change for regime
+is_strong = is_nfp_day and is_valid(nfp_change_filled) and (nfp_change_filled > 200.0)
+is_weak = is_nfp_day and is_valid(nfp_change_filled) and (nfp_change_filled < 100.0)
 
 # Counters
 strong_count = 1.0 if is_strong else 0.0
@@ -73,6 +81,7 @@ s_pre5 = where(is_strong, pre_5d)
 
 # --- Cards: event counts (not on any chart) ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='NFP Events',
         row_size=1,
@@ -90,6 +99,7 @@ summary_table(
 
 # --- Chart 1: Day-of + Post-20d Return Snapshot ---
 xy_bars(
+    mode=BarMode.series,
     title='Strong NFP Pressures Gold; Weak NFP Lifts It',
     category='NFP Impact',
     agg=AggregationType.Mean,

@@ -77,6 +77,7 @@ ev_post20 = where(had_filing, post_20d)
 
 # --- Cards: sample size (not on any chart) ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='AAPL Gross Margin Drift',
         row_size=1,
@@ -94,6 +95,7 @@ summary_table(
 
 # --- Chart 1: The Verdict — avg post-20d return by regime ---
 xy_bars(
+    mode=BarMode.series,
     title='Does Margin Expansion Predict Stronger Post-Filing Drift?',
     category='Gross Margin Drift',
     agg=AggregationType.Mean,
@@ -113,6 +115,7 @@ xy_bars(
 
 # --- Chart 2: Detailed window breakdown ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Return Profile by Margin Regime and Window',
         row_size=2,

@@ -1,21 +1,3 @@
-# =============================================================================
-# MAJOR U.S. INDEX PERFORMANCE IN 2025
-# =============================================================================
-# Question: What were the total returns for the S&P 500, Dow, and NASDAQ
-#   Composite for the full year 2025?
-#
-# Chart: xy_bars
-#   - X-axis: Index name (categorical bars)
-#   - Y-axis: 2025 Total Return (%)
-#   - Series: S&P 500 Return YTD, Dow Jones Return YTD, Nasdaq Composite Return YTD
-#   - Overlay: None
-#
-# Dataset: market_data_source, common_reference_stocks
-#   - market_data_source (SPY as primary asset)
-#   - common_reference_stocks(ticker=ReferenceStock.DIA)
-#   - common_reference_stocks(ticker=ReferenceStock.QQQ)
-# =============================================================================
-
 # Major U.S. Index Performance 2025
 src = market_data_source(timeframe=1D)()
 close = src.c
@@ -38,6 +20,7 @@ qqq_ret = (qqq - qqq_first) / qqq_first
 bar_ts = index()
 
 xy_bars(
+    mode=BarMode.series,
     title='Major U.S. Index Performance in 2025',
     category='1. Index Performance',
     agg=AggregationType.Last,

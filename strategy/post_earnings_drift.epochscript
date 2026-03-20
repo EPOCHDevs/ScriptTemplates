@@ -42,7 +42,7 @@ surprise_filled = ffill(surprise_pct)
 # =============================================================================
 
 # Only consider stocks within 60-day holding window after announcement
-in_holding_window = is_valid(bars_since_earnings) and bars_since_earnings <= 60
+in_holding_window = bars_since_earnings <= 60
 
 # Apply valid price filter
 eligible = valid_price and in_holding_window
@@ -55,6 +55,13 @@ is_top_decile = cs_select(direction=CSSelectDirection.top, mode=CSSelectMode.per
 
 # Bottom 10% by surprise (negative surprise - go SHORT)
 is_bottom_decile = cs_select(direction=CSSelectDirection.bottom, mode=CSSelectMode.percent, k=10)(eligible_surprise)
+
+# =============================================================================
+# VISUALIZATIONS
+# =============================================================================
+
+top_float = 1.0 if is_top_decile else 0.0
+bot_float = -1.0 if is_bottom_decile else 0.0
 
 # Apply eligibility filter to decile selections
 is_long = is_top_decile and eligible

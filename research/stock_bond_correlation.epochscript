@@ -12,11 +12,11 @@ tlt_src = reference_stocks(ticker='TLT')()
 close_tlt = tlt_src.c
 
 # Weekly returns
-ret_spy = returns(period=1)(close_spy)
-ret_tlt = returns(period=1)(close_tlt)
+ret_spy = returns(period=5)(close_spy)
+ret_tlt = returns(period=5)(close_tlt)
 
 # 2-year rolling correlation (104 weeks)
-sbc = rolling_corr(window=104, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_tlt)
+sbc = rolling_corr(window=252, window_type=WindowType.rolling, method=CorrelationMethod.pearson)(x=ret_spy, y=ret_tlt)
 
 # Split into positive and negative for area fill
 corr_positive = where(sbc >= 0, sbc)

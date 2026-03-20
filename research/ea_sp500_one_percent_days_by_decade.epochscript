@@ -1,19 +1,3 @@
-# =============================================================================
-# A DECADE'S WORTH OF VOLATILITY IN THE 2020S
-# =============================================================================
-# Question: How does the frequency of large daily moves in the S&P 500 during
-#   the 2020s compare to prior decades?
-#
-# Chart: xy_bars
-#   - X-axis: Decade (1950, 1960, ... 2020)
-#   - Y-axis: Total count of 1%+ daily moves (up or down)
-#   - Series: Count of 1%+ days per decade (blue bars)
-#   - Overlay: None
-#
-# Dataset:
-#   - common_reference_stocks (SPY)
-# =============================================================================
-
 # A Decade's Worth of Volatility In The 2020s
 spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
 close = ffill(spy_c)
@@ -31,6 +15,7 @@ year_num = datetime_extract(component=DatetimeExtractionType.year)(index())
 decade = year_num - (year_num % 10.0)
 
 xy_bars(
+    mode=BarMode.series,
     title='Total # of 1% Up and 1% Down Days in the S&P 500 by Decade',
     category='1. Volatility by Decade',
     agg=AggregationType.Sum,

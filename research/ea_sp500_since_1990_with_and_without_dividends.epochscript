@@ -1,20 +1,3 @@
-# =============================================================================
-# THE IMPORTANCE OF DIVIDENDS
-# =============================================================================
-# Question: How much of an impact do reinvested dividends have on long-term
-#   S&P 500 investment returns?
-#
-# Chart: xy_lines
-#   - X-axis: Date (timestamp index)
-#   - Y-axis: Growth of $1 in the S&P 500 (monetary format)
-#   - Series: With Dividends Reinvested (blue), Price Only (gray)
-#   - Overlay: None
-#
-# Dataset:
-#   - market_data_source (SPY-Stocks, 1D)
-#   - dividends (SPY split-adjusted cash amounts)
-# =============================================================================
-
 # The Importance of Dividends
 src = market_data_source()()
 close = src.c

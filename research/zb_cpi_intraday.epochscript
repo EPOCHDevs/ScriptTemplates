@@ -17,20 +17,20 @@ high = cont.h
 low = cont.l
 open_price = cont.o
 
-# === CPI DAY DETECTION ===
-cpi_data = common_economic_indicators(category=MacroEconomicsIndicator.CPI)()
-cpi_value = cpi_data.result
-cpi_filled = ffill_day(cpi_value)
-is_cpi_day = is_valid(cpi_filled)
+# === CPI RELEASE DATE DETECTION (via economic_calendar) ===
+cpi_cal = economic_calendar(source=CalendarSource.FRED, release_id=10)()
+is_cpi_day = cpi_cal.is_released
 
-# === CPI REGIME CLASSIFICATION ===
+# === CPI VALUES & REGIME CLASSIFICATION (still from economic_indicators) ===
+cpi_data = economic_indicators(series_id='CPIAUCSL')()
+cpi_value = cpi_data.result
 had_cpi = is_valid(cpi_value)
 prior_cpi = valuewhen(occurrence=1)(had_cpi, cpi_value)
 cpi_change = cpi_value - prior_cpi
 prior2_cpi = valuewhen(occurrence=2)(had_cpi, cpi_value)
 prior_change = prior_cpi - prior2_cpi
-cpi_chg_filled = ffill_day(cpi_change)
-prior_chg_filled = ffill_day(prior_change)
+cpi_chg_filled = ffill(cpi_change)
+prior_chg_filled = ffill(prior_change)
 
 is_hot = is_cpi_day and is_valid(cpi_chg_filled) and is_valid(prior_chg_filled) and (cpi_chg_filled > prior_chg_filled)
 is_cool = is_cpi_day and is_valid(cpi_chg_filled) and is_valid(prior_chg_filled) and (cpi_chg_filled <= prior_chg_filled)
@@ -94,6 +94,7 @@ cool_em_full = where(w_full.closed and is_cool, r_full)
 
 # --- Cards: event counts ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='CPI Intraday Events',
         row_size=1,
@@ -111,6 +112,7 @@ summary_table(
 
 # --- Chart 1: Return by Window (Spike → Digestion → Persistence) ---
 xy_bars(
+    mode=BarMode.series,
     title='Hot CPI Hits Bonds Fast; Does Cool CPI Relief Persist?',
     category='CPI Intraday',
     agg=AggregationType.Mean,

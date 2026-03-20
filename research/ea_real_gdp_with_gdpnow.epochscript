@@ -1,33 +1,19 @@
-# =============================================================================
-# HOW IS THE U.S. ECONOMY PERFORMING?
-# =============================================================================
-# Question: What has the recent trajectory of U.S. GDP growth looked like, and
-#   what does the Atlanta Fed's GDPNow model forecast for upcoming quarters?
-#
-# Chart: xy_bars
-#   - X-axis: Quarter-year labels (YYYYQ format, CategoryAxisType.QuarterYear)
-#   - Y-axis: Quarterly Real GDP annualized growth rate (percent)
-#   - Series: Quarterly Real GDP Annualized (Blue bars)
-#   - Overlay: Reference line at 0%
-#
-# Dataset:
-#   - economic_indicators (A191RL1Q225SBEA - BEA GDP growth rate)
-# =============================================================================
-
 # How is the U.S. Economy Performing?
 
 # BEA-published annualized quarterly GDP growth rate (FRED A191RL1Q225SBEA)
-gdp_obs, gdp_val, gdp_rev = economic_indicators(series_id='A191RL1Q225SBEA', use_alfred=True)()
+gdp_src = economic_indicators(series_id='A191RL1Q225SBEA')()
 
 # GDP rate: already in percent, convert to decimal for PercentFormat display
-gdp_rate = gdp_val / 100
+gdp_rate = gdp_src.result / 100
 
 # Quarter-year label: YYYYQ format (e.g., 20241 = Q1 '24)
-gdp_year = datetime_extract(component=DatetimeExtractionType.year)(gdp_obs)
-gdp_q = datetime_extract(component=DatetimeExtractionType.quarter)(gdp_obs)
+gdp_idx = index()
+gdp_year = datetime_extract(component=DatetimeExtractionType.year)(gdp_idx)
+gdp_q = datetime_extract(component=DatetimeExtractionType.quarter)(gdp_idx)
 gdp_label = gdp_year * 10 + gdp_q
 
 xy_bars(
+    mode=BarMode.series,
     title='How is the U.S. Economy Performing?',
     category='1. GDP Growth',
     agg=AggregationType.Last,

@@ -1,21 +1,3 @@
-# =============================================================================
-# MAJOR U.S. INDEX PERFORMANCE PATH IN 2025
-# =============================================================================
-# Question: How did the major U.S. stock indices perform over the course of
-#   2025, and what was the trajectory of their returns?
-#
-# Chart: xy_lines
-#   - X-axis: Date (bar timestamp)
-#   - Y-axis: Total Return Path (%)
-#   - Series: S&P 500, Dow Jones Industrial Average, NASDAQ Composite
-#   - Overlay: None
-#
-# Dataset: market_data_source, common_reference_stocks
-#   - market_data_source (SPY as primary asset)
-#   - common_reference_stocks(ticker=ReferenceStock.DIA)
-#   - common_reference_stocks(ticker=ReferenceStock.QQQ)
-# =============================================================================
-
 # Major U.S. Index Performance Path 2025
 src = market_data_source(timeframe=1D)()
 close = src.c

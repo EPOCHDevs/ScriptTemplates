@@ -73,6 +73,7 @@ cum_win_rate = cum_win_rate_raw if is_valid(cum_win_rate_raw) else 0.0 / 0.0
 
 # --- Cards: summary stats not on the chart ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='IB Low Reversal',
         row_size=1,

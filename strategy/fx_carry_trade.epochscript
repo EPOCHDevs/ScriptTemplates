@@ -16,15 +16,14 @@
 # N6 = New Zealand Dollar, S6 = Swiss Franc
 
 # Data source - DAILY
-src = market_data_source(timeframe=1D)()
+src = market_data_source()()
 
 # Continuous contract (passthrough for non-futures)
-cont = futures_continuation(timeframe=1D, s_rollover_method=RolloverType.FirstOfMonth, s_adjustment_method=AdjustmentType.BackwardPanamaCanal)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
+cont = futures_continuation(s_rollover_method=RolloverType.FirstOfMonth, s_adjustment_method=AdjustmentType.BackwardPanamaCanal)(src.o, src.h, src.l, src.c, src.v, src.oi, src.s)
 close = cont.c
 
 # Load 3-month interbank rates from FRED for each country
 # OECD 3-Month Interbank Rates (Monthly)
-# Use .result accessor to avoid observation_date type issues in join
 ir_aud_src = economic_indicators(series_id="IR3TIB01AUM156N")()
 ir_gbp_src = economic_indicators(series_id="IR3TIB01GBM156N")()
 ir_cad_src = economic_indicators(series_id="IR3TIB01CAM156N")()

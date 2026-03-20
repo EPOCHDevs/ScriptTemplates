@@ -1,31 +1,29 @@
-# =============================================================================
-# RETAIL SALES
-# =============================================================================
-# Question: How have monthly retail sales been trending, and what does the
-#   recent data suggest about consumer spending strength?
-#
-# Chart: xy_bars
-#   - X-axis: Month (CategoryAxisType.Month)
-#   - Y-axis: Month-over-month percentage change in retail sales
-#   - Series: Month-Over-Month % (Blue bars, color by value)
-#   - Overlay: Reference line at 0%
-#
-# Dataset:
-#   - common_economic_indicators (RetailSales)
-# =============================================================================
-
 # Retail Sales - MoM % Change
-rs_obs, rs_val, rs_rev = common_economic_indicators(category=MacroEconomicsIndicator.RetailSales)()
-had_rs = is_valid(rs_val)
+# Use economic_calendar for release date detection, economic_indicators for values.
+
+# === RELEASE DATE DETECTION ===
+rs_cal = economic_calendar(source=CalendarSource.FRED, release_id=46)()
+is_rs_day = rs_cal.is_released
+
+# === VALUES (still from economic_indicators) ===
+rs_src = economic_indicators(series_id='RSAFS')()
+had_rs = is_valid(rs_src.result)
 
 # MoM change (only valid on release dates)
-prior_rs = valuewhen(occurrence=1)(had_rs, rs_val)
-rs_mom = (rs_val - prior_rs) / prior_rs
+prior_rs = valuewhen(occurrence=1)(had_rs, rs_src.result)
+rs_mom_raw = (rs_src.result - prior_rs) / prior_rs
+rs_mom_filled = ffill(rs_mom_raw)
 
-# Data month from observation date (only valid on release dates, not forward-filled)
-data_month = datetime_extract(component=DatetimeExtractionType.month, timezone='America/New_York')(rs_obs)
+# Use calendar release day for the MoM value
+rs_mom = where(is_rs_day, rs_mom_filled)
+
+# Data month from release date
+rs_idx = index()
+data_month_raw = datetime_extract(component=DatetimeExtractionType.month, timezone='America/New_York')(rs_idx)
+data_month = where(is_rs_day, data_month_raw)
 
 xy_bars(
+    mode=BarMode.series,
     title='Retail Sales Advance Month-Over-Month (%)',
     category='1. Consumer',
     agg=AggregationType.Last,

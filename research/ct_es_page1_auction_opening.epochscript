@@ -137,6 +137,7 @@ opens_within_pvalue = where(rth_valid, (1.0 if (rth_sw.open >= prev_val and rth_
 # =============================================================================
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Auction',
         row_size=3,
@@ -153,6 +154,7 @@ summary_table(
 )(neutral_day_rate, neutral_follows_neutral, neutral_extreme)
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Opening Location',
         row_size=6,
@@ -175,6 +177,6 @@ summary_table(
 # REPORTERS — Harmonic Rotation Histograms
 # =============================================================================
 
-histogram(title='Up Rotations', bins=80, x_axis_label='Points', y_axis_label='Frequency', category='CT Market Statistics')(up_rotation)
+histogram(title='Up Rotations', bins=80, fill_color=Color.Green, x_axis_label='Points', x_axis_format=AxisValueFormat.DecimalFormat, y_axis_label='Frequency', category='CT Market Statistics')(up_rotation)
 
-histogram(title='Down Rotations', bins=80, x_axis_label='Points', y_axis_label='Frequency', category='CT Market Statistics')(down_rotation)
+histogram(title='Down Rotations', bins=80, fill_color=Color.Red, x_axis_label='Points', x_axis_format=AxisValueFormat.DecimalFormat, y_axis_label='Frequency', category='CT Market Statistics')(down_rotation)

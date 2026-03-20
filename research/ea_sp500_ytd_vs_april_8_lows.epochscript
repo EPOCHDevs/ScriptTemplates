@@ -1,20 +1,3 @@
-# =============================================================================
-# STAYING THE COURSE WORKED IN 2025
-# =============================================================================
-# Question: What was the cost of selling at the April 2025 lows versus staying
-#   invested across different equity categories?
-#
-# Chart: xy_bars
-#   - X-axis: Equity category (Emerging Markets, Developed Markets, U.S. Large Cap, U.S. Mid Cap, U.S. Small Cap)
-#   - Y-axis: Total return (%) for held vs sold scenarios
-#   - Series: Paired bars per category (Holding Throughout 2025 vs Selling at April Low)
-#   - Overlay: Reference line at 0%
-#
-# Dataset:
-#   - market_data_source (SPY-Stocks, 1D)
-#   - reference_stocks (EEM, EFA, MDY, IWM)
-# =============================================================================
-
 # Staying The Course Worked In 2025
 src = market_data_source(timeframe=1D)()
 close = src.c
@@ -53,6 +36,7 @@ mdy_sold = cumulative(agg=AggregationType.Min)(mdy_ytd)
 iwm_sold = cumulative(agg=AggregationType.Min)(iwm_ytd)
 
 xy_bars(
+    mode=BarMode.series,
     title='Staying The Course Worked In 2025',
     category='1. Held vs Sold',
     agg=AggregationType.Last,

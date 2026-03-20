@@ -1,15 +1,9 @@
 # =============================================================================
 # DOES MSFT SELL OFF WHEN REAL RATES RISE?
 # =============================================================================
-# Question: Does MSFT underperform when real rates rise?
-#
 # Regime: real yield above vs below its 60-day SMA
-# Chart 1: MSFT price path colored by regime
-# Chart 2: Total MSFT return during each regime
-#
-# Dataset:
-#   - market_data_source (MSFT-Stocks, 1D)
-#   - economic_indicators (DFII10 — 10Y TIPS real yield)
+# Chart 1: MSFT price path colored by regime (presidential terms style)
+# Chart 2: Total MSFT return during each regime (bear markets style)
 # =============================================================================
 
 src = market_data_source(timeframe=1D)()
@@ -23,12 +17,12 @@ real_yield = ffill(fred.result)
 yield_sma = sma(period=60)(real_yield)
 daily_ret = returns(period=1, type=ReturnsType.log)(close)
 
-# Price paths by regime
+# Price paths by regime (presidential terms style)
 # where() returns NaN for false — creates colored segments with gaps
 msft_rates_falling = where(real_yield <= yield_sma, close)
 msft_rates_rising = where(real_yield > yield_sma, close)
 
-# Cumulative return by regime
+# Cumulative return by regime (bear markets style)
 # 0.0 fallback so non-regime days contribute nothing to cumulative sum
 ret_when_rising = where(real_yield > yield_sma, daily_ret, 0.0)
 ret_when_falling = where(real_yield <= yield_sma, daily_ret, 0.0)
@@ -41,7 +35,7 @@ bar_ts = index()
 # REPORTS
 # =============================================================================
 
-# Chart 1: MSFT price colored by rate regime
+# Chart 1: MSFT price colored by rate regime (presidential terms style)
 xy_lines(
     title='Does MSFT Perform Better When Rates Are Falling?',
     category='Rate Sensitivity',
@@ -55,8 +49,9 @@ xy_lines(
     ])
 )(bar_ts, msft_rates_falling, msft_rates_rising)
 
-# Chart 2: Total return accumulated in each regime
+# Chart 2: Total return accumulated in each regime (bear markets style)
 xy_bars(
+    mode=BarMode.series,
     title='MSFT Total Return by Rate Regime',
     category='Rate Sensitivity',
     agg=AggregationType.Last,

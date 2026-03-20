@@ -49,7 +49,7 @@ on_mid = (on_high + on_low) / 2.0
 # Use session parameter to slice input to ETH bars only before computing profile.
 # ETH session = 18:00-09:30 ET = 930 minutes = 930 bars at 1Min.
 # The engine filters out non-ETH bars, so the rolling window only sees overnight data.
-on_profile = price_profile(session=Session(start='18:00', end='09:30', tz='America/New_York'), window_size=930, tick_size=0.25, value_area_pct=0.70, mode=ProfileType.market)(high, low, close, cont.v)
+on_profile = price_profile(session=Session(start='18:00', end='09:30', tz='America/New_York'), window_size=500, tick_size=0.25, value_area_pct=0.70, mode=ProfileType.market)(high, low, close, cont.v)
 on_vpoc = ffill(on_profile.poc)
 on_vah = ffill(on_profile.vah)
 on_val = ffill(on_profile.val)
@@ -148,6 +148,7 @@ closes_within_prange = where(rth_valid, (1.0 if (rth_sw.close <= prev_rth_high a
 # =============================================================================
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Overnight Session Levels',
         row_size=9,
@@ -170,6 +171,7 @@ summary_table(
 )(day_count, onh_and_onl, onh_or_onl, onh_touched, onl_touched, onmid_touched, onvah_touched, onval_touched, onvpoc_touched)
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Initial Balance (IB)',
         row_size=10,
@@ -193,6 +195,7 @@ summary_table(
 )(day_count, at_least_one_ib, both_ib_broke, ib_within_pib, neither_ib, only_ibh, only_ibl, pib_count, breaks_pib_in_ib, breaks_pib_in_rth)
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Close Location After Single IB Break',
         row_size=6,
@@ -212,6 +215,7 @@ summary_table(
 )(ibh_break_count, closes_above_ibh, closes_above_mid_ibh, ibl_break_count, closes_below_ibl, closes_below_mid_ibl)
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Close',
         row_size=7,

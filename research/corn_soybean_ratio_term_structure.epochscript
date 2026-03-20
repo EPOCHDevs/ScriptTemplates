@@ -107,6 +107,7 @@ carry_ma20 = ma(period=20)(zc_carry)
 # Uses AggType.Max/Min/Last — no hardcoded period windows
 # =============================================================================
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Corn/Soybean Ratio & Term Structure',
         row_size=3,
@@ -186,6 +187,7 @@ xy_lines(
 # OUTPUT 5: Monthly Seasonal Bar — Ratio by Calendar Month
 # =============================================================================
 xy_bars(
+    mode=BarMode.labeled,
     title='C/S Ratio Seasonal Average by Month',
     category='2. C/S Ratio',
     agg=AggregationType.Mean,

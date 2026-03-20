@@ -26,23 +26,23 @@ audnzd = src.c
 # --- Global Macro Factors (Daily) ---
 
 # US Treasury 2Y yield
-t2y_date, t2y_raw, t2y_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury2Y)()
-t2y = ffill(t2y_raw)
+t2y_src = economic_indicators(series_id='DGS2')()
+t2y = ffill(t2y_src.result)
 
 # US Treasury 10Y yield
-t10y_date, t10y_raw, t10y_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury10Y)()
-t10y = ffill(t10y_raw)
+t10y_src = economic_indicators(series_id='DGS10')()
+t10y = ffill(t10y_src.result)
 
 # US 5Y breakeven inflation
-be5y_date, be5y_raw, be5y_rev = common_economic_indicators(category=MacroEconomicsIndicator.Breakeven5Y)()
-be5y = ffill(be5y_raw)
+be5y_src = economic_indicators(series_id='T5YIE')()
+be5y = ffill(be5y_src.result)
 
 # CBOE VIX
-vix_date, vix_raw, vix_rev = common_economic_indicators(category=MacroEconomicsIndicator.VIX)()
-vix = ffill(vix_raw)
+vix_src = economic_indicators(series_id='VIXCLS')()
+vix = ffill(vix_src.result)
 
 # WTI crude oil (daily)
-oil_src = economic_indicators(series_id='DCOILWTICO', use_alfred=False)()
+oil_src = economic_indicators(series_id='DCOILWTICO')()
 oil = ffill(oil_src.result)
 
 # --- AU/NZ Specific Factors (Monthly → Daily) ---
@@ -150,6 +150,7 @@ xy_lines(
 # ============================================================================
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='AUDNZD Macro Fair Value',
         row_size=1,

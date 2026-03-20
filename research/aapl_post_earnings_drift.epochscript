@@ -97,6 +97,7 @@ ev_post20 = where(had_earnings, post_20d)
 
 # --- Cards: sample size + confirmation rate (not on any chart) ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='AAPL Post-Earnings Drift',
         row_size=1,
@@ -114,6 +115,7 @@ summary_table(
 
 # --- Chart 1: The Verdict — avg post-20d return by regime ---
 xy_bars(
+    mode=BarMode.series,
     title='Does Analyst Confirmation Strengthen the Post-Earnings Drift?',
     category='Post-Earnings Drift',
     agg=AggregationType.Mean,
@@ -134,6 +136,7 @@ xy_bars(
 
 # --- Chart 2: Detailed window breakdown ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Return Profile by Signal Type and Window',
         row_size=3,

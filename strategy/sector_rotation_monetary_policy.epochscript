@@ -20,10 +20,10 @@ src = market_data_source(timeframe=1D)()
 close = src.c
 
 # Load Fed Funds Rate
-fed_obs_date, fed_rate, fed_revision = common_economic_indicators(category=MacroEconomicsIndicator.FedFunds)()
+fed_rate_src = economic_indicators(series_id='FEDFUNDS')()
 
 # Forward fill Fed rate to get daily values
-fed_rate_filled = ffill(fed_rate)
+fed_rate_filled = ffill(fed_rate_src.result)
 
 # Calculate 3-month rate change (in percentage points)
 fed_rate_change_3m = mom(period=63)(fed_rate_filled)
@@ -32,6 +32,8 @@ fed_rate_change_3m = mom(period=63)(fed_rate_filled)
 # Easing: Fed rate decreased by more than 0.25% (25 bps) over 3 months
 # Tightening: Fed rate increased by more than 0.25% (25 bps) over 3 months
 # Neutral: Rate change within +/- 0.25%
+# Visualize Fed rate momentum signal
+
 threshold = 0.25
 is_easing = fed_rate_change_3m < -threshold
 is_tightening = fed_rate_change_3m > threshold

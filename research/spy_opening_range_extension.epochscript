@@ -58,6 +58,7 @@ downside_ratio = downside_ext_safe / or_width_safe
 
 # --- Cards: summary stats not shown on charts ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Extension Summary',
         row_size=1,
@@ -77,6 +78,7 @@ summary_table(
 
 # --- Chart 1: Extension Boxplot (showcase feature) ---
 boxplot(
+    mode=BoxplotMode.grouped,
     title='Upside and Downside Extensions Are Nearly Symmetric',
     category='Extensions',
     y_axis_label='Extension Beyond OR (points)',

@@ -150,6 +150,7 @@ below_pvpoc = where(below_valid, (1.0 if (rth_sw.low <= prev_vpoc and rth_sw.hig
 # =============================================================================
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Opens Above Previous Range',
         row_size=12,
@@ -175,6 +176,7 @@ summary_table(
 )(above_count, above_half_gap, above_pclose, above_phod, above_pibh, above_pibl, above_plod, above_pmid, above_popen, above_pvah, above_pval, above_pvpoc)
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Opens Within Previous Range',
         row_size=11,
@@ -199,6 +201,7 @@ summary_table(
 )(within_count, within_pclose, within_phod, within_pibh, within_pibl, within_plod, within_pmid, within_popen, within_pvah, within_pval, within_pvpoc)
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Opens Below Previous Range',
         row_size=12,

@@ -1,20 +1,3 @@
-# =============================================================================
-# MAJOR COUNTRY EQUITY PERFORMANCE THIS YEAR
-# =============================================================================
-# Question: How are major country equity markets performing year-to-date, and
-#   which countries are leading or lagging?
-#
-# Chart: xy_bars
-#   - X-axis: Country (10 countries via ETF proxies)
-#   - Y-axis: YTD total return (percent)
-#   - Series: One bar per country showing cumulative return
-#   - Overlay: None
-#
-# Dataset:
-#   - common_reference_stocks (SPY)
-#   - reference_stocks (EWZ, EWA, EWJ, EWU, EWC, EWQ, EWG, FXI, INDA)
-# =============================================================================
-
 # Major Country Equity Performance
 spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
 spy_close = ffill(spy_c)
@@ -66,6 +49,7 @@ china_cum = cumulative(agg=AggregationType.Sum)(china_ret)
 india_cum = cumulative(agg=AggregationType.Sum)(india_ret)
 
 xy_bars(
+    mode=BarMode.series,
     title='Major Country Equity Performance',
     category='1. Country Returns',
     agg=AggregationType.Last,

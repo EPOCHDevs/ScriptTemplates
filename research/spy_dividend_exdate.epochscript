@@ -70,6 +70,7 @@ ev_post10 = where(had_div, post_10d)
 # =============================================================================
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='SPY Dividend Ex-Date',
         row_size=1,
@@ -86,6 +87,7 @@ summary_table(
 (high_count, low_count)
 
 xy_bars(
+    mode=BarMode.series,
     title='Does SPY Recover After Ex-Date Drops?',
     category='Dividend Ex-Date',
     agg=AggregationType.Mean,
@@ -104,6 +106,7 @@ xy_bars(
 )(h_post10, l_post10)
 
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Return Profile by Yield Tier and Window',
         row_size=2,

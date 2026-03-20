@@ -70,6 +70,7 @@ ev_post20 = where(has_rating, post_20d)
 
 # --- Cards: sample size (not on any chart) ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='AAPL Analyst Rating Drift',
         row_size=1,
@@ -87,6 +88,7 @@ summary_table(
 
 # --- Chart 1: The Verdict — avg post-20d return by direction ---
 xy_bars(
+    mode=BarMode.series,
     title='Is There Asymmetry in Post-Rating Drift?',
     category='Analyst Rating Drift',
     agg=AggregationType.Mean,
@@ -106,6 +108,7 @@ xy_bars(
 
 # --- Chart 2: Detailed window breakdown ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Return Profile by Direction and Window',
         row_size=2,

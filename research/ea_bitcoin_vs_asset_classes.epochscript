@@ -1,20 +1,3 @@
-# =============================================================================
-# HISTORICALLY, BITCOIN RETURNS HAVE COME WITH VOLATILITY
-# =============================================================================
-# Question: How does Bitcoin's return and volatility profile compare to
-#   traditional asset classes like stocks, bonds, and gold?
-#
-# Chart: xy_bars
-#   - X-axis: Asset class (Bitcoin, Gold, U.S. Large Cap Stocks, U.S. Core Bonds)
-#   - Y-axis: Annualized return (bars) and average drawdown (overlay diamonds)
-#   - Series: One bar per asset class showing annualized return
-#   - Overlay: Diamond markers showing average drawdown per asset
-#
-# Dataset:
-#   - common_reference_stocks (SPY, GLD, AGG)
-#   - common_crypto_pairs (BTCUSD)
-# =============================================================================
-
 # Bitcoin vs Asset Classes
 spy_o, spy_h, spy_l, spy_c, spy_v, spy_vw, spy_n = common_reference_stocks(ticker=ReferenceStock.SPY)()
 gld_o, gld_h, gld_l, gld_c, gld_v, gld_vw, gld_n = common_reference_stocks(ticker=ReferenceStock.GLD)()
@@ -48,6 +31,7 @@ btc_max = cumulative(agg=AggregationType.Max)(btc)
 btc_dd = (btc - btc_max) / btc_max
 
 xy_bars(
+    mode=BarMode.series,
     title='Historically, Bitcoin Returns Have Come With Volatility',
     category='1. Returns vs Drawdowns',
     agg=AggregationType.Mean,

@@ -8,10 +8,6 @@
 #   1. cs_cards — P(Decline | Elevated) hero card
 #   2. cs_bars — P(Decline) ranked by stock
 #   3. cs_summary_table — Sustainability Dashboard (30 stocks)
-#
-# Dataset:
-#   - market_data_source (30 mega-cap stocks, 1D)
-#   - income_statement (TTM)
 # =============================================================================
 
 src = market_data_source(timeframe=1D)()
@@ -59,6 +55,7 @@ prob_decline = cum_elev_declined / cum_elevated if cum_elevated > 0 else 0.0
 
 # --- 1. Card: The punchline ---
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='Margin Sustainability',
         row_size=1,
@@ -75,6 +72,7 @@ summary_table(
 
 # --- 2. Bar Chart: Which stocks revert most? ---
 cs_bars(
+    mode=CSBarMode.simple,
     title='Whose Elevated Margins Revert Most Often?',
     category='1. Sustainability',
     agg=AggregationType.Last,

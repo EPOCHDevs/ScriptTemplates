@@ -49,6 +49,7 @@ eve_z = eve_zscore if is_valid(eve_zscore) else 0.0
 # =============================================================================
 
 cs_bars(
+    mode=CSBarMode.grouped,
     title='How Stretched Are Mega-Cap Tech Valuations vs Their Own History?',
     category='Relative Value',
     agg=AggregationType.Last,

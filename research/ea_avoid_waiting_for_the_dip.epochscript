@@ -1,19 +1,3 @@
-# =============================================================================
-# AVOID WAITING FOR "THE DIP"
-# =============================================================================
-# Question: How long do investors typically have to wait between 5% pullbacks
-#   in the S&P 500, and is waiting for a dip a reliable strategy?
-#
-# Chart: xy_lines
-#   - X-axis: Date (timestamp index)
-#   - Y-axis: Number of trading days since last 5% pullback in S&P 500
-#   - Series: Area chart showing days since pullback
-#   - Overlay: None
-#
-# Dataset:
-#   - market_data_source (SPY-Stocks, 1D)
-# =============================================================================
-
 # Avoid Waiting for the Dip
 src = market_data_source(timeframe=1D)()
 close = src.c

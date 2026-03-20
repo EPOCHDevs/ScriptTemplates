@@ -1,22 +1,6 @@
-# =============================================================================
-# IS THE YIELD CURVE INVERTED OR UNINVERTED?
-# =============================================================================
-# Question: Is the U.S. Treasury yield curve currently inverted, and what does
-#   the 10-year minus 2-year spread tell us about recession risk?
-#
-# Chart: xy_lines
-#   - X-axis: Date (timestamp index)
-#   - Y-axis: 10Y - 2Y yield spread (percentage points)
-#   - Series: Two area series - Uninverted (blue, positive) and Inverted (red, negative)
-#   - Overlay: None
-#
-# Dataset:
-#   - common_economic_indicators (Spread10Y2Y)
-# =============================================================================
-
 # Is the Yield Curve Inverted or Uninverted?
-spread_obs, spread_val, spread_rev = common_economic_indicators(category=MacroEconomicsIndicator.Spread10Y2Y)()
-spread_filled = ffill(spread_val)
+spread_src = economic_indicators(series_id='T10Y2Y')()
+spread_filled = ffill(spread_src.result)
 
 spread_abs = abs(spread_filled)
 spread_pos = (spread_filled + spread_abs) / 2

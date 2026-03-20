@@ -17,15 +17,13 @@
 # =============================================================================
 src = market_data_source(timeframe=1D)()
 close = src.c
-high = src.h
-low = src.l
 
 # =============================================================================
 # INDICATORS
 # =============================================================================
 
 # 20-Day Donchian Channel (highest high / lowest low over 20 days)
-donchian = donchian_channel(window=20)(high, low)
+donchian = donchian_channel(window=20)(src.h, src.l)
 upper_band = donchian.donchian_upper
 lower_band = donchian.donchian_lower
 
@@ -35,7 +33,7 @@ upper_band_prior = upper_band >> 1
 lower_band_prior = lower_band >> 1
 
 # 5-Day ATR for volatility measurement
-atr5 = atr(period=5)(high, low, close)
+atr5 = atr(period=5)(src.h, src.l, src.c)
 
 # Stop distance = 3 × ATR(5)
 stop_dist = 3 * atr5

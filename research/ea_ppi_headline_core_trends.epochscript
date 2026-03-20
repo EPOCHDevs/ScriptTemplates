@@ -1,33 +1,17 @@
-# =============================================================================
-# TRENDS IN PRODUCER PRICES
-# =============================================================================
-# Question: What are the recent trends in producer-level inflation, and how do
-#   headline and core PPI compare?
-#
-# Chart: xy_lines
-#   - X-axis: Date (timestamp index)
-#   - Y-axis: Year-over-year change in PPI (percent)
-#   - Series: Headline PPI (Blue), Core PPI (Purple)
-#   - Overlay: None
-#
-# Dataset:
-#   - common_economic_indicators (PPI, CorePPI)
-# =============================================================================
-
 # Trends in Producer Prices
 # YoY change in PPI and Core PPI
 
-ppi_obs, ppi_val, ppi_rev = common_economic_indicators(category=MacroEconomicsIndicator.PPI)()
-core_obs, core_val, core_rev = common_economic_indicators(category=MacroEconomicsIndicator.CorePPI)()
+ppi_src = economic_indicators(series_id='PPIACO')()
+core_src = economic_indicators(series_id='PPIFES')()
 
-had_ppi = is_valid(ppi_val)
-had_core = is_valid(core_val)
+had_ppi = is_valid(ppi_src.result)
+had_core = is_valid(core_src.result)
 
-ppi_filled = ffill(ppi_val)
-core_filled = ffill(core_val)
+ppi_filled = ffill(ppi_src.result)
+core_filled = ffill(core_src.result)
 
-ppi_12m_ago = valuewhen(occurrence=12)(had_ppi, ppi_val)
-core_12m_ago = valuewhen(occurrence=12)(had_core, core_val)
+ppi_12m_ago = valuewhen(occurrence=12)(had_ppi, ppi_src.result)
+core_12m_ago = valuewhen(occurrence=12)(had_core, core_src.result)
 
 ppi_yoy = (ppi_filled - ffill(ppi_12m_ago)) / ffill(ppi_12m_ago)
 core_yoy = (core_filled - ffill(core_12m_ago)) / ffill(core_12m_ago)

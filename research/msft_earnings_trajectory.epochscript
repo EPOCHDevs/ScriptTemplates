@@ -1,15 +1,7 @@
 # =============================================================================
 # IS MSFT'S EARNINGS GROWTH ACCELERATING OR DECELERATING?
 # =============================================================================
-# Question: Is MSFT's earnings growth accelerating or decelerating?
-#
-# Chart 1: Cards — Last P/E Ratio (valuation context)
-# Chart 2: xy_bars — Quarterly YoY EPS growth, color_by_value
-#   Rising bars = accelerating, falling = decelerating
-#
-# Dataset:
-#   - market_data_source (MSFT-Stocks, 1D)
-#   - income_statement (TTM)
+# YoY EPS growth rate by quarter — rising bars = accelerating, falling = decelerating
 # =============================================================================
 
 src = market_data_source(timeframe=1D)()
@@ -43,6 +35,7 @@ yq_label = (year_num * 100 + qtr_end_month) * nan_flag
 
 # Card: valuation context — growth is decelerating, but what is the market paying?
 summary_table(
+    mode=TableMode.rowspec,
     layout=SummaryTableLayout(
         title='MSFT Earnings Momentum',
         row_size=1,
@@ -59,6 +52,7 @@ summary_table(
 
 # Quarterly growth rate bars — bar heights tell the acceleration story
 xy_bars(
+    mode=BarMode.labeled,
     title="Is MSFT's Earnings Growth Accelerating or Decelerating?",
     category='Earnings Momentum',
     agg=AggregationType.Last,

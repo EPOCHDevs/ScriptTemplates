@@ -22,10 +22,10 @@ src = market_data_source(timeframe=1D)()
 close = src.c
 
 # Load 10-Year Treasury Yield
-treasury_obs_date, treasury_10y, treasury_rev = common_economic_indicators(category=MacroEconomicsIndicator.Treasury10Y)()
+treasury_10y_src = economic_indicators(series_id='DGS10')()
 
 # Forward fill Treasury yield
-treasury_10y_filled = ffill(treasury_10y)
+treasury_10y_filled = ffill(treasury_10y_src.result)
 
 # Calculate rate changes for signal generation
 # 3-month change (approximately 63 trading days)
@@ -47,6 +47,8 @@ is_new_month = is_period_boundary(period=PeriodType.month)(index())
 # - Significant rate decrease (< -25 bps over 3M): Bullish for equities
 # - Significant rate increase (> +25 bps over 3M): Bearish for equities
 # - Small changes: Maintain previous position (neutral zone)
+
+# Visualize Treasury yield momentum signal
 
 threshold_bps = 0.25  # 25 basis points threshold
 
@@ -95,10 +97,7 @@ held_signal = hold_until()(enter=enter_long, exit=exit_long)
 long_and_short_zone()(long_entry=held_signal)
 
 # Position weights: 100% in selected asset
-# SPY gets 100% when selected, SHY gets 100% when SPY not selected
-spy_weight = 1.0 if final_select_spy else 0.0
-shy_weight = 1.0 if final_select_shy else 0.0
-weights = spy_weight if is_spy else shy_weight
+weights = conditional_select(final_select_spy and is_spy, 1.0, final_select_shy and is_shy, 1.0, 0.0)
 
 # Position sizing - ONLY rebalance on first trading day of month
 position_size(type=SizeType.percent)(size=weights * 100, rebalance_on=is_new_month)
