@@ -24,7 +24,7 @@
     "compute_hint": "PT change percentage, forward returns at day-of, post-5d, post-10d, post-20d windows",
     "signal_hint": "Classify each rating change as Upgrade (PT raised) or Downgrade (PT lowered)",
     "reporter_charts": [
-      "xy_bars",
+      "bars",
       "summary_table"
     ],
     "tags": [
@@ -61,7 +61,7 @@
     "compute_hint": "Gross margin ratio (gross_profit/revenue), prior quarter margin via valuewhen, forward returns at day-of, post-5d, post-10d, post-20d",
     "signal_hint": "Classify each filing as Expanding (margin > prior) or Contracting (margin <= prior)",
     "reporter_charts": [
-      "xy_bars",
+      "bars",
       "summary_table"
     ],
     "tags": [
@@ -99,7 +99,7 @@
     "compute_hint": "Forward-filled analyst PT direction, forward returns at day-of, post-5d, post-10d, post-20d windows",
     "signal_hint": "Classify as Confirmed Beat (surprise > 0 + PT raise), Confirmed Miss (surprise < 0 + PT cut), or Unconfirmed",
     "reporter_charts": [
-      "xy_bars",
+      "bars",
       "summary_table"
     ],
     "tags": [
@@ -137,7 +137,7 @@
     "compute_hint": "P/E and EV/EBITDA via finance_ratio, rolling 252-day z-scores (mean and stddev normalization)",
     "signal_hint": "Z-score magnitude indicates how stretched each stock's valuation is vs its own 1Y average",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -174,7 +174,7 @@
     "compute_hint": "P/E, P/S, and EV/EBITDA via finance_ratio at latest date",
     "signal_hint": "Cross-sectional ranking of current valuation multiples across peers",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -458,7 +458,7 @@
     "compute_hint": "Cumulative max, drawdown from peak, barssince last 5% pullback via crossunder",
     "signal_hint": "Detect 5% pullback events (drawdown crosses below -5%)",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -486,7 +486,7 @@
     "compute_hint": "Daily returns, rolling 252-day annualized returns (SMA * 252), cumulative max drawdowns per asset",
     "signal_hint": "Cross-asset comparison of return-risk profiles",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "multi-asset",
@@ -515,7 +515,7 @@
     "compute_hint": "Rolling 252-day return as annual proxy, rolling 252-day max for intra-year drawdown, year extraction for labels",
     "signal_hint": "Year-over-year pattern of annual returns vs worst intra-year drawdowns",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "bonds",
@@ -543,7 +543,7 @@
     "compute_hint": "Forward-fill spread, split into positive (uninverted) and negative (inverted) components via abs trick",
     "signal_hint": "Yield curve inversion detection (spread < 0 = inverted regime)",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "bonds",
@@ -574,7 +574,7 @@
     "compute_hint": "Forward-fill rates, filter FOMC projection to 2025+ forward period, convert to percent",
     "signal_hint": "Monetary policy trajectory: actual rate vs forward projection",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "monetary-policy",
@@ -603,7 +603,7 @@
     "compute_hint": "Daily returns per country ETF, cumulative YTD returns via cumulative sum",
     "signal_hint": "Cross-country ranking by cumulative return for the specific year",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -632,7 +632,7 @@
     "compute_hint": "Daily returns per country ETF, cumulative YTD returns via cumulative sum",
     "signal_hint": "Cross-country ranking by cumulative return for the rolling current year",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -661,7 +661,7 @@
     "compute_hint": "756-day (3-year) rolling return for each asset, spread = GLD return minus SPY return",
     "signal_hint": "Cyclical relative outperformance: positive spread = gold outperforming equities",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "multi-asset",
@@ -690,7 +690,7 @@
     "compute_hint": "returns, cumulative product for 60/40 blend, YTD return reset per year, peak drawdown",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -719,7 +719,7 @@
     "compute_hint": "ffill, scale to thousands",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "macro",
@@ -748,7 +748,7 @@
     "compute_hint": "cumulative first price, YTD return per index",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -776,7 +776,7 @@
     "compute_hint": "cumulative first price, YTD return per index",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -804,7 +804,7 @@
     "compute_hint": "daily returns, cumulative sum for each index",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -832,7 +832,7 @@
     "compute_hint": "daily returns, cumulative sum for each index",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -861,7 +861,7 @@
     "compute_hint": "month-over-month change in nonfarm payrolls, 3-month moving average via valuewhen",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "macro",
@@ -892,7 +892,7 @@
     "compute_hint": "year-over-year percentage change via valuewhen(12) for both headline and core PCE",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "macro",
@@ -921,7 +921,7 @@
     "compute_hint": "11 weighted portfolio cumulative values (100/0 to 0/100), drawdowns from peak, crossunder -10% detection",
     "signal_hint": "crossunder drawdown threshold for pullback event detection",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -950,7 +950,7 @@
     "compute_hint": "11 weighted portfolio cumulative values (100/0 to 0/100), drawdowns from peak, crossunder -5% detection",
     "signal_hint": "crossunder drawdown threshold for pullback event detection",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -979,7 +979,7 @@
     "compute_hint": "11 weighted portfolio daily returns, rolling 252-day mean return, binary win flag per split",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -1009,7 +1009,7 @@
     "compute_hint": "year-over-year percentage change via valuewhen(12) for both headline and core PPI",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "macro",
@@ -1039,7 +1039,7 @@
     "compute_hint": "ffill for both quit and hire rate series",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "macro",
@@ -1068,7 +1068,7 @@
     "compute_hint": "ffill, convert billions to trillions",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "macro",
@@ -1097,7 +1097,7 @@
     "compute_hint": "convert percent to decimal, extract quarter-year labels",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "macro",
@@ -1126,7 +1126,7 @@
     "compute_hint": "month-over-month percentage change via valuewhen(1)",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "macro",
@@ -1155,7 +1155,7 @@
     "compute_hint": "date-specific return calculations for 5 shutdown periods using fixed lag offsets",
     "signal_hint": "hardcoded event date detection via date_num matching",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -1184,7 +1184,7 @@
     "compute_hint": "cumulative max, detect new ATH when close exceeds prior running max, sum by year",
     "signal_hint": "crossover detection for new all-time highs",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -1212,7 +1212,7 @@
     "compute_hint": "YTD return per bar with year-open reset, split current year vs historical years",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -1240,7 +1240,7 @@
     "compute_hint": "YTD return per bar with year-open reset, filter post-election years via year % 4 == 1",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -1269,7 +1269,7 @@
     "compute_hint": "month-end boundary detection, close-to-close monthly return via valuewhen, average by month",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -1297,7 +1297,7 @@
     "compute_hint": "Shift-based returns for 9 holding periods (1D, 1W, 1M, 3M, 6M, 1Y, 5Y, 10Y, 20Y)",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -1325,7 +1325,7 @@
     "compute_hint": "Annual returns via 252-day lag, year-end detection via datetime_extract, split into up/down",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -1353,7 +1353,7 @@
     "compute_hint": "Daily returns, threshold filter at +/-2% for extreme days",
     "signal_hint": "Boolean flags for big-up (>2%) and big-down (<-2%) days",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -1382,7 +1382,7 @@
     "compute_hint": "Cumulative max and drawdown calculation for both SPY and AGG",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -1410,7 +1410,7 @@
     "compute_hint": "Rolling 126-day high, drawdown, crossunder/crossover debounced pullback detection, rising-edge counting",
     "signal_hint": "Pullback entry flag via crossover on hold_until state",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -1438,7 +1438,7 @@
     "compute_hint": "SPY close scaled by 10x to approximate S&P 500 index level",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -1465,7 +1465,7 @@
     "compute_hint": "Daily returns, 1%+ move flag, decade bucket via year modulo 10",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -1493,7 +1493,7 @@
     "compute_hint": "Year extraction, Democrat/Republican year classification, conditional price split by party",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -1521,7 +1521,7 @@
     "compute_hint": "Cumulative max drawdown, dynamic bear detection via crossunder -20% entry / crossover +20% rally exit, bear period counting",
     "signal_hint": "hold_until bear state with rising-edge bear-start detection",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -1549,7 +1549,7 @@
     "compute_hint": "Cumulative max drawdown, dynamic bear/bull detection, return-from-trough per bull cycle, exit counting",
     "signal_hint": "hold_until bear state inverted to identify bull periods",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -1577,7 +1577,7 @@
     "compute_hint": "Daily returns, year-boundary detection, per-position returns for 7-day window around year-end, 7-day cumulative return",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -1605,7 +1605,7 @@
     "compute_hint": "Cumulative max, ATH flag where close >= running max, ATH-only price series",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -1638,7 +1638,7 @@
     "compute_hint": "Daily total return with dividends reinvested, cumulative product for growth-of-$1, price-only growth via cumulative returns",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -1667,7 +1667,7 @@
     "compute_hint": "Rolling 1-year returns for SPY and EFA, return spread split into positive/negative for dual-color area",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -1701,7 +1701,7 @@
     "compute_hint": "Forward-fill recession probability, threshold at 30% for recession band shading",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -1730,7 +1730,7 @@
     "compute_hint": "YTD returns from cumulative first, worst-point-YTD via cumulative min, for 5 equity categories",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -1758,7 +1758,7 @@
     "compute_hint": "Daily returns, nsmallest to identify worst 50 and 100 days, zeroed-out returns on worst days, cumulative product growth-of-$1",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -1786,7 +1786,7 @@
     "compute_hint": "Cumulative max, ATH detection, barssince last ATH",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -1814,7 +1814,7 @@
     "compute_hint": "Cumulative max, percent from ATH, streak of consecutive days within 3% via barssince",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -1843,7 +1843,7 @@
     "compute_hint": "Forward-fill sparse yield observations",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "treasury",
@@ -1873,7 +1873,7 @@
     "compute_hint": "Forward-fill sparse yield observations",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "treasury",
@@ -1912,8 +1912,7 @@
     "compute_hint": "ffill, shift(252) for 1-year-ago comparison",
     "signal_hint": "none",
     "reporter_charts": [
-      "labeled_lines",
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "treasury",
@@ -1943,7 +1942,7 @@
     "compute_hint": "downsample(1YE) first/last for YTD return calculation",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "asset-class",
@@ -1971,7 +1970,7 @@
     "compute_hint": "downsample(1YE) first/last for annual return calculation",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "asset-class",
@@ -2023,8 +2022,8 @@
     "compute_hint": "returns(1), rolling_corr(52-week) for USD and SPY correlations across 20 commodities",
     "signal_hint": "none",
     "reporter_charts": [
-      "labeled_scatter",
-      "xy_lines"
+      "scatter",
+      "lines"
     ],
     "tags": [
       "commodities",
@@ -2099,8 +2098,8 @@
     "compute_hint": "rolling_corr(52/104/156-week), returns YoY, stddev, cumulative median, regime classification",
     "signal_hint": "regime flags based on growth/inflation above/below expanding median",
     "reporter_charts": [
-      "xy_lines",
-      "xy_bars"
+      "lines",
+      "bars"
     ],
     "tags": [
       "stock-bond",
@@ -2125,7 +2124,7 @@
     "signal_hint": "none",
     "reporter_charts": [
       "summary_table",
-      "xy_bars",
+      "bars",
       "heatmap"
     ],
     "tags": [
@@ -2162,8 +2161,8 @@
     "signal_hint": "NFP day detection, strong/weak regime flags based on payroll change",
     "reporter_charts": [
       "summary_table",
-      "xy_bars",
-      "xy_lines"
+      "bars",
+      "lines"
     ],
     "tags": [
       "gold",
@@ -2201,8 +2200,8 @@
     "signal_hint": "strong/weak NFP regime flags based on payroll change",
     "reporter_charts": [
       "summary_table",
-      "xy_bars",
-      "xy_lines"
+      "bars",
+      "lines"
     ],
     "tags": [
       "gold",
@@ -2239,7 +2238,7 @@
     "signal_hint": "none",
     "reporter_charts": [
       "summary_table",
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -2275,8 +2274,8 @@
     "compute_hint": "ffill real yield, sma(60) for regime, log returns, cumulative return by regime",
     "signal_hint": "real yield above/below 60-day SMA regime detection",
     "reporter_charts": [
-      "xy_lines",
-      "xy_bars"
+      "lines",
+      "bars"
     ],
     "tags": [
       "equities",
@@ -2318,8 +2317,8 @@
     "compute_hint": "log returns, EPS change, yield change, rolling 60-day beta, three-way return decomposition, cumulative attribution",
     "signal_hint": "none",
     "reporter_charts": [
-      "xy_bars",
-      "xy_lines"
+      "bars",
+      "lines"
     ],
     "tags": [
       "equities",
@@ -2351,7 +2350,7 @@
     "signal_hint": "trigger: broke IB low AND prior day low; outcome: close above IB midpoint",
     "reporter_charts": [
       "summary_table",
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "equities",
@@ -2383,7 +2382,7 @@
     "compute_hint": "session_window (IB, RTH, EOD), previous_high_low, datetime_extract(day_of_week), per-day win rate split",
     "signal_hint": "trigger: broke IB low AND prior day low; outcome: close above IB midpoint",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -2422,7 +2421,7 @@
     "signal_hint": "elevated detection: z-score > 1.0 one quarter ago; decline detection: margin fell QoQ",
     "reporter_charts": [
       "summary_table",
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -2461,8 +2460,8 @@
     "signal_hint": "spike + inverted curve vs spike + normal curve regime flags",
     "reporter_charts": [
       "summary_table",
-      "xy_bars",
-      "xy_lines"
+      "bars",
+      "lines"
     ],
     "tags": [
       "equities",
@@ -2500,7 +2499,7 @@
     "signal_hint": "high-yield vs low-yield ex-date regime classification",
     "reporter_charts": [
       "summary_table",
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -2537,8 +2536,8 @@
     "signal_hint": "hike/cut/hold regime flags based on fed funds rate change",
     "reporter_charts": [
       "summary_table",
-      "xy_bars",
-      "xy_lines"
+      "bars",
+      "lines"
     ],
     "tags": [
       "equities",
@@ -2576,8 +2575,8 @@
     "signal_hint": "ISM day detection, improving/deteriorating regime flags based on ISM change",
     "reporter_charts": [
       "summary_table",
-      "xy_bars",
-      "xy_lines"
+      "bars",
+      "lines"
     ],
     "tags": [
       "equities",
@@ -2615,8 +2614,8 @@
     "signal_hint": "improving/deteriorating ISM regime flags based on ISM change",
     "reporter_charts": [
       "summary_table",
-      "xy_bars",
-      "xy_lines"
+      "bars",
+      "lines"
     ],
     "tags": [
       "equities",
@@ -2647,9 +2646,9 @@
     "signal_hint": "trigger: price at 9:45 below day open",
     "reporter_charts": [
       "summary_table",
-      "xy_lines",
+      "lines",
       "histogram",
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "equities",
@@ -2714,7 +2713,7 @@
     "signal_hint": "is_period_boundary, datetime_extract, crossover momentum",
     "reporter_charts": [
       "summary_table",
-      "xy_lines",
+      "lines",
       "histogram"
     ],
     "tags": [
@@ -2746,7 +2745,7 @@
     "signal_hint": "is_period_boundary, quarter-end filter",
     "reporter_charts": [
       "summary_table",
-      "xy_bars",
+      "bars",
       "heatmap"
     ],
     "tags": [
@@ -2783,7 +2782,7 @@
     "signal_hint": "zero-crossing detection on yield spread",
     "reporter_charts": [
       "summary_table",
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "yield-curve",
@@ -2813,7 +2812,7 @@
     "compute_hint": "returns, rolling_corr, where",
     "signal_hint": "sign-based regime split (positive vs negative correlation)",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "correlation",
@@ -2849,7 +2848,7 @@
     "signal_hint": "inflation vol regime split (above/below median)",
     "reporter_charts": [
       "scatter",
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "correlation",
@@ -2887,8 +2886,8 @@
     "signal_hint": "CPI acceleration detection (change vs prior change)",
     "reporter_charts": [
       "summary_table",
-      "xy_bars",
-      "xy_lines"
+      "bars",
+      "lines"
     ],
     "tags": [
       "CPI",
@@ -2932,7 +2931,7 @@
     "signal_hint": "concordance detection (downgrade near fundamental miss vs pure sentiment)",
     "reporter_charts": [
       "summary_table",
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "sentiment",
@@ -2971,7 +2970,7 @@
     "signal_hint": "4-way regime: (high/low SI) x (beat/miss)",
     "reporter_charts": [
       "summary_table",
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "short-interest",
@@ -3009,7 +3008,7 @@
     "signal_hint": "spike detection (SV > 1.15x SMA), bull/bear context via 50-SMA",
     "reporter_charts": [
       "summary_table",
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "short-volume",
@@ -3046,8 +3045,8 @@
     "signal_hint": "CPI acceleration regime (hot vs cool), session window gating",
     "reporter_charts": [
       "summary_table",
-      "xy_bars",
-      "xy_lines"
+      "bars",
+      "lines"
     ],
     "tags": [
       "CPI",
@@ -3079,8 +3078,8 @@
     "signal_hint": "seasonal deviation from expanding monthly mean, carry and calendar spread",
     "reporter_charts": [
       "summary_table",
-      "xy_lines",
-      "xy_bars"
+      "lines",
+      "bars"
     ],
     "tags": [
       "commodities",
@@ -3123,7 +3122,7 @@
     "compute_hint": "ml_zscore, pca, multi_linear_fit, winsorize, zscore, ffill",
     "signal_hint": "z-score of residual deviation from rolling OLS fair value",
     "reporter_charts": [
-      "xy_lines",
+      "lines",
       "summary_table"
     ],
     "tags": [
@@ -3155,7 +3154,7 @@
     "compute_hint": "ffill, calendar_shift, where, returns",
     "signal_hint": "oil rip detection (10%+ quarterly gain), DXY regime split (weak vs strong USD)",
     "reporter_charts": [
-      "xy_lines",
+      "lines",
       "summary_table"
     ],
     "tags": [
@@ -3193,7 +3192,7 @@
     "signal_hint": "correlation zero-crossing (neg to pos), era classification (Taper/Post-2021/Other)",
     "reporter_charts": [
       "summary_table",
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "correlation",
@@ -3230,7 +3229,7 @@
     "compute_hint": "returns, rolling_corr(130d), backward shift (65d lag)",
     "signal_hint": "6-month rolling correlation of USD-quoted FX returns vs inverted VIX",
     "reporter_charts": [
-      "xy_bars"
+      "bars"
     ],
     "tags": [
       "FX",
@@ -3270,7 +3269,7 @@
     "compute_hint": "returns, zscore(252d), ffill, sma(20)",
     "signal_hint": "5-component z-score composite (equities, credit, vol, rates, FX)",
     "reporter_charts": [
-      "xy_lines"
+      "lines"
     ],
     "tags": [
       "risk-sentiment",
